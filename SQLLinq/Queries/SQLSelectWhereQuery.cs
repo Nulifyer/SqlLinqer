@@ -53,22 +53,11 @@ namespace SqlLinqer.Queries
                 {
                     try
                     {
-                        SQLRelationship rel = GetRelationshipFromExpression(e);
-                        if (rel.Right.Config.PrimaryKey != null)
-                        {
-                            var column = rel.Right.Config.PrimaryKey;
-                            string key = column.ColumnAlias;
-                            if (!_selectedColumns.ContainsKey(key))
-                                _selectedColumns.Add(key, column);
-                        }
-                        rel.Right.Config.Columns
-                        .ForEach(column =>
-                        {
-                            string key = column.ColumnAlias;
-                            if (_selectedColumns.ContainsKey(key)) return;
+                        SQLMemberInfo column = GetMemberFromExpression(e);
+                        string key = column.ColumnAlias;
+                        if (!_selectedColumns.ContainsKey(key))
                             _selectedColumns.Add(key, column);
-                        });
-                        JoinParentConfigsRecursive(rel);
+
                         return false;
                     }
                     catch (Exception)
@@ -76,13 +65,27 @@ namespace SqlLinqer.Queries
                         return true;
                     }
                 })
-                .Select(e => GetMemberFromExpression(e))
                 .ToList()
-                .ForEach(column =>
+                .ForEach(e =>
                 {
-                    string key = column.ColumnAlias;
-                    if (_selectedColumns.ContainsKey(key)) return;
-                    _selectedColumns.Add(key, column);
+                    UpgradeConfig(1);
+
+                    SQLRelationship rel = GetRelationshipFromExpression(e);
+                    if (rel.Right.Config.PrimaryKey != null)
+                    {
+                        var column = rel.Right.Config.PrimaryKey;
+                        string key = column.ColumnAlias;
+                        if (!_selectedColumns.ContainsKey(key))
+                            _selectedColumns.Add(key, column);
+                    }
+                    rel.Right.Config.Columns
+                    .ForEach(column =>
+                    {
+                        string key = column.ColumnAlias;
+                        if (_selectedColumns.ContainsKey(key)) return;
+                        _selectedColumns.Add(key, column);
+                    });
+                    JoinParentConfigsRecursive(rel);
                 });
 
             return this;
@@ -306,7 +309,7 @@ namespace SqlLinqer.Queries
                 }
                 else
                 {
-                    SQLResponse<long> countResponse = ExecuteNonQuery<long>(countcmd);
+                    SQLResponse<long> countResponse = ExecuteScalar<long>(countcmd);
                     if (countResponse.State == ResponseState.Error)
                         return result.SetError(response.Error);
 

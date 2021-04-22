@@ -270,9 +270,9 @@ namespace SqlLinqer.Queries
         /// </summary>
         /// <param name="command">The command to be executed. The command must have its connection set.</param>
         /// <returns>A <see cref="SQLResponse{T}"/> that contains the first column of the first row</returns>
-        protected SQLResponse<T> ExecuteNonQuery<T>(DbCommand command)
+        protected SQLResponse<T> ExecuteScalar<T>(DbCommand command)
         {
-            return _connector.ExecuteNonQuery<T>(command);
+            return _connector.ExecuteScalar<T>(command);
         }
         /// <summary>
         /// Executes a database command the returns a <see cref="long"/> which is the number of affected rows.
@@ -328,10 +328,17 @@ namespace SqlLinqer.Queries
                         else
                         {
                             TypeConverter typeConverter = TypeDescriptor.GetConverter(config.PrimaryKey.MemberUnderlyingType);
-                            var value = row[col] == DBNull.Value
-                                ? default
-                                : typeConverter.ConvertFrom(row[col]);
-                            config.PrimaryKey.SetValue(obj, value);
+                            object value;
+                            try
+                            {
+                                value = row[col] == DBNull.Value ? default : typeConverter.ConvertFrom(row[col]);
+                                config.PrimaryKey.SetValue(obj, value);
+                            }
+                            catch (Exception)
+                            {
+                                value = typeConverter.ConvertFrom(row[col].ToString());
+                                config.PrimaryKey.SetValue(obj, value);
+                            }
                         }
                     }
                     catch (ArgumentException err)
@@ -364,10 +371,17 @@ namespace SqlLinqer.Queries
                         else
                         {
                             TypeConverter typeConverter = TypeDescriptor.GetConverter(column.MemberUnderlyingType);
-                            var value = row[col] == DBNull.Value
-                                ? default
-                                : typeConverter.ConvertFrom(row[col]);
-                            column.SetValue(obj, value);
+                            object value;
+                            try
+                            {
+                                value = row[col] == DBNull.Value ? default : typeConverter.ConvertFrom(row[col]);
+                                column.SetValue(obj, value);
+                            }
+                            catch (Exception)
+                            {
+                                value = typeConverter.ConvertFrom(row[col].ToString());
+                                column.SetValue(obj, value);
+                            }
                         }
                     }
                     catch (ArgumentException err)

@@ -1,6 +1,7 @@
 ﻿using SqlLinqer.Relationships;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data;
 using System.Data.Common;
 using System.Linq;
@@ -138,7 +139,7 @@ namespace SqlLinqer
         /// </summary>
         /// <param name="command">The command to be executed. The command must have its connection set.</param>
         /// <returns>A <see cref="SQLResponse{T}"/> that contains the first column of the first row</returns>
-        public SQLResponse<T> ExecuteNonQuery<T>(DbCommand command)
+        public SQLResponse<T> ExecuteScalar<T>(DbCommand command)
         {
             return ExecuteCommand(() =>
             {
@@ -155,7 +156,17 @@ namespace SqlLinqer
 
                     command.Transaction = transaction;
 
-                    result.Result = (T)command.ExecuteScalar();
+                    var value = command.ExecuteScalar();
+
+                    try
+                    {
+                        result.Result = (T)value;
+                    }
+                    catch (InvalidCastException)
+                    {
+                        TypeConverter typeConverter = TypeDescriptor.GetConverter(typeof(T));
+                        result.Result = (T)typeConverter.ConvertFrom(value);
+                    }
 
                     transaction.Commit();
 

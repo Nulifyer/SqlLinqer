@@ -89,7 +89,7 @@ namespace SqlLinqer.Queries
             // execute command
             if (Config.PrimaryKey.DBGenerated)
             {
-                var query = ExecuteNonQuery<TKey>(cmd);
+                var query = ExecuteScalar<TKey>(cmd);
                 if (query.State == ResponseState.Valid)
                     Config.PrimaryKey.SetValue(_obj, query.Result);
                 return query;
