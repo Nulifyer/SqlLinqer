@@ -192,7 +192,7 @@ This only applies to selecting columns not using them in where or order by state
 	    // the state of the response (Valid or Error)
 	    ResponseState State;
 
-		// The number of effected rows
+		// The number of affected rows
 	    long Content;
 		
 		// The exception
