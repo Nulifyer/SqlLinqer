@@ -3,6 +3,8 @@ SqlLinqer makes it much easier to use your sql database within you .net code. Co
 
 All parameters are parameterized to avoid any data conversion issues or SQL injection.
 
+https://www.nuget.org/packages/SqlLinqer/
+
 Support SQL Implementations:
  - Microsoft SQL Server 2012+
  - My SQL
