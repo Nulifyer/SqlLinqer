@@ -218,10 +218,10 @@ This was important because impersonation is platform specific an this way allows
 
         }
 
-        protected sealed override T ExecuteCommand<T>(Func<T> action) // all commands execute through this function
+        // all commands execute through this function
+        protected sealed override SQLResponse<T> ExecuteCommand<T>(Func<T> action)
         {
-            using(<Impersonation Context>) {
-	            return base.ExecuteCommand(action);
-            }
+            Console.WriteLine(typeof(MySqlLinqerConnector).FullName + "<>Activated");
+            return base.ExecuteCommand(action);
         }
     }
