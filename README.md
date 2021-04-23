@@ -1,5 +1,5 @@
 # What is SqlLinqer?
-SqlLinqer makes it much easier to use your sql database within you .net code. Compiled in .net standard 2.0 it can be used with the most common platforms without any extra dependencies. SqlLinqer generates your SQL queries from the class definitions of you already existing models and instead of returning an abstract data table SqlLinqer will return back your object with its properties and fields populated, this includes the properties and fields that are other classes that represent other tables in your database.
+SqlLinqer makes it much easier to use your sql database within your .net code. Compiled in .net standard 2.0 it can be used with the most common platforms without any extra dependencies. SqlLinqer generates your SQL queries from the class definitions of you already existing models and instead of returning an abstract data table SqlLinqer will return back your object with its properties and fields populated, this includes the properties and fields that are other classes that represent other tables in your database.
 
 All parameters are parameterized to avoid any data conversion issues or SQL injection.
 
@@ -12,7 +12,7 @@ Support SQL Implementations:
  - Oracle SQL
 
 # Creating Class Definitions
-These class definitions represent you tables and how they are related to each other. These are used by SqlLinqer to create your queries, by you to specify column targets and are returned by select queries populated with the data from the database.
+These class definitions represent your tables and how they are related to each other. These are used by SqlLinqer to create your queries, by you to specify column targets and are returned by select queries populated with the data from the database.
 
     [SQLTable("users")]
     public class _User : SqlLinqerObjectWithPrimaryKey<_User, string>
@@ -208,7 +208,7 @@ This only applies to selecting columns not using them in where or order by state
 
 To connect with impersonation you can define your own `SqlLinqerConnector` such as the below example. Your class will override the default execution methods and will be run first allowing your class to create the impersonation context before the connection is opened and the commands executed.
 
-This was important because impersonation is platform specific an this way allows the library to be compatible with .net standard 2.0.
+This was important because impersonation is platform specific and this way allows the library to be compatible with .net standard 2.0.
 
     public class MySqlLinqerConnector : SqlLinqerConnector
     {
