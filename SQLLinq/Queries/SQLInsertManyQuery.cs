@@ -11,7 +11,7 @@ namespace SqlLinqer.Queries
     /// Batch size is automatically determined based on the connector's parameter limit.
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
-    public class SQLInsertManyQuery<TObj> : SQLBaseQuery<TObj> where TObj : SqlLinqerObject<TObj>
+    public sealed class SQLInsertManyQuery<TObj> : SQLBaseQuery<TObj> where TObj : SqlLinqerObject<TObj>
     {
         private readonly IEnumerable<TObj> _objs;
 

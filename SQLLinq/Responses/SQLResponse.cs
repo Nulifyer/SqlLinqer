@@ -97,18 +97,11 @@ namespace SqlLinqer
         /// <returns><see cref="Dictionary{TKey, TValue}"/> which contains each property name and value</returns>
         public Dictionary<string, object> ToDictionary()
         {
-            var msgs = new List<string>();
-            var error = Error;
-            while (Error.InnerException != null)
-            {
-                msgs.Add(error.Message);
-                error = error.InnerException;
-            }
             return new Dictionary<string, object>()
             {
                 { "State", State },
                 { "Response", Result },
-                { "Error", string.Join("\n", msgs) }
+                { "Error", Error?.Message }
             };
         }
     }

@@ -13,7 +13,7 @@ namespace SqlLinqer.Queries
     /// Select query with where statements
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
-    public class SQLSelectWhereQuery<TObj> : SQLWhereQuery<TObj> where TObj : SqlLinqerObject<TObj>
+    public sealed class SQLSelectWhereQuery<TObj> : SQLWhereQuery<TObj> where TObj : SqlLinqerObject<TObj>
     {
         private readonly Dictionary<string, SQLMemberInfo> _selectedColumns;
         private readonly List<(SQLMemberInfo column, SQLDir dir)> _orderBy;
@@ -197,7 +197,7 @@ namespace SqlLinqer.Queries
             }
 
             // build command string
-            if (_options.pageSize > 0 && _orderBy == null)
+            if (_options.pageSize > 0 && (_orderBy == null || _orderBy.Count == 0))
             {
                 if (Config.PrimaryKey != null)
                     _orderBy.Add((Config.PrimaryKey, SQLDir.ASC));
@@ -265,7 +265,7 @@ namespace SqlLinqer.Queries
                 int startIdx = (_options.page - 1) * _options.pageSize;
                 int endIdx = startIdx + _options.pageSize;
 
-                switch (connector.DBType)
+                switch (DBType)
                 {
                     case DBType.PostgreSQL:
                         cmd.CommandText += $" LIMIT {_options.pageSize} OFFSET {startIdx}";

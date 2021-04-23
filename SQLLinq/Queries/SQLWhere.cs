@@ -33,7 +33,8 @@ namespace SqlLinqer
         /// <returns>The current <see cref="SQLWhereGroup{TObj}"/> object</returns>
         public SQLWhereGroup<TObj> Add(SQLWhereGroup<TObj> group)
         {
-            Group.Add(group);
+            if (group != null && group.Group.Count > 0)
+                Group.Add(group);
             return this;
         }
         /// <summary>

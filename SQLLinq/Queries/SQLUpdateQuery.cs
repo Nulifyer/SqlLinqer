@@ -11,7 +11,7 @@ namespace SqlLinqer.Queries
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
     /// <typeparam name="TKey">The value type of the primary key</typeparam>
-    public class SQLUpdateQuery<TObj, TKey> : SQLBaseQuery<TObj> where TObj : SqlLinqerObject<TObj>
+    public sealed class SQLUpdateQuery<TObj, TKey> : SQLBaseQuery<TObj> where TObj : SqlLinqerObject<TObj>
     {
         private readonly TObj _obj;
 

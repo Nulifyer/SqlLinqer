@@ -59,9 +59,16 @@ namespace SqlLinqer
         /// <typeparam name="T">The type the action returns</typeparam>
         /// <param name="action">The action to perform</param>
         /// <returns>A <see cref="SQLResponse{T}"/> containing the <typeparamref name="T"/> result</returns>
-        protected virtual T ExecuteCommand<T>(Func<T> action)
+        protected virtual SQLResponse<T> ExecuteCommand<T>(Func<T> action)
         {
-            return action.Invoke();
+            try
+            {
+                return new SQLResponse<T>(action.Invoke());
+            }
+            catch (Exception error)
+            {
+                return new SQLResponse<T>(error);
+            }
         }
 
         /// <summary>
@@ -102,7 +109,7 @@ namespace SqlLinqer
         /// <returns>A <see cref="SQLResponse{T}"/> object with a <see cref="DataTable"/> that contains the results of the query</returns>
         public SQLResponse<DataTable> ExecuteReader(DbCommand command)
         {
-            return ExecuteCommand(() =>
+            var response = ExecuteCommand(() =>
             {
                 var result = new SQLResponse<DataTable>();
 
@@ -114,10 +121,10 @@ namespace SqlLinqer
                     conn.Open();
 
                     using (DataSet ds = new DataSet() { EnforceConstraints = false })
-                    using (DbDataReader response = command.ExecuteReader())
+                    using (DbDataReader reader = command.ExecuteReader())
                     {
                         ds.Tables.Add(dt);
-                        dt.Load(response, LoadOption.OverwriteChanges);
+                        dt.Load(reader, LoadOption.OverwriteChanges);
                         ds.Tables.Remove(dt);
                     }
 
@@ -132,6 +139,14 @@ namespace SqlLinqer
 
                 return result;
             });
+
+            switch (response.State)
+            {
+                case ResponseState.Valid:
+                    return response.Result;
+                default:
+                    return new SQLResponse<DataTable>(response.Error);
+            }
         }
         /// <summary>
         /// Executes a database command the returns a <typeparamref name="T"/> which is the first column of the first row
@@ -141,7 +156,7 @@ namespace SqlLinqer
         /// <returns>A <see cref="SQLResponse{T}"/> that contains the first column of the first row</returns>
         public SQLResponse<T> ExecuteScalar<T>(DbCommand command)
         {
-            return ExecuteCommand(() =>
+            var response = ExecuteCommand(() =>
             {
                 var result = new SQLResponse<T>();
 
@@ -180,6 +195,14 @@ namespace SqlLinqer
 
                 return result;
             });
+
+            switch (response.State)
+            {
+                case ResponseState.Valid:
+                    return response.Result;
+                default:
+                    return new SQLResponse<T>(response.Error);
+            }
         }
         /// <summary>
         /// Executes a database command the returns a <see cref="long"/> which is the number of affected rows.
@@ -189,7 +212,7 @@ namespace SqlLinqer
         /// <returns>A <see cref="SQLResponse{T}"/> object with a <see cref="long"/></returns>
         public SQLResponse<long> ExecuteNonQuery(DbCommand command)
         {
-            return ExecuteCommand(() =>
+            var response = ExecuteCommand(() =>
             {
                 var result = new SQLResponse<long>();
 
@@ -218,6 +241,15 @@ namespace SqlLinqer
 
                 return result;
             });
+
+            switch (response.State)
+            {
+                case ResponseState.Valid:
+                    return response.Result;
+                default:
+                    return new SQLResponse<long>(response.Error);
+            }
+
         }
         /// <summary>
         /// Executes multiple database commands with the same connection and returns the number of affected rows across all commands. 
@@ -227,7 +259,7 @@ namespace SqlLinqer
         /// <returns>A <see cref="SQLResponse{T}"/> object with a <see cref="long"/></returns>
         public SQLResponse<long> ExecuteNonQuery(IEnumerable<DbCommand> commands)
         {
-            return ExecuteCommand(() =>
+            var response = ExecuteCommand(() =>
             {
                 var result = new SQLResponse<long>();
 
@@ -265,6 +297,14 @@ namespace SqlLinqer
 
                 return result.SetResult(rows_aff);
             });
+
+            switch (response.State)
+            {
+                case ResponseState.Valid:
+                    return response.Result;
+                default:
+                    return new SQLResponse<long>(response.Error);
+            }
         }
     }
 }
