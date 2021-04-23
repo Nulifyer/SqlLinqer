@@ -221,7 +221,9 @@ This was important because impersonation is platform specific an this way allows
         // all commands execute through this function
         protected sealed override SQLResponse<T> ExecuteCommand<T>(Func<T> action)
         {
-            Console.WriteLine(typeof(MySqlLinqerConnector).FullName + "<>Activated");
-            return base.ExecuteCommand(action);
+            using(<impersonation context>) 
+	    {
+            	return base.ExecuteCommand(action);
+	    }
         }
     }
