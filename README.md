@@ -1,5 +1,5 @@
 # What is SqlLinqer?
-SqlLinqer makes it much easier to use your sql database within your .net code. Compiled in .net standard 2.0 it can be used with the most common platforms without any extra dependencies. SqlLinqer generates your SQL queries from the class definitions of you already existing models and instead of returning an abstract data table SqlLinqer will return back your object with its properties and fields populated, this includes the properties and fields that are other classes that represent other tables in your database.
+SqlLinqer makes it much easier to use your sql database within your .net code. Compiled in .net standard 2.0 it can be used with the most common platforms without any extra dependencies. SqlLinqer generates your SQL queries from the class definitions of your already existing models and instead of returning an abstract data table SqlLinqer will return back your object with its properties and fields populated, this includes the properties and fields that are other classes that represent other tables in your database.
 
 All parameters are parameterized to avoid any data conversion issues or SQL injection.
 
