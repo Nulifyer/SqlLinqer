@@ -13,14 +13,16 @@ namespace SqlLinqer.Queries
     /// <typeparam name="TKey">The value type of the primary key</typeparam>
     public sealed class SQLUpdateQuery<TObj, TKey> : SQLBaseQuery<TObj> where TObj : SqlLinqerObject<TObj>
     {
+        private readonly bool _ignoreDefaults;
         private readonly TObj _obj;
 
-        internal SQLUpdateQuery(TObj obj)
+        internal SQLUpdateQuery(TObj obj, bool ignoreDefaults = false)
             : base(recursionLevel: 0)
         {
             AssertConfigHasPrimaryKey<TKey>();
 
             _obj = obj;
+            _ignoreDefaults = ignoreDefaults;
         }
 
         /// <summary>
@@ -53,14 +55,18 @@ namespace SqlLinqer.Queries
             columns.AddRange(Config.Columns);
             foreach (SQLMemberInfo column in columns)
             {
-                string placeholder = $"@UC{++i}";
-                builder.Append($"{(i > 1 ? "," : null)}{Wrap(column.SQLName)} = {placeholder}");
+                var value = column.GetValue(_obj);
+                if (!_ignoreDefaults || value != default)
+                {
+                    string placeholder = $"@UC{++i}";
+                    builder.Append($"{(i > 1 ? "," : null)}{Wrap(column.SQLName)} = {placeholder}");
 
-                DbParameter param = cmd.CreateParameter();
-                param.ParameterName = placeholder;
-                param.Value = column.GetValue(_obj);
+                    DbParameter param = cmd.CreateParameter();
+                    param.ParameterName = placeholder;
+                    param.Value = value;
 
-                cmd.Parameters.Add(param);
+                    cmd.Parameters.Add(param);
+                }
             }
             cmd.CommandText += builder.ToString();
 

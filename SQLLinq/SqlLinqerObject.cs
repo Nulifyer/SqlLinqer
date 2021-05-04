@@ -101,9 +101,10 @@ namespace SqlLinqer
         /// <summary>
         /// Begins an update query for the current object
         /// </summary>
-        public SQLUpdateQuery<TObj, TKey> Update()
+        /// <param name="ignoreDefaults">If to update fields where the C# value if the default value</param>
+        public SQLUpdateQuery<TObj, TKey> Update(bool ignoreDefaults = false)
         {
-            return Update(this as TObj);
+            return Update(this as TObj, ignoreDefaults);
         }
 
         /// <summary>
@@ -147,9 +148,10 @@ namespace SqlLinqer
         /// All columns of the object will be updated except the primary key.
         /// </summary>
         /// <param name="obj">The object to update</param>
-        public static SQLUpdateQuery<TObj, TKey> Update(TObj obj)
+        /// <param name="ignoreDefaults">If to update fields where the C# value if the default value</param>
+        public static SQLUpdateQuery<TObj, TKey> Update(TObj obj, bool ignoreDefaults = false)
         {
-            return new SQLUpdateQuery<TObj, TKey>(obj);
+            return new SQLUpdateQuery<TObj, TKey>(obj, ignoreDefaults);
         }
 
         /// <summary>
