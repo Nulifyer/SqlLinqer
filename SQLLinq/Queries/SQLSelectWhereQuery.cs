@@ -13,7 +13,7 @@ namespace SqlLinqer.Queries
     /// Select query with where statements
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
-    public sealed class SQLSelectWhereQuery<TObj> : SQLWhereQuery<TObj> where TObj : SqlLinqerObject<TObj>
+    public sealed class SQLSelectWhereQuery<TObj> : SQLWhereQuery<TObj> where TObj : SqlLinqerObject<TObj>, new()
     {
         private readonly Dictionary<string, SQLMemberInfo> _selectedColumns;
         private readonly List<(SQLMemberInfo column, SQLDir dir)> _orderBy;
@@ -216,8 +216,10 @@ namespace SqlLinqer.Queries
 
             if (!_options.distinct.HasValue)
             {
-                var otmJoins = _joins.Select(j => j.Value).Where(c => c.ParentRelationship is SQLOneToManyRelationship);
-                if (!_selectedColumns.Any(c => otmJoins.Any(j => c.Value.Config.TableAlias == j.TableAlias)))
+                var otmJoins = _joins
+                    .Select(j => j.Value).Where(c => c.ParentRelationship is SQLOneToManyRelationship)
+                    .ToDictionary(x => x.TableAlias, x => x);
+                if (_selectedColumns.Any(c => otmJoins.ContainsKey(c.Value.Config.TableAlias)))
                     _options.distinct = true;
             }
 

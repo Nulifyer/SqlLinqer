@@ -8,13 +8,15 @@ namespace SqlLinqer.Queries
     /// Insert query for object with no primary key
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
-    public sealed class SQLInsertQuery<TObj> : SQLBaseQuery<TObj> where TObj : SqlLinqerObject<TObj>
+    public sealed class SQLInsertQuery<TObj> : SQLBaseQuery<TObj> where TObj : SqlLinqerObject<TObj>, new()
     {
+        private readonly bool _ignoreDefaults;
         private readonly TObj _obj;
 
-        internal SQLInsertQuery(TObj obj)
+        internal SQLInsertQuery(TObj obj, bool ignoreDefaults = false)
             : base(recursionLevel: 0)
         {
+            _ignoreDefaults = ignoreDefaults;
             _obj = obj;
         }
 
@@ -49,13 +51,17 @@ namespace SqlLinqer.Queries
 
             foreach (var item in Config.Columns)
             {
+                var value = item.GetValue(_obj);
+                if (_ignoreDefaults && value == default)
+                    continue;
+
                 string col = item.SQLName;
                 cols.Add(Wrap(col));
                 vals.Add($"@I{col}");
 
                 DbParameter param = cmd.CreateParameter();
                 param.ParameterName = $"@I{col}";
-                param.Value = item.GetValue(_obj);
+                param.Value = value;
 
                 cmd.Parameters.Add(param);
             }

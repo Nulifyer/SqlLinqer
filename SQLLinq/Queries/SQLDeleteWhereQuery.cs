@@ -10,7 +10,7 @@ namespace SqlLinqer.Queries
     /// Delete query with where statements
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
-    public sealed class SQLDeleteWhereQuery<TObj> : SQLWhereQuery<TObj> where TObj : SqlLinqerObject<TObj>
+    public sealed class SQLDeleteWhereQuery<TObj> : SQLWhereQuery<TObj> where TObj : SqlLinqerObject<TObj>, new()
     {
         internal SQLDeleteWhereQuery(int recursionLevel = 0)
             : base(recursionLevel)

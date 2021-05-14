@@ -10,7 +10,7 @@ namespace SqlLinqer
     /// Should be inherited by classes with no primary key. For those with a primary key use <see cref="SqlLinqerObjectWithPrimaryKey{TObj, TKey}"/>
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
-    public abstract class SqlLinqerObject<TObj> where TObj : SqlLinqerObject<TObj>
+    public abstract class SqlLinqerObject<TObj> where TObj : SqlLinqerObject<TObj>, new()
     {
         /// <summary>
         /// Begins an insert query for the current object
@@ -88,7 +88,7 @@ namespace SqlLinqer
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
     /// <typeparam name="TKey">The type of value for the primary key</typeparam>
-    public abstract class SqlLinqerObjectWithPrimaryKey<TObj, TKey> : SqlLinqerObject<TObj> where TObj : SqlLinqerObject<TObj>
+    public abstract class SqlLinqerObjectWithPrimaryKey<TObj, TKey> : SqlLinqerObject<TObj> where TObj : SqlLinqerObject<TObj>, new()
     {
         /// <summary>
         /// Begins an insert query for the current object

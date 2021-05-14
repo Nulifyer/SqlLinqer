@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Data.Common;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace SqlLinqer
 {
@@ -25,6 +26,10 @@ namespace SqlLinqer
         /// This changes the format of the queries so they work in the specified platform
         /// </summary>
         public DBType DBType { get; private set; }
+        /// <summary>
+        /// The timeout of commands sent through this connector in seconds
+        /// </summary>
+        public int CommandTimeout { get; private set; }
 
         /// <summary>
         /// Creates a new databse connector. The connector has information needed to contstruct the queries and also functions as a DBProviderFactory.
@@ -32,13 +37,45 @@ namespace SqlLinqer
         /// <param name="connection">The connection object you use to connect to your database</param>
         /// <param name="dbType">The implementation of sql database you are connecting to</param>
         /// <param name="parameterLimit">The database's parameterized value limit</param>
-        public SqlLinqerConnector(DbConnection connection, DBType dbType, int parameterLimit = 2100)
+        /// <param name="commandTimeout">The timeout of commands sent through this connector in seconds</param>
+        public SqlLinqerConnector(DbConnection connection, DBType dbType, int parameterLimit = 2100, int connectionTimeout = 15, int commandTimeout = 15)
         {
             _type = connection.GetType();
             _connectionString = connection.ConnectionString;
 
             ParameterLimit = parameterLimit;
             DBType = dbType;
+            CommandTimeout = commandTimeout;
+
+            var connectionParams = _connectionString
+                .Split(';')
+                .Select(x => x.Split('='))
+                .ToDictionary(x => x.FirstOrDefault(), x => x.LastOrDefault());
+
+            string connTimeoutKey = "connectiontimeout";
+            if (!connectionParams.ContainsKey(connTimeoutKey))
+            {
+                switch (dbType)
+                {
+                    case DBType.OracleSQL:
+                        connTimeoutKey = "Connection Timeout";
+                        break;
+                    case DBType.PostgreSQL:
+                        connTimeoutKey = "Timeout";
+                        break;
+                    case DBType.MYSQL:
+                    case DBType.SQLServer:
+                    default:
+                        connTimeoutKey = "Connect Timeout";
+                        break;
+                }
+            }
+
+            if (connectionParams.ContainsKey(connTimeoutKey))
+                connectionParams[connTimeoutKey] = connectionTimeout.ToString();
+            else
+                connectionParams.Add(connTimeoutKey, connectionTimeout.ToString());
+            _connectionString = string.Join(";", connectionParams.Select(x => $"{x.Key}={x.Value}"));
         }
 
         /// <summary>
@@ -109,6 +146,7 @@ namespace SqlLinqer
         /// <returns>A <see cref="SQLResponse{T}"/> object with a <see cref="DataTable"/> that contains the results of the query</returns>
         public SQLResponse<DataTable> ExecuteReader(DbCommand command)
         {
+            command.CommandTimeout = CommandTimeout;
             var response = ExecuteCommand(() =>
             {
                 var result = new SQLResponse<DataTable>();
@@ -156,6 +194,7 @@ namespace SqlLinqer
         /// <returns>A <see cref="SQLResponse{T}"/> that contains the first column of the first row</returns>
         public SQLResponse<T> ExecuteScalar<T>(DbCommand command)
         {
+            command.CommandTimeout = CommandTimeout;
             var response = ExecuteCommand(() =>
             {
                 var result = new SQLResponse<T>();
@@ -212,6 +251,7 @@ namespace SqlLinqer
         /// <returns>A <see cref="SQLResponse{T}"/> object with a <see cref="long"/></returns>
         public SQLResponse<long> ExecuteNonQuery(DbCommand command)
         {
+            command.CommandTimeout = CommandTimeout;
             var response = ExecuteCommand(() =>
             {
                 var result = new SQLResponse<long>();
@@ -280,6 +320,7 @@ namespace SqlLinqer
 
                     foreach (DbCommand cmd in commands)
                     {
+                        cmd.CommandTimeout = CommandTimeout;
                         cmd.Transaction = transaction;
                         currentCmd = cmd.CommandText;
                         rows_aff += cmd.ExecuteNonQuery();

@@ -13,7 +13,7 @@ namespace SqlLinqer.Queries
     /// Base object of sql queries
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
-    public abstract class SQLBaseQuery<TObj> where TObj : SqlLinqerObject<TObj>
+    public abstract class SQLBaseQuery<TObj> where TObj : SqlLinqerObject<TObj>, new()
     {
         private SqlLinqerConnector _connector;
 
