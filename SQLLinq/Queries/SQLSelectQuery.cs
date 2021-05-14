@@ -12,7 +12,7 @@ namespace SqlLinqer.Queries
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
     /// <typeparam name="TKey">The value type of the primary key</typeparam>
-    public sealed class SQLSelectQuery<TObj, TKey> : SQLWhereQuery<TObj> where TObj : SqlLinqerObject<TObj>, new()
+    public sealed class SQLSelectQuery<TObj, TKey> : SQLWhereQuery<TObj> where TObj : new()
     {
         private readonly Dictionary<string, SQLMemberInfo> _selectedColumns;
         private readonly TKey _primaryKeyValue;

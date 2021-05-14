@@ -13,7 +13,7 @@ namespace SqlLinqer.Queries
     /// Base object of sql queries
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
-    public abstract class SQLBaseQuery<TObj> where TObj : SqlLinqerObject<TObj>, new()
+    public abstract class SQLBaseQuery<TObj> where TObj : new()
     {
         private SqlLinqerConnector _connector;
 
@@ -121,10 +121,11 @@ namespace SqlLinqer.Queries
                 var trace = new List<MemberExpression>();
 
                 var tracker = memExpr;
+                trace.Insert(0, memExpr);
                 while (tracker.Expression is MemberExpression expression)
                 {
                     tracker = expression;
-                    trace.Insert(0, tracker);
+                    trace.Insert(0, expression);
                 }
 
                 if (Config.RecursionLevel < trace.Count)
@@ -137,13 +138,13 @@ namespace SqlLinqer.Queries
                     trace.RemoveAt(0);
 
                     relationship = (SQLRelationship)
-                        Config.OneToOne.Find(r => r.Left.Info == memExpr.Member)
-                        ?? Config.OneToMany.Find(r => r.Left.Info == memExpr.Member);
+                        traceConfig.OneToOne.Find(r => r.Left.Info == mem.Member || r.ForeignKey.Info == mem.Member)
+                        ?? traceConfig.OneToMany.Find(r => r.ForeignKey.Info == mem.Member);
 
                     traceConfig = relationship?.Right.Config;
                 }
 
-                if (traceConfig != null && memExpr.Member.ReflectedType == traceConfig.Type && trace.Count == 0)
+                if (traceConfig != null && memExpr.Type == traceConfig.Type && trace.Count == 0)
                     return relationship;
                 else
                     relationship = null;

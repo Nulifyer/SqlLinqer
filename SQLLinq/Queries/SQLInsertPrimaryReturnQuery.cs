@@ -9,11 +9,11 @@ namespace SqlLinqer.Queries
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
     /// <typeparam name="TKey">The value type of the primary key</typeparam>
-    public sealed class SQLInsertPrimaryReturnQuery<TObj, TKey> : SQLBaseQuery<TObj> where TObj : SqlLinqerObject<TObj>, new()
+    public sealed class SQLInsertPrimaryReturnQuery<TObj, TKey> : SQLBaseQuery<TObj> where TObj : new()
     {
-        private readonly TObj _obj;
+        private readonly SqlLinqerObject<TObj> _obj;
 
-        internal SQLInsertPrimaryReturnQuery(TObj obj)
+        internal SQLInsertPrimaryReturnQuery(SqlLinqerObject<TObj> obj)
             : base(recursionLevel: 0)
         {
             AssertConfigHasPrimaryKey<TKey>();

@@ -9,7 +9,7 @@ namespace SqlLinqer.Queries
     /// Stored procedure query that returns one or more <typeparamref name="TObj"/>
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
-    public sealed class SQLStoredProcedureQuery<TObj> : SQLBaseQuery<TObj> where TObj : SqlLinqerObject<TObj>, new()
+    public sealed class SQLStoredProcedureQuery<TObj> : SQLBaseQuery<TObj> where TObj : new()
     {
         private readonly string _storedProcedureName;
         private readonly Dictionary<string, object> _parameters;

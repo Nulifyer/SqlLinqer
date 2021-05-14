@@ -13,7 +13,7 @@ namespace SqlLinqer.Queries
     /// Select query with where statements
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
-    public sealed class SQLSelectWhereQuery<TObj> : SQLWhereQuery<TObj> where TObj : SqlLinqerObject<TObj>, new()
+    public sealed class SQLSelectWhereQuery<TObj> : SQLWhereQuery<TObj> where TObj : new()
     {
         private readonly Dictionary<string, SQLMemberInfo> _selectedColumns;
         private readonly List<(SQLMemberInfo column, SQLDir dir)> _orderBy;

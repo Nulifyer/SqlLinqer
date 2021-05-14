@@ -13,7 +13,7 @@ namespace SqlLinqer.Queries
     /// <see cref="SQLWhereQuery{TObj}"/> is an abstract base object to maintain and construct the where statement of queries that use it.
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
-    public abstract class SQLWhereQuery<TObj> : SQLBaseQuery<TObj> where TObj : SqlLinqerObject<TObj>, new()
+    public abstract class SQLWhereQuery<TObj> : SQLBaseQuery<TObj> where TObj : new()
     {
         private readonly SQLWhereGroup<TObj> _whereGroup;
 

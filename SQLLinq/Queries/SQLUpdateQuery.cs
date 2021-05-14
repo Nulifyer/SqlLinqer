@@ -11,12 +11,12 @@ namespace SqlLinqer.Queries
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
     /// <typeparam name="TKey">The value type of the primary key</typeparam>
-    public sealed class SQLUpdateQuery<TObj, TKey> : SQLBaseQuery<TObj> where TObj : SqlLinqerObject<TObj>, new()
+    public sealed class SQLUpdateQuery<TObj, TKey> : SQLBaseQuery<TObj> where TObj : new()
     {
         private readonly bool _ignoreDefaults;
-        private readonly TObj _obj;
+        private readonly SqlLinqerObject<TObj> _obj;
 
-        internal SQLUpdateQuery(TObj obj, bool ignoreDefaults = false)
+        internal SQLUpdateQuery(SqlLinqerObject<TObj> obj, bool ignoreDefaults = false)
             : base(recursionLevel: 0)
         {
             AssertConfigHasPrimaryKey<TKey>();

@@ -10,11 +10,11 @@ namespace SqlLinqer.Queries
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
     /// <typeparam name="TKey">The value type of the primary key</typeparam>
-    public sealed class SQLDeleteQuery<TObj, TKey> : SQLWhereQuery<TObj> where TObj : SqlLinqerObject<TObj>, new()
+    public sealed class SQLDeleteQuery<TObj, TKey> : SQLWhereQuery<TObj> where TObj : new()
     {
         private readonly IEnumerable<TKey> _primarykeyValues;
 
-        internal SQLDeleteQuery(TObj obj)
+        internal SQLDeleteQuery(SqlLinqerObject<TObj> obj)
             : base(recursionLevel: 0)
         {
             if (Config.PrimaryKey == null)

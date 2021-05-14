@@ -8,12 +8,12 @@ namespace SqlLinqer.Queries
     /// Insert query for object with no primary key
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
-    public sealed class SQLInsertQuery<TObj> : SQLBaseQuery<TObj> where TObj : SqlLinqerObject<TObj>, new()
+    public sealed class SQLInsertQuery<TObj> : SQLBaseQuery<TObj> where TObj : new()
     {
         private readonly bool _ignoreDefaults;
-        private readonly TObj _obj;
+        private readonly SqlLinqerObject<TObj> _obj;
 
-        internal SQLInsertQuery(TObj obj, bool ignoreDefaults = false)
+        internal SQLInsertQuery(SqlLinqerObject<TObj> obj, bool ignoreDefaults = false)
             : base(recursionLevel: 0)
         {
             _ignoreDefaults = ignoreDefaults;

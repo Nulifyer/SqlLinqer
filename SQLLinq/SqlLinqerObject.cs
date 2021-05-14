@@ -4,20 +4,20 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 
 namespace SqlLinqer
-{
+{   
     /// <summary>
     /// Includes the extension methods of the SqlLinqer library
     /// Should be inherited by classes with no primary key. For those with a primary key use <see cref="SqlLinqerObjectWithPrimaryKey{TObj, TKey}"/>
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
-    public abstract class SqlLinqerObject<TObj> where TObj : SqlLinqerObject<TObj>, new()
+    public abstract class SqlLinqerObject<TObj> where TObj : new()
     {
         /// <summary>
         /// Begins an insert query for the current object
         /// </summary>
         public SQLInsertQuery<TObj> Insert()
         {
-            return Insert(this as TObj);
+            return Insert(this);
         }
 
         /// <summary>
@@ -50,7 +50,7 @@ namespace SqlLinqer
         /// Begins an insert query for <typeparamref name="TObj"/>
         /// </summary>
         /// <param name="obj">The object to Insert</param>
-        public static SQLInsertQuery<TObj> Insert(TObj obj)
+        public static SQLInsertQuery<TObj> Insert(SqlLinqerObject<TObj> obj)
         {
             return new SQLInsertQuery<TObj>(obj);
         }
@@ -88,14 +88,14 @@ namespace SqlLinqer
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
     /// <typeparam name="TKey">The type of value for the primary key</typeparam>
-    public abstract class SqlLinqerObjectWithPrimaryKey<TObj, TKey> : SqlLinqerObject<TObj> where TObj : SqlLinqerObject<TObj>, new()
+    public abstract class SqlLinqerObjectWithPrimaryKey<TObj, TKey> : SqlLinqerObject<TObj> where TObj : new()
     {
         /// <summary>
         /// Begins an insert query for the current object
         /// </summary>
         public new SQLInsertPrimaryReturnQuery<TObj, TKey> Insert()
         {
-            return Insert(this as TObj);
+            return Insert(this);
         }
 
         /// <summary>
@@ -104,7 +104,7 @@ namespace SqlLinqer
         /// <param name="ignoreDefaults">If to update fields where the C# value if the default value</param>
         public SQLUpdateQuery<TObj, TKey> Update(bool ignoreDefaults = false)
         {
-            return Update(this as TObj, ignoreDefaults);
+            return Update(this, ignoreDefaults);
         }
 
         /// <summary>
@@ -112,14 +112,14 @@ namespace SqlLinqer
         /// </summary>
         public SQLDeleteQuery<TObj, TKey> Delete()
         {
-            return new SQLDeleteQuery<TObj, TKey>(this as TObj);
+            return new SQLDeleteQuery<TObj, TKey>(this);
         }
 
         /// <summary>
         /// Begins an insert query for <typeparamref name="TObj"/>
         /// </summary>
         /// <param name="obj">The object to insert</param>
-        public new static SQLInsertPrimaryReturnQuery<TObj, TKey> Insert(TObj obj)
+        public new static SQLInsertPrimaryReturnQuery<TObj, TKey> Insert(SqlLinqerObject<TObj> obj)
         {
             return new SQLInsertPrimaryReturnQuery<TObj, TKey>(obj);
         }
@@ -149,7 +149,7 @@ namespace SqlLinqer
         /// </summary>
         /// <param name="obj">The object to update</param>
         /// <param name="ignoreDefaults">If to update fields where the C# value if the default value</param>
-        public static SQLUpdateQuery<TObj, TKey> Update(TObj obj, bool ignoreDefaults = false)
+        public static SQLUpdateQuery<TObj, TKey> Update(SqlLinqerObject<TObj> obj, bool ignoreDefaults = false)
         {
             return new SQLUpdateQuery<TObj, TKey>(obj, ignoreDefaults);
         }

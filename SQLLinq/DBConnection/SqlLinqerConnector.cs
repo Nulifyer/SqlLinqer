@@ -37,6 +37,7 @@ namespace SqlLinqer
         /// <param name="connection">The connection object you use to connect to your database</param>
         /// <param name="dbType">The implementation of sql database you are connecting to</param>
         /// <param name="parameterLimit">The database's parameterized value limit</param>
+        /// <param name="connectionTimeout">The timeout of connections made through this connector in seconds</param>
         /// <param name="commandTimeout">The timeout of commands sent through this connector in seconds</param>
         public SqlLinqerConnector(DbConnection connection, DBType dbType, int parameterLimit = 2100, int connectionTimeout = 15, int commandTimeout = 15)
         {
@@ -147,6 +148,17 @@ namespace SqlLinqer
         public SQLResponse<DataTable> ExecuteReader(DbCommand command)
         {
             command.CommandTimeout = CommandTimeout;
+#if DEBUG
+            Console.WriteLine("---------------------");
+            Console.WriteLine(command.CommandText);
+            if (command.Parameters.Count > 0)
+            {
+                Console.WriteLine("-  -  -  -  -  -  -  -  -");
+                foreach(DbParameter param in command.Parameters)
+                    Console.WriteLine($"{param.ParameterName}={param.Value}");
+            }
+            Console.WriteLine("---------------------");
+#endif
             var response = ExecuteCommand(() =>
             {
                 var result = new SQLResponse<DataTable>();
@@ -195,6 +207,17 @@ namespace SqlLinqer
         public SQLResponse<T> ExecuteScalar<T>(DbCommand command)
         {
             command.CommandTimeout = CommandTimeout;
+#if DEBUG
+            Console.WriteLine("---------------------");
+            Console.WriteLine(command.CommandText);
+            if (command.Parameters.Count > 0)
+            {
+                Console.WriteLine("-  -  -  -  -  -  -  -  -");
+                foreach (DbParameter param in command.Parameters)
+                    Console.WriteLine($"{param.ParameterName}={param.Value}");
+            }
+            Console.WriteLine("---------------------");
+#endif
             var response = ExecuteCommand(() =>
             {
                 var result = new SQLResponse<T>();
@@ -252,6 +275,17 @@ namespace SqlLinqer
         public SQLResponse<long> ExecuteNonQuery(DbCommand command)
         {
             command.CommandTimeout = CommandTimeout;
+#if DEBUG
+            Console.WriteLine("---------------------");
+            Console.WriteLine(command.CommandText);
+            if (command.Parameters.Count > 0)
+            {
+                Console.WriteLine("-  -  -  -  -  -  -  -  -");
+                foreach (DbParameter param in command.Parameters)
+                    Console.WriteLine($"{param.ParameterName}={param.Value}");
+            }
+            Console.WriteLine("---------------------");
+#endif
             var response = ExecuteCommand(() =>
             {
                 var result = new SQLResponse<long>();
@@ -321,6 +355,17 @@ namespace SqlLinqer
                     foreach (DbCommand cmd in commands)
                     {
                         cmd.CommandTimeout = CommandTimeout;
+#if DEBUG
+                        Console.WriteLine("---------------------");
+                        Console.WriteLine(cmd.CommandText);
+                        if (cmd.Parameters.Count > 0)
+                        {
+                            Console.WriteLine("-  -  -  -  -  -  -  -  -");
+                            foreach (DbParameter param in cmd.Parameters)
+                                Console.WriteLine($"{param.ParameterName}={param.Value}");
+                        }
+                        Console.WriteLine("---------------------");
+#endif
                         cmd.Transaction = transaction;
                         currentCmd = cmd.CommandText;
                         rows_aff += cmd.ExecuteNonQuery();

@@ -11,7 +11,7 @@ namespace SqlLinqer.Queries
     /// Update query with where statements
     /// </summary>
     /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
-    public sealed class SQLUpdateWhereQuery<TObj> : SQLWhereQuery<TObj> where TObj : SqlLinqerObject<TObj>, new()
+    public sealed class SQLUpdateWhereQuery<TObj> : SQLWhereQuery<TObj> where TObj : new()
     {
         private readonly List<(SQLMemberInfo column, object value)> _updates;
 
