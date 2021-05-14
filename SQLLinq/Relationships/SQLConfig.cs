@@ -154,6 +154,10 @@ namespace SqlLinqer.Relationships
                 else
                     Columns.Add(new SQLMemberInfo(this, col, sqlName));
             }
+
+            if (Columns.Count == 0 && PrimaryKey == null)
+                throw new Exception($"No columns found for type {Type.FullName}. Make sure some members are public and not ignored.");
+
             if (recursionLevel > 0)
             {
                 --recursionLevel;
