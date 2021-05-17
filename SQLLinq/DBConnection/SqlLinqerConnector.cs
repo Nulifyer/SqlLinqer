@@ -49,6 +49,7 @@ namespace SqlLinqer
             CommandTimeout = commandTimeout;
 
             var connectionParams = _connectionString
+                .TrimEnd(';')
                 .Split(';')
                 .Select(x => x.Split('='))
                 .ToDictionary(x => x.FirstOrDefault(), x => x.LastOrDefault());

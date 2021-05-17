@@ -404,6 +404,18 @@ namespace SqlLinqer.Queries
                 relationship.ForeignKey.SetValue(obj, sub_obj);
             }
 
+            // populate joined one to many relationships
+            foreach (SQLOneToManyRelationship relationship in config.OneToMany)
+            {
+                Type sub_type = relationship.ForeignKey.MemberUnderlyingType;
+                SQLConfig right_config = relationship.Right.Config;
+                object sub_obj = PopulateObject(sub_type, right_config, row, useColumnAlias);
+
+                if (sub_obj != null && !foundData) foundData = true;
+
+                relationship.ForeignKey.SetValue(obj, sub_obj);
+            }
+
             if (foundData)
                 return obj;
             else
