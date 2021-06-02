@@ -302,7 +302,7 @@ namespace SqlLinqer.Queries
                 {
                     try
                     {
-                        result.TotalResults = Convert.ToInt64(response.Result.Rows[0]["TotalResults"]);
+                        result.TotalResults = response.Result.Rows.Count < 1 ? 0 : Convert.ToInt64(response.Result.Rows[0]["TotalResults"]);
                     }
                     catch (Exception err)
                     {
