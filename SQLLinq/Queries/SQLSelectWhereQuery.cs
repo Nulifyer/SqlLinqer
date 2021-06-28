@@ -124,6 +124,9 @@ namespace SqlLinqer.Queries
         {
             _orderBy.Clear();
             _orderBy.Add((GetMemberFromExpression(expression), dir));
+            var col = GetMemberFromExpression(expression);
+            if (!_selectedColumns.ContainsKey(col.ColumnAlias))
+                _selectedColumns.Add(col.ColumnAlias, col);
             return this;
         }
         /// <summary>
@@ -223,7 +226,7 @@ namespace SqlLinqer.Queries
                     _options.distinct = true;
             }
 
-            cmd.CommandText = $"SELECT{((_options.distinct ?? false) ? " DISTINCT" : null)} {GetColumnStr()} ";
+            cmd.CommandText = $"SELECT{((_options.distinct ?? false) ? " DISTINCT" : null)}{(_options.top > 0 ? $" TOP {_options.top}" : null)} {GetColumnStr()} ";
 
             if (GetTotalResults && DBType != DBType.MYSQL)
                 cmd.CommandText += ",COUNT(*) OVER() AS TotalResults";

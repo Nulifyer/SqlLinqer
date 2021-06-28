@@ -83,7 +83,10 @@ namespace SqlLinqer.Relationships
             else
             {
                 Compute(recursionLevel, this);
-                _cache.Add((Type, RecursionLevel), this);
+                if (_cache.ContainsKey((Type, RecursionLevel)))
+                    _cache[(Type, RecursionLevel)] = this;
+                else
+                    _cache.Add((Type, RecursionLevel), this);
             }
 
             ComputeAlias();
@@ -235,30 +238,31 @@ namespace SqlLinqer.Relationships
         /// </summary>
         private void ComputeAlias()
         {
-            int num = 0;
-            ComputeAlias(ref num);
+            ComputeAlias(0, 0);
         }
         /// <summary>
         /// Recursively computes the table alias for each layer of the config.
         /// These aliases prevent collision of the table when they are the same.
         /// </summary>
-        private void ComputeAlias(ref int num)
+        private void ComputeAlias(int layer, int num)
         {
             if (TableAlias != null)
                 return;
 
-            TableAlias = $"{TableName}_{++num}";
+            TableAlias = $"{TableName}_{layer}_{num}";
 
+            ++layer;
+            num = 0;
             foreach (var oto in OneToOne)
             {
-                oto.Left.Config.ComputeAlias(ref num);
-                oto.Right.Config.ComputeAlias(ref num);
+                oto.Left.Config.ComputeAlias(layer, ++num);
+                oto.Right.Config.ComputeAlias(layer, ++num);
             }
 
             foreach (var otm in OneToMany)
             {
-                otm.Left.Config.ComputeAlias(ref num);
-                otm.Right.Config.ComputeAlias(ref num);
+                otm.Left.Config.ComputeAlias(layer, ++num);
+                otm.Right.Config.ComputeAlias(layer, ++num);
             }
         }
     }

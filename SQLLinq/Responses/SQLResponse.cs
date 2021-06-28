@@ -99,9 +99,9 @@ namespace SqlLinqer
         {
             return new Dictionary<string, object>()
             {
-                { "State", State },
-                { "Response", Result },
-                { "Error", Error?.Message }
+                { nameof(State), State },
+                { nameof(Result), Result },
+                { nameof(Error), Error?.Message }
             };
         }
     }

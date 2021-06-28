@@ -148,6 +148,7 @@ namespace SqlLinqer
         /// <returns>A <see cref="SQLResponse{T}"/> object with a <see cref="DataTable"/> that contains the results of the query</returns>
         public SQLResponse<DataTable> ExecuteReader(DbCommand command)
         {
+            NullToDBNull(command);
             command.CommandTimeout = CommandTimeout;
 #if DEBUG
             Console.WriteLine("---------------------");
@@ -207,6 +208,7 @@ namespace SqlLinqer
         /// <returns>A <see cref="SQLResponse{T}"/> that contains the first column of the first row</returns>
         public SQLResponse<T> ExecuteScalar<T>(DbCommand command)
         {
+            NullToDBNull(command);
             command.CommandTimeout = CommandTimeout;
 #if DEBUG
             Console.WriteLine("---------------------");
@@ -275,6 +277,7 @@ namespace SqlLinqer
         /// <returns>A <see cref="SQLResponse{T}"/> object with a <see cref="long"/></returns>
         public SQLResponse<long> ExecuteNonQuery(DbCommand command)
         {
+            NullToDBNull(command);
             command.CommandTimeout = CommandTimeout;
 #if DEBUG
             Console.WriteLine("---------------------");
@@ -355,6 +358,7 @@ namespace SqlLinqer
 
                     foreach (DbCommand cmd in commands)
                     {
+                        NullToDBNull(cmd);
                         cmd.CommandTimeout = CommandTimeout;
 #if DEBUG
                         Console.WriteLine("---------------------");
@@ -392,6 +396,13 @@ namespace SqlLinqer
                 default:
                     return new SQLResponse<long>(response.Error);
             }
+        }
+
+        private void NullToDBNull(DbCommand command)
+        {
+            foreach (DbParameter param in command.Parameters)
+                if (param.Value == null)
+                    param.Value = DBNull.Value;
         }
     }
 }

@@ -55,7 +55,7 @@ namespace SqlLinqer.Queries
                 }
             }
         }
-        private void RenderWhere(DbCommand cmd, SQLWhereGroup<TObj> wheregroup, StringBuilder builder, uint start)
+        private void RenderWhere(DbCommand cmd, SQLWhereGroup<TObj> wheregroup, StringBuilder builder, ref uint start)
         {
             if (wheregroup == null || wheregroup.Group.Count() == 0)
                 return;
@@ -87,7 +87,7 @@ namespace SqlLinqer.Queries
                 if (where is SQLWhereGroup<TObj> group)
                 // where group recursive render
                 {
-                    RenderWhere(cmd, group, builder, start);
+                    RenderWhere(cmd, group, builder, ref start);
                 }
                 else
                 // where clause render
@@ -211,7 +211,7 @@ namespace SqlLinqer.Queries
             StringBuilder builder = new StringBuilder();
             builder.Append(" WHERE ");
 
-            RenderWhere(cmd, _whereGroup, builder, start);
+            RenderWhere(cmd, _whereGroup, builder, ref start);
 
             cmd.CommandText += builder.ToString();
         }

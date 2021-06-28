@@ -322,6 +322,11 @@ namespace SqlLinqer.Queries
                 if (row.Table.Columns.Contains(col))
                 {
                     foundData = true;
+
+                    // if the relationship is one to one and there was nothing found return null
+                    if (config.ParentRelationship != null && config.ParentRelationship.GetType() == typeof(SQLOneToOneRelationship) && row[col] == DBNull.Value)
+                        return null;
+
                     try
                     {
                         if (row[col].GetType() == config.PrimaryKey.MemberUnderlyingType)
