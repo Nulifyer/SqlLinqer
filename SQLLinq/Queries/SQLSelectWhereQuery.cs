@@ -171,9 +171,21 @@ namespace SqlLinqer.Queries
         /// <returns>The current <see cref="SQLSelectWhereQuery{TObj}"/> object</returns>
         public SQLSelectWhereQuery<TObj> Top(int count)
         {
-            _options.page = 0;
-            _options.pageSize = 0;
-            _options.top = count;
+            switch (DBType)
+            {
+                case DBType.PostgreSQL:
+                case DBType.MYSQL:
+                    _options.page = 1;
+                    _options.pageSize = count;
+                    _options.top = 0;
+                    break;
+                case DBType.OracleSQL:
+                case DBType.SQLServer:
+                    _options.page = 0;
+                    _options.pageSize = 0;
+                    _options.top = count;
+                    break;
+            }
             return this;
         }
 

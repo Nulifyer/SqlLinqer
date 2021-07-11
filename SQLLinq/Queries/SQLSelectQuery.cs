@@ -118,7 +118,7 @@ namespace SqlLinqer.Queries
             try
             {
                 result.Result = PopulateObject(data, useColumnAlias).FirstOrDefault();
-                result.TotalResults = 1;
+                result.TotalResults = result.Result != null ? 1 : 0;
             }
             catch (Exception err)
             {

@@ -11,13 +11,13 @@
     <SignAssembly>false</SignAssembly>
     <PackageId>SqlLinqer</PackageId>
     <Product>SqlLinqer</Product>
-    <Version>1.4.4</Version>
-    <AssemblyVersion>1.4.4.0</AssemblyVersion>
+    <Version>1.5.1</Version>
+    <AssemblyVersion>1.5.1</AssemblyVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <RepositoryUrl>https://github.com/Nulifyer/SqlLinqer</RepositoryUrl>
     <RepositoryType>GitHub</RepositoryType>
     <PackageTags>mysql sql csharp postgresql database-connector</PackageTags>
-    <FileVersion>1.4.4.0</FileVersion>
+    <FileVersion>1.5.1</FileVersion>
   </PropertyGroup>
 
 </Project>
