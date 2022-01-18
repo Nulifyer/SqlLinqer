@@ -44,7 +44,7 @@ namespace SqlLinqer.Queries
                 return new SQLResponse<long>(0);
 
             // create batches
-            bool includePK = Config.PrimaryKey?.DBGenerated ?? false;
+            bool includePK = !Config.PrimaryKey?.DBGenerated ?? false;
             double numCols = (includePK ? 1 : 0) + Config.Columns.Count();
             int numBatches = (int)Math.Ceiling(numCols * _objs.Count() / ParameterLimit);
             int batchSize = _objs.Count() / numBatches;

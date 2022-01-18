@@ -92,7 +92,7 @@ namespace SqlLinqer.Queries
             }
             catch (Exception err)
             {
-                result.Error = new SQLResponseException(cmd.CommandText, innerException: err);
+                result.Error = new SQLResponseException(cmd, innerException: err);
             }
 
             return result;

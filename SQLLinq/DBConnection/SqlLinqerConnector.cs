@@ -5,7 +5,6 @@ using System.ComponentModel;
 using System.Data;
 using System.Data.Common;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace SqlLinqer
 {
@@ -137,7 +136,7 @@ namespace SqlLinqer
             }
             catch (Exception err)
             {
-                result.Error = new SQLResponseException(command.CommandText, innerException: err);
+                result.Error = new SQLResponseException(command, innerException: err);
             }
             return result;
         }
@@ -150,17 +149,6 @@ namespace SqlLinqer
         {
             NullToDBNull(command);
             command.CommandTimeout = CommandTimeout;
-#if DEBUG
-            Console.WriteLine("---------------------");
-            Console.WriteLine(command.CommandText);
-            if (command.Parameters.Count > 0)
-            {
-                Console.WriteLine("-  -  -  -  -  -  -  -  -");
-                foreach(DbParameter param in command.Parameters)
-                    Console.WriteLine($"{param.ParameterName}={param.Value}");
-            }
-            Console.WriteLine("---------------------");
-#endif
             var response = ExecuteCommand(() =>
             {
                 var result = new SQLResponse<DataTable>();
@@ -186,7 +174,7 @@ namespace SqlLinqer
                 }
                 catch (Exception err)
                 {
-                    result.Error = new SQLResponseException(command.CommandText, innerException: err);
+                    result.Error = new SQLResponseException(command, innerException: err);
                 }
 
                 return result;
@@ -210,17 +198,6 @@ namespace SqlLinqer
         {
             NullToDBNull(command);
             command.CommandTimeout = CommandTimeout;
-#if DEBUG
-            Console.WriteLine("---------------------");
-            Console.WriteLine(command.CommandText);
-            if (command.Parameters.Count > 0)
-            {
-                Console.WriteLine("-  -  -  -  -  -  -  -  -");
-                foreach (DbParameter param in command.Parameters)
-                    Console.WriteLine($"{param.ParameterName}={param.Value}");
-            }
-            Console.WriteLine("---------------------");
-#endif
             var response = ExecuteCommand(() =>
             {
                 var result = new SQLResponse<T>();
@@ -255,7 +232,7 @@ namespace SqlLinqer
                 catch (Exception err)
                 {
                     transaction?.Rollback();
-                    result.Error = new SQLResponseException(command.CommandText, innerException: err);
+                    result.Error = new SQLResponseException(command, innerException: err);
                 }
 
                 return result;
@@ -279,17 +256,6 @@ namespace SqlLinqer
         {
             NullToDBNull(command);
             command.CommandTimeout = CommandTimeout;
-#if DEBUG
-            Console.WriteLine("---------------------");
-            Console.WriteLine(command.CommandText);
-            if (command.Parameters.Count > 0)
-            {
-                Console.WriteLine("-  -  -  -  -  -  -  -  -");
-                foreach (DbParameter param in command.Parameters)
-                    Console.WriteLine($"{param.ParameterName}={param.Value}");
-            }
-            Console.WriteLine("---------------------");
-#endif
             var response = ExecuteCommand(() =>
             {
                 var result = new SQLResponse<long>();
@@ -314,7 +280,7 @@ namespace SqlLinqer
                 catch (Exception err)
                 {
                     transaction?.Rollback();
-                    result.Error = new SQLResponseException(command.CommandText, innerException: err);
+                    result.Error = new SQLResponseException(command, innerException: err);
                 }
 
                 return result;
@@ -347,7 +313,7 @@ namespace SqlLinqer
 
                 DbTransaction transaction = null;
 
-                string currentCmd = null;
+                DbCommand currentCmd = null;
                 long rows_aff = 0;
 
                 try
@@ -358,21 +324,10 @@ namespace SqlLinqer
 
                     foreach (DbCommand cmd in commands)
                     {
+                        currentCmd = cmd;
                         NullToDBNull(cmd);
                         cmd.CommandTimeout = CommandTimeout;
-#if DEBUG
-                        Console.WriteLine("---------------------");
-                        Console.WriteLine(cmd.CommandText);
-                        if (cmd.Parameters.Count > 0)
-                        {
-                            Console.WriteLine("-  -  -  -  -  -  -  -  -");
-                            foreach (DbParameter param in cmd.Parameters)
-                                Console.WriteLine($"{param.ParameterName}={param.Value}");
-                        }
-                        Console.WriteLine("---------------------");
-#endif
                         cmd.Transaction = transaction;
-                        currentCmd = cmd.CommandText;
                         rows_aff += cmd.ExecuteNonQuery();
                     }
 

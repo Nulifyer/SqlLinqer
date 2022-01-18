@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 
 namespace SqlLinqer
-{   
+{
     /// <summary>
     /// Includes the extension methods of the SqlLinqer library
     /// Should be inherited by classes with no primary key. For those with a primary key use <see cref="SqlLinqerObjectWithPrimaryKey{TObj, TKey}"/>
@@ -81,6 +81,61 @@ namespace SqlLinqer
         {
             return new SQLDeleteWhereQuery<TObj>();
         }
+
+        /// <summary>
+        /// Run a SQL select with result transforming functions applied
+        /// </summary>
+        /// <typeparam name="TResult">The new return type</typeparam>
+        /// <param name="expression">A expression that points to the property/field of the class to be updated</param>
+        public static SQLSelectWhereAggregateQuery<TObj, TResult> GroupBy<TResult>(Expression<Func<TObj, TResult>> expression)
+        {
+            var new_expression = expression.Body as NewExpression;
+            if (new_expression != null && new_expression.Arguments.Count > 0)
+                return new SQLSelectWhereAggregateQuery<TObj, TResult>(new_expression);
+
+            throw new Exception($"Group by should create a new anonymous object. Ex. .{nameof(SqlLinqerObject<TObj>.GroupBy)}(x => new {{ Count = x.{nameof(SqlLinqerObject<TObj>.SQLCount)}(a => a.Id) }});");
+        }
+
+        /// <summary>
+        /// AVG Value
+        /// </summary>
+        public double SQLAvg(Expression<Func<TObj, object>> expression) => default;
+        /// <summary>
+        /// This function returns the checksum of the values in a group
+        /// </summary>
+        public int SQLChecksumAgg(Expression<Func<TObj, object>> expression) => default;
+        /// <summary>
+        /// Count based on value
+        /// </summary>
+        public int SQLCount(Expression<Func<TObj, object>> expression) => default;
+        /// <summary>
+        /// Count based on value, return long
+        /// </summary>
+        public double SQLCountBig(Expression<Func<TObj, object>> expression) => default;
+        /// <summary>
+        /// Max value
+        /// </summary>
+        public TReturn SQLMax<TReturn>(Expression<Func<TObj, TReturn>> expression) where TReturn : struct => default;
+        /// <summary>
+        /// Minimum value
+        /// </summary>
+        public TReturn SQLMin<TReturn>(Expression<Func<TObj, TReturn>> expression) where TReturn : struct => default;
+        /// <summary>
+        /// Statistical standard deviation 
+        /// </summary>
+        public float SQLStdev(Expression<Func<TObj, object>> expression) => default;
+        /// <summary>
+        /// Statistical standard deviation for the population
+        /// </summary>
+        public float SQLStdevp(Expression<Func<TObj, object>> expression) => default;
+        /// <summary>
+        /// Return the unix timestamp for date in seconds
+        /// </summary>
+        public long SQLDateToUnixtimestampSec(Expression<Func<TObj, object>> expression) => default;
+        /// <summary>
+        /// Return the unix timestamp for date in milliseconds
+        /// </summary>
+        public long SQLDateToUnixtimestampMs(Expression<Func<TObj, object>> expression) => default;
     }
     /// <summary>
     /// Includes the extension methods of the SqlLinqer library

@@ -44,6 +44,14 @@
         /// <summary>
         /// Not In
         /// </summary>
-        NOTIN
+        NOTIN,
+        /// <summary>
+        /// Matches any value in Enumerable. Use only for one to many relationships.
+        /// </summary>
+        ANY,
+        /// <summary>
+        /// Matches all values in Enumerable. Use only for one to many relationships.
+        /// </summary>
+        ALL
     }
 }

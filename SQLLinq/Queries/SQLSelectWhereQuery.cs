@@ -174,11 +174,11 @@ namespace SqlLinqer.Queries
             switch (DBType)
             {
                 case DBType.PostgreSQL:
-                case DBType.MYSQL:
                     _options.page = 1;
                     _options.pageSize = count;
                     _options.top = 0;
                     break;
+                case DBType.MYSQL:
                 case DBType.OracleSQL:
                 case DBType.SQLServer:
                     _options.page = 0;
@@ -308,7 +308,7 @@ namespace SqlLinqer.Queries
             }
             catch (Exception err)
             {
-                return result.SetError(new SQLResponseException(cmd.CommandText, innerException: err));
+                return result.SetError(new SQLResponseException(cmd, innerException: err));
             }
 
             if (GetTotalResults)
@@ -321,7 +321,7 @@ namespace SqlLinqer.Queries
                     }
                     catch (Exception err)
                     {
-                        result.Error = new SQLResponseException(cmd.CommandText, innerException: err);
+                        result.Error = new SQLResponseException(cmd, innerException: err);
                     }
                 }
                 else

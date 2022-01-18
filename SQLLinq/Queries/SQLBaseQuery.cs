@@ -40,8 +40,14 @@ namespace SqlLinqer.Queries
             Config = new SQLConfig(typeof(TObj), recursionLevel);
         }
 
-
-        private MemberExpression GetMember(Expression<Func<TObj, object>> expr)
+        /// <summary>
+        /// Get member expression from generic expression
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="expr">Expression that is a member expression</param>
+        /// <returns cref="MemberExpression"></returns>
+        /// <exception cref="ArgumentException">Failed to find member expression</exception>
+        protected static MemberExpression GetMember<T>(Expression<T> expr)
         {
             if (expr?.Body == null)
                 throw new ArgumentException("Expression cannot be null");
@@ -57,7 +63,13 @@ namespace SqlLinqer.Queries
 
             throw new ArgumentException("Invalid expression. Expression must be a member expression.");
         }
-        private SQLMemberInfo GetMemberFromExpression(MemberExpression memExpr)
+        /// <summary>
+        /// Get the SQL Member from the expression
+        /// </summary>
+        /// <param name="memExpr"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        protected SQLMemberInfo GetMemberFromExpression(MemberExpression memExpr)
         {
             SQLMemberInfo column = null;
 
@@ -106,7 +118,13 @@ namespace SqlLinqer.Queries
 
             return column;
         }
-        private SQLRelationship GetRelationshipFromExpression(MemberExpression memExpr)
+        /// <summary>
+        /// Get relationship from expresssion
+        /// </summary>
+        /// <param name="memExpr"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        protected SQLRelationship GetRelationshipFromExpression(MemberExpression memExpr)
         {
             SQLRelationship relationship = null;
 
@@ -185,7 +203,7 @@ namespace SqlLinqer.Queries
         /// </summary>
         /// <param name="expr">The expression that points to the member</param>
         /// <returns>The <see cref="SQLRelationship"/> for the pointed member</returns>
-        protected SQLRelationship GetRelationshipFromExpression(Expression<Func<TObj, object>> expr)
+        protected SQLRelationship GetRelationshipFromExpression<T>(Expression<T> expr)
         {
             return GetRelationshipFromExpression(GetMember(expr));
         }
@@ -195,7 +213,7 @@ namespace SqlLinqer.Queries
         /// </summary>
         /// <param name="expr">The expression that points to the member</param>
         /// <returns>The <see cref="SQLMemberInfo"/> for the pointed member</returns>
-        protected SQLMemberInfo GetMemberFromExpression(Expression<Func<TObj, object>> expr)
+        protected SQLMemberInfo GetMemberFromExpression<T>(Expression<T> expr)
         {
             return GetMemberFromExpression(GetMember(expr));
         }

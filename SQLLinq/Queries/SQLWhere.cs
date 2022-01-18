@@ -55,6 +55,11 @@ namespace SqlLinqer
             Group.Add(new SQLWhereClause<TObj>(column, value, op));
             return this;
         }
+        internal SQLWhereGroup<TObj> Add(SQLWhereClause<TObj> clause)
+        {
+            Group.Add(clause);
+            return this;
+        }
         internal SQLWhereGroup<TObj> Clear()
         {
             Group.Clear();
@@ -101,12 +106,18 @@ namespace SqlLinqer
                 case SQLOp.NOTLIKE:
                     return " NOT LIKE ";
                 case SQLOp.IN:
+                case SQLOp.ANY:
+                case SQLOp.ALL:
                     return " IN ";
                 case SQLOp.NOTIN:
                     return " NOT IN ";
                 default:
                     return "=";
             }
+        }
+        public SQLWhereClause<TObj> Clone()
+        {
+            return (SQLWhereClause<TObj>)this.MemberwiseClone();
         }
     }
 }

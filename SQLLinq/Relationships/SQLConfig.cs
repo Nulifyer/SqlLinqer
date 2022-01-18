@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 
 namespace SqlLinqer.Relationships
@@ -13,7 +15,7 @@ namespace SqlLinqer.Relationships
         /// <summary>
         /// Improves performance by only computing the config of a certain type at a certain level once
         /// </summary>
-        private static readonly Dictionary<(Type type, int recursionLevel), SQLConfig> _cache = new Dictionary<(Type type, int recursionLevel), SQLConfig>();
+        private static readonly ConcurrentDictionary<(Type type, int recursionLevel), SQLConfig> _cache = new ConcurrentDictionary<(Type type, int recursionLevel), SQLConfig>();
 
         /// <summary>
         /// The class type the config was made for 
@@ -73,6 +75,7 @@ namespace SqlLinqer.Relationships
             if (_cache.ContainsKey((Type, RecursionLevel)))
             {
                 SQLConfig cached = _cache[(Type, RecursionLevel)];
+                TableAlias = cached.TableAlias;
                 TableName = cached.TableName;
                 PrimaryKey = cached.PrimaryKey;
                 Columns = cached.Columns;
@@ -83,13 +86,9 @@ namespace SqlLinqer.Relationships
             else
             {
                 Compute(recursionLevel, this);
-                if (_cache.ContainsKey((Type, RecursionLevel)))
-                    _cache[(Type, RecursionLevel)] = this;
-                else
-                    _cache.Add((Type, RecursionLevel), this);
+                ComputeAlias();
+                _cache.AddOrUpdate((Type, RecursionLevel), this, (Type, RecursionLevel) => this);
             }
-
-            ComputeAlias();
         }
         /// <summary>
         /// Creates the config of a class where the config has some root config
@@ -118,11 +117,9 @@ namespace SqlLinqer.Relationships
             TableName = tableprop?.Name ?? Type.Name;
 
             // column info
-            MemberInfo[] members = Type.GetMembers(BindingFlags.Public | BindingFlags.Instance);
-
             var OTOmembers = new List<(MemberInfo mem, SQLOneToOne oto)>();
             var OTMmembers = new List<(MemberInfo mem, SQLOneToMany otm)>();
-            foreach (var col in members)
+            foreach (var col in Type.GetMembers(BindingFlags.Public | BindingFlags.Instance).OrderBy(x => x.MetadataToken))
             {
                 if (col.MemberType != MemberTypes.Property && col.MemberType != MemberTypes.Field)
                     continue;
@@ -238,31 +235,47 @@ namespace SqlLinqer.Relationships
         /// </summary>
         private void ComputeAlias()
         {
-            ComputeAlias(0, 0);
+            var alias_hash_history = new Dictionary<string, string>();
+            ComputeAlias(0, 0, alias_hash_history);
         }
         /// <summary>
         /// Recursively computes the table alias for each layer of the config.
         /// These aliases prevent collision of the table when they are the same.
         /// </summary>
-        private void ComputeAlias(int layer, int num)
+        private void ComputeAlias(int layer, int num, Dictionary<string, string> alias_hash_history)
         {
-            if (TableAlias != null)
-                return;
+            if (RecursionLevel < layer)
+                RecursionLevel = layer;
 
-            TableAlias = $"{TableName}_{layer}_{num}";
+            TableAlias = $"{layer}_{num}_{TableName}";
+            if (ParentRelationship != null)
+            {
+                string parent_alias = ParentRelationship.Left.Config.TableAlias;
+                if (alias_hash_history.ContainsKey(parent_alias))
+                    TableAlias += "_" + alias_hash_history[parent_alias];
+                else
+                {
+                    using (var provider = new System.Security.Cryptography.MD5CryptoServiceProvider())
+                    {
+                        byte[] parent = System.Text.Encoding.Default.GetBytes(parent_alias);
+                        byte[] hashed = provider.ComputeHash(parent);
+                        string guid = new Guid(hashed).ToString();
+                        alias_hash_history.Add(parent_alias, guid);
+                        TableAlias += "_" + guid;
+                    }
+                }
+            }
 
             ++layer;
-            num = 0;
+            // num = 0;
             foreach (var oto in OneToOne)
             {
-                oto.Left.Config.ComputeAlias(layer, ++num);
-                oto.Right.Config.ComputeAlias(layer, ++num);
+                oto.Right.Config.ComputeAlias(layer, ++num, alias_hash_history);
             }
 
             foreach (var otm in OneToMany)
             {
-                otm.Left.Config.ComputeAlias(layer, ++num);
-                otm.Right.Config.ComputeAlias(layer, ++num);
+                otm.Right.Config.ComputeAlias(layer, ++num, alias_hash_history);
             }
         }
     }
