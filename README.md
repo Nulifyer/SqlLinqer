@@ -184,6 +184,33 @@ This only applies to selecting columns not using them in where or order by state
         .Distinct()
         .Top(20)
         .Run();
+    
+    // Select users with admin permission
+    /*
+     * This will automatically create a with statement in the query 
+     * so you still recieve a single instance of each user
+     * even though you have joined to a one-to-many relationship
+     */
+    SQLSelectResponse<List<_User>> response6 = _User
+        .Select()
+        .Where(x => x._permission.name, "admin")
+        .Run();
+
+### Group By Examples
+
+      // Select each permission and count the number of users for each and order by the count desc
+      /*
+       * This returns an anonymous type set of objects.
+       * There are a several T-SQL functions implemented, you can see these prefixed with "SQL"
+       * which come from the base class.
+       */
+      SQLSelectResponse<List<a'>> group_by_response = _Permission
+            .GroupBy(x => new {
+	    	x.Name,
+	    	Count = x.SQLCount(a => a._User.id)
+            })
+            .OrderBy(x => x.Count, SQLDir.DESC)
+            .Run();
 
 ## Query Responses
 
@@ -224,5 +251,5 @@ This was important because impersonation is platform specific and this way allow
             using(<impersonation context>) {
             	return base.ExecuteCommand(action);
 		}
-        }
     }
+
