@@ -23,10 +23,15 @@
     <RepositoryType>GitHub</RepositoryType>
     <PackageTags>mysql sql csharp postgresql database-connector</PackageTags>
     <FileVersion>$(Package Version)</FileVersion>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+      <None Include="README.md" Pack="true" PackagePath="\"/>
   </ItemGroup>
 
 </Project>
