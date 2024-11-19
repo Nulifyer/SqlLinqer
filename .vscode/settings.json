@@ -1,0 +1,45 @@
+{
+    "sqltools.connections": [
+        {
+            "mysqlOptions": {
+                "authProtocol": "default"
+            },
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 3306,
+            "askForPassword": true,
+            "driver": "MariaDB",
+            "name": "mysql-test-db",
+            "database": "employees",
+            "username": "root",
+            "connectionTimeout": 15
+        },
+        {
+            "pgOptions": {
+                "idleTimeoutMillis": 30000,
+                "connectionTimeoutMillis": 30000,
+                "query_timeout": 30000,
+                "statement_timeout": 30000
+            },
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "postgresTestDB",
+            "database": "employees",
+            "username": "dbuser",
+            "password": "dbpass",
+            "connectionTimeout": 30
+        }
+    ],
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        "**/bin": true,
+        "**/obj": true
+    }
+}
