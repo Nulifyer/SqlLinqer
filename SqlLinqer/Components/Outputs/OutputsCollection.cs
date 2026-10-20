@@ -24,6 +24,7 @@ namespace SqlLinqer.Components.Outputs
 
         internal string Render(DbFlavor flavor, string targetAlias)
         {
+            flavor = SqlDialect.Resolve(flavor);
             if (Count == 0)
                 return null;
 

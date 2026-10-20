@@ -33,6 +33,7 @@ namespace SqlLinqer.Components.Select
         /// <inheritdoc/>
         public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool forJson, bool include_alias)
         {
+            flavor = SqlDialect.Resolve(flavor);
             var args_processed = new List<object>();
             foreach (var arg in Args)
             {

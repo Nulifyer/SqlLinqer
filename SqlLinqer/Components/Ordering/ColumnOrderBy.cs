@@ -20,6 +20,7 @@ namespace SqlLinqer.Components.Ordering
 
         public string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
+            flavor = SqlDialect.Resolve(flavor);
             switch (flavor)
             {
                 case DbFlavor.PostgreSql:

@@ -7,6 +7,11 @@ namespace SqlLinqer.Connections
     /// <summary>
     /// Creates new connections to the database by replicating the example connection passed to it.
     /// </summary>
+    /// <remarks>
+    /// Copies only the provider type and connection string, replacing the connection timeout.
+    /// Provider properties such as AccessToken, AccessTokenCallback and SqlCredential are not copied.
+    /// Use ConnectionFactoryConnector when authentication requires properties on each new connection.
+    /// </remarks>
     public class ReplicatorConnector : BaseConnector
     {
         private readonly Type _type;
@@ -27,7 +32,7 @@ namespace SqlLinqer.Connections
             var connectionParams = new DbConnectionStringBuilder { ConnectionString = connection.ConnectionString };
 
             string connTimeoutKey;
-            switch (DbFlavor)
+            switch (SqlDialect.Resolve(DbFlavor))
             {
                 case DbFlavor.PostgreSql:
                     connTimeoutKey = "Timeout";

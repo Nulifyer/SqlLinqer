@@ -89,3 +89,9 @@ var query = User
     .Where(x => x.Email, "%@company.com", SqlOp.LIKE)
     .Execute(connector);
 ```
+
+## Azure SQL Database
+
+Use `DbFlavor.AzureSql` with a SQL Server-compatible provider. Azure SQL uses SQL Server rendering while preserving the connector flavor. Provider setup, encrypted SQL and Microsoft Entra connection examples, token callback limitations and the optional live test suite are documented in [SqlLinqer.AzureSqlTests](https://github.com/Nulifyer/SqlLinqer/tree/master/SqlLinqer.AzureSqlTests).
+
+For Azure SQL authentication supplied through connection properties, use `ConnectionFactoryConnector` with a factory that creates a fresh provider connection and attaches its callback or credential. The factory owns login configuration; the connector applies command timeout and disposes connections it creates. See the [Azure SQL tests and connection guide](../SqlLinqer.AzureSqlTests/README.md) for required-live verification, scoped TVP/procedure tests, and remaining live validation.

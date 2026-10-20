@@ -23,10 +23,15 @@ namespace SqlLinqer.Queries.Core
 
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
+            flavor = SqlDialect.Resolve(flavor);
             var valueKeys = new List<string>();
             foreach (var parameter in Parameters.GetAll())
             {
-                string placeholder = parameters.AddParameter(parameter.Value);
+                if (parameter is TvpParameter && flavor != DbFlavor.SqlServer)
+                    throw new System.NotSupportedException("Stored procedure table-valued parameters require SQL Server or Azure SQL.");
+                string placeholder = parameter is TvpParameter tvp
+                    ? parameters.AddTvpParameter((System.Data.DataTable)tvp.Value, tvp.TypeName)
+                    : parameters.AddParameter(parameter.Value, parameter.DbType);
                 switch (flavor)
                 {
                     case DbFlavor.SqlServer:

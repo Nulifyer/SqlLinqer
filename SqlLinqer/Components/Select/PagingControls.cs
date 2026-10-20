@@ -45,6 +45,7 @@ namespace SqlLinqer.Components.Select
 
         public string Render(DbFlavor flavor)
         {
+            flavor = SqlDialect.Resolve(flavor);
             int limit = Limit;
             int offset = Offset;
             switch (flavor)

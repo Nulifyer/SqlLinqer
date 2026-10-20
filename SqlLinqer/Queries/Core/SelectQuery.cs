@@ -289,6 +289,7 @@ namespace SqlLinqer.Queries.Core
         /// <param name="forJson">Include the FOR JSON statement at the end</param>
         public string Render(ParameterCollection parameters, DbFlavor flavor, bool forJson)
         {
+            flavor = SqlDialect.Resolve(flavor);
             var stashables = new IStashable[]
             {
                 this.RootWhere,
@@ -303,6 +304,8 @@ namespace SqlLinqer.Queries.Core
 
             try
             {
+                // COUNT(1) and constant projections still operate on the root table.
+                Joins.AddRootTable(Table);
                 if (this.PagingControls.Limit > 0 && this.OrderBys.Count == 0)
                 {
                     var column = Table.PrimaryKey ?? Table.Columns.GetAll().First();
@@ -348,6 +351,7 @@ namespace SqlLinqer.Queries.Core
         /// <param name="flavor">The type of Sql database being used</param>
         public string RenderForCount(ParameterCollection parameters, DbFlavor flavor)
         {
+            flavor = SqlDialect.Resolve(flavor);
             var stashables = new IStashable[]
             {
                 this.RootWhere,
@@ -362,6 +366,26 @@ namespace SqlLinqer.Queries.Core
 
             try
             {
+                // A total for a DISTINCT or aggregate projection counts projected rows,
+                // including the single row produced by an ungrouped aggregate.
+                if (flavor == DbFlavor.SqlServer && (Distinct || Selects.GetAll().Any(x => !x.DoGroupBy())))
+                {
+                    PagingControls.Reset();
+                    OrderBys.Clear();
+                    bool subQuery = IsSubQuery;
+                    try
+                    {
+                        // SQL Server requires WITH before the outer SELECT, never inside its derived table.
+                        IsSubQuery = true;
+                        string projection = Render(parameters, flavor, false);
+                        // Relationship predicates discover their CTEs while rendering the projection.
+                        // Hoist the complete collection only after those predicates have rendered.
+                        string with = !subQuery ? Withs?.Render(this, parameters, flavor) : null;
+                        return $"{with} SELECT COUNT(*) FROM ({projection}) AS [SqlLinqerCount]";
+                    }
+                    finally { IsSubQuery = subQuery; }
+                }
+
                 // render to setup joins
                 this.RootWhere.Render(this, parameters, flavor);
                 this.Selects.Render(this, parameters, flavor, false);

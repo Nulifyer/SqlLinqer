@@ -37,11 +37,15 @@ namespace SqlLinqer.Components.Select
         /// <inheritdoc/>
         public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool forJson, bool include_alias)
         {
-            string rendered_query = SubQuery.Render(parameters, flavor, forJson);
+            flavor = SqlDialect.Resolve(flavor);
+            // A relationship is a JSON-valued column even in a tabular SQL Server result.
+            // Rendering it as a multi-column scalar subquery produces invalid SQL.
+            bool nestedJson = forJson || flavor == DbFlavor.SqlServer;
+            string rendered_query = SubQuery.Render(parameters, flavor, nestedJson);
             rendered_query = $"({rendered_query})";
 
             // if is FOR JSON and is OneToOne, run JSON_QUERY to pull first element from array
-            if (forJson)
+            if (nestedJson)
             {
                 switch (flavor)
                 {

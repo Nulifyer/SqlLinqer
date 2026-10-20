@@ -25,6 +25,7 @@ namespace SqlLinqer.Components.Outputs
 
         internal string Render(DbFlavor flavor, string targetAlias)
         {
+            flavor = SqlDialect.Resolve(flavor);
             switch (flavor)
             {
                 case DbFlavor.SqlServer:

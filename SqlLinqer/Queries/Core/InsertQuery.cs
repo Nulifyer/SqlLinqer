@@ -28,6 +28,7 @@ namespace SqlLinqer.Queries.Core
         /// <returns></returns>
         public virtual (string Create, string Drop) RenderTempType(DbFlavor flavor, string typeName)
         {
+            flavor = SqlDialect.Resolve(flavor);
             if (flavor != DbFlavor.SqlServer)
                 throw new System.NotSupportedException("Table-valued parameters are supported only for SQL Server.");
             return Inserts.RenderTempType(flavor, typeName);
@@ -35,6 +36,7 @@ namespace SqlLinqer.Queries.Core
         /// <inheritdoc/>
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
+            flavor = SqlDialect.Resolve(flavor);
             var stashables = new IStashable[]
             {
                 this.Outputs,
@@ -74,6 +76,7 @@ namespace SqlLinqer.Queries.Core
         /// <returns></returns>
         public (string Query, string TempTypeId) RenderTVP(ParameterCollection existingCollection, DbFlavor flavor, string schema)
         {
+            flavor = SqlDialect.Resolve(flavor);
             if (flavor != DbFlavor.SqlServer)
                 throw new System.NotSupportedException("Table-valued parameters are supported only for SQL Server.");
 

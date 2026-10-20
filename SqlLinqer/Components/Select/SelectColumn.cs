@@ -26,6 +26,7 @@ namespace SqlLinqer.Components.Select
         /// <inheritdoc/>
         public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool forJson, bool include_alias)
         {
+            flavor = SqlDialect.Resolve(flavor);
             query.Joins.AddTable(Column.Table);
 
             if (forJson)

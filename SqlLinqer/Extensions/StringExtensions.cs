@@ -37,6 +37,7 @@ namespace SqlLinqer.Extensions.StringExtensions
         /// <param name="flavor">The type of SQL database</param>
         public static string DbWrap(this string str, DbFlavor flavor)
         {
+            flavor = SqlDialect.Resolve(flavor);
             char begin, end;
 
             switch (flavor)
@@ -67,6 +68,7 @@ namespace SqlLinqer.Extensions.StringExtensions
         /// <param name="flavor">The type of SQL database</param>
         public static string DbWrapString(this string str, DbFlavor flavor)
         {
+            flavor = SqlDialect.Resolve(flavor);
             char begin, end;
 
             switch (flavor)
@@ -92,6 +94,7 @@ namespace SqlLinqer.Extensions.StringExtensions
         /// <param name="flavor">The flavor of database</param>
         public static string EscapeForSqlLike(this string str, DbFlavor flavor)
         {
+            flavor = SqlDialect.Resolve(flavor);
             switch (flavor)
             {
                 case DbFlavor.SqlServer:

@@ -25,6 +25,7 @@ namespace SqlLinqer.Components.Select
 
         public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool for_json, bool include_alias)
         {
+            flavor = SqlDialect.Resolve(flavor);
             var builder = new StringBuilder();
             builder.Append("case ");
             bool first = true;

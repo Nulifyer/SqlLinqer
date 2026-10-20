@@ -32,7 +32,7 @@ namespace SqlLinqer.Components.Withs
             
             foreach (var select in Query.Selects.GetAll())
             {
-                var with_col = new Column(OutputTable, select.Alias);
+                var with_col = new Column(OutputTable, select.Alias, select.Alias);
                 OutputTable.Columns.AddColumn(with_col);
             }
         }

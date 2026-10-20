@@ -18,6 +18,7 @@ namespace SqlLinqer.Components.Select
 
         public string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool forJson)
         {
+            flavor = SqlDialect.Resolve(flavor);
             if (Count == 0)
                 return null;
 

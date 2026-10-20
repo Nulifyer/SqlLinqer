@@ -8,14 +8,18 @@
         /// <summary>
         /// Microsoft Sql Server 2012 or newer
         /// </summary>
-        SqlServer,
+        SqlServer = 0,
         /// <summary>
         /// My Sql
         /// </summary>
-        MySql,
+        MySql = 1,
         /// <summary>
         /// PostgreSql
         /// </summary>
-        PostgreSql,
+        PostgreSql = 2,
+        /// <summary>
+        /// Azure SQL Database, using the SQL Server dialect
+        /// </summary>
+        AzureSql = 5,
     }
 }

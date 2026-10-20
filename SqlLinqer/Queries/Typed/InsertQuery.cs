@@ -125,34 +125,8 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc cref="ExecuteTvp(BaseConnector, DbTransaction)"/>
         public SqlResponse<DataTable> ExecuteTvpWithOutput(BaseConnector connector, DbTransaction transaction = null)
         {
-            if (connector == null)
-                throw new ArgumentNullException("Either pass a connector or set the default connector.", nameof(connector));
-
-            var tempQuery = new RenderedQuery();
-            var (query, tempTypeId) = RenderTVP(tempQuery.Parameters, connector.DbFlavor, Table.Schema);
-            tempQuery.Text = query;
-
-            var (createType, dropType) = RenderTempType(connector.DbFlavor, tempTypeId);
-
-            var response = new SqlResponse<DataTable>();
-            try
-            {
-                var createTypeRes = connector.ExecuteNonQuery(new RenderedQuery(createType), transaction);
-                if (createTypeRes.State == ResponseState.Error)
-                    throw createTypeRes.Error;
-
-                response = connector.ExecuteReaderDataTable(tempQuery, transaction);
-
-                var dropTypeRes = connector.ExecuteNonQuery(new RenderedQuery(dropType), transaction);
-                if (dropTypeRes.State == ResponseState.Error)
-                    throw dropTypeRes.Error;
-            }
-            catch (Exception error)
-            {
-                response.SetError(error);
-            }
-
-            return response;
+            return ExecuteTvpCore(connector, transaction,
+                (query, tx) => connector.ExecuteReaderDataTable(query, tx));
         }
 
         internal SqlResponse<int> ExecuteAndCapturePrimaryKeys(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null)
@@ -200,71 +174,72 @@ namespace SqlLinqer.Queries.Typed
         internal SqlResponse<int> ExecuteTvpAndCapturePrimaryKeys(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null)
         {
             if (connector == null)
-                throw new ArgumentNullException("Either pass a connector or set the default connector.", nameof(connector));
+                throw new ArgumentNullException(nameof(connector));
+            if (Inserts.Count == 0)
+                return new SqlResponse<int>(0);
+            return ExecuteTvpCore(connector, existingTransaction, (query, tx) =>
+            {
+                if (primaryKeys == null)
+                    return connector.ExecuteNonQuery(query, tx);
+                var rows = connector.ExecuteReaderDataTable(query, tx);
+                if (rows.State == ResponseState.Error)
+                {
+                    var failed = new SqlResponse<int>();
+                    failed.SetError(rows.Error);
+                    return failed;
+                }
+                using (var table = rows.Result)
+                    foreach (DataRow row in table.Rows)
+                        primaryKeys.Add(row[0]);
+                return new SqlResponse<int>(primaryKeys.Count);
+            });
+        }
+
+        private SqlResponse<TResult> ExecuteTvpCore<TResult>(BaseConnector connector, DbTransaction existingTransaction,
+            Func<RenderedQuery, DbTransaction, SqlResponse<TResult>> execute)
+        {
+            if (connector == null)
+                throw new ArgumentNullException(nameof(connector));
 
             var tempQuery = new RenderedQuery();
             var (query, tempTypeId) = RenderTVP(tempQuery.Parameters, connector.DbFlavor, Table.Schema);
             tempQuery.Text = query;
-
             var (createType, dropType) = RenderTempType(connector.DbFlavor, tempTypeId);
-
-            var response = new SqlResponse<int>();
-
+            var response = new SqlResponse<TResult>();
             DbConnection conn = null;
             DbTransaction transaction = null;
-
+            bool typeCreated = false;
             try
             {
                 conn = existingTransaction == null
                     ? connector.CreateConnection()
                     : existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
-
                 if (conn.State != ConnectionState.Open)
                     conn.Open();
-
                 transaction = existingTransaction ?? conn.BeginTransaction(IsolationLevel.ReadCommitted);
 
-                var createTypeRes = connector.ExecuteNonQuery(new RenderedQuery(createType), transaction);
-                if (createTypeRes.State == ResponseState.Error)
-                    throw createTypeRes.Error;
-
-                ISqlResponse insertRes;
-                if (primaryKeys == null)
-                {
-                    var insertResNon = connector.ExecuteNonQuery(tempQuery, transaction);
-                    if (insertResNon.State == ResponseState.Valid)
-                        response.SetResult(insertResNon.Result);
-                    insertRes = insertResNon;
-                }
-                else
-                {
-                    var insertResData = connector.ExecuteReaderDataTable(tempQuery, transaction);
-                    if (insertResData.State == ResponseState.Valid)
-                    {
-                        foreach (DataRow row in insertResData.Result.Rows)
-                        {
-                            primaryKeys.Add(row[0]);
-                        }
-                        response.SetResult(primaryKeys.Count);
-                    }
-                    insertRes = insertResData;
-                }
-
-                if (insertRes.State == ResponseState.Error)
-                    throw insertRes.Error;
-
-                var dropTypeRes = connector.ExecuteNonQuery(new RenderedQuery(dropType), transaction);
-                if (dropTypeRes.State == ResponseState.Error)
-                    throw dropTypeRes.Error;
-
-                if (existingTransaction == null)
-                    transaction.Commit();
+                var create = connector.ExecuteNonQuery(new RenderedQuery(createType), transaction);
+                if (create.State == ResponseState.Error) throw create.Error;
+                typeCreated = true;
+                response = execute(tempQuery, transaction);
+                if (response.State == ResponseState.Error) throw response.Error;
+                var drop = connector.ExecuteNonQuery(new RenderedQuery(dropType), transaction);
+                if (drop.State == ResponseState.Error) throw drop.Error;
+                typeCreated = false;
+                if (existingTransaction == null) transaction.Commit();
             }
             catch (Exception error)
             {
                 if (existingTransaction == null && transaction != null)
                 {
                     try { transaction.Rollback(); }
+                    catch { }
+                }
+                else if (typeCreated)
+                {
+                    // A usable caller transaction can clean up immediately. A doomed one must
+                    // be rolled back by its owner, which also rolls back CREATE TYPE.
+                    try { connector.ExecuteNonQuery(new RenderedQuery(dropType), transaction); }
                     catch { }
                 }
                 response.SetError(error);
@@ -274,13 +249,10 @@ namespace SqlLinqer.Queries.Typed
                 if (existingTransaction == null)
                 {
                     try { transaction?.Dispose(); }
-                    finally
-                    {
-                        conn?.Dispose();
-                    }
+                    finally { conn?.Dispose(); }
                 }
+                (tempQuery.Parameters.GetAll().OfType<TvpParameter>().FirstOrDefault()?.Value as DataTable)?.Dispose();
             }
-
             return response;
         }
     }

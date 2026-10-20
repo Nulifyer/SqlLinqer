@@ -19,6 +19,7 @@ namespace SqlLinqer.Queries.Core
         /// <inheritdoc/>
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
+            flavor = SqlDialect.Resolve(flavor);
             var stashables = new IStashable[]
             {
                 this.RootWhere,

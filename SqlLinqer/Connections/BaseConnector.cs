@@ -66,10 +66,11 @@ namespace SqlLinqer.Connections
 
                 if (param is TvpParameter tvpParam)
                 {
-                    dbParam
-                        .GetType()
-                        .GetProperty("TypeName")?
-                        .SetValue(dbParam, tvpParam.TypeName);
+                    var parameterType = dbParam.GetType();
+                    parameterType.GetProperty("TypeName")?.SetValue(dbParam, tvpParam.TypeName);
+                    var sqlDbType = parameterType.GetProperty("SqlDbType");
+                    if (sqlDbType != null)
+                        sqlDbType.SetValue(dbParam, Enum.Parse(sqlDbType.PropertyType, "Structured"));
                 }
 
                 command.Parameters.Add(dbParam);
@@ -251,7 +252,7 @@ namespace SqlLinqer.Connections
         /// </summary>
         public virtual bool JsonResultsRowByRow()
         {
-            switch (DbFlavor)
+            switch (SqlDialect.Resolve(DbFlavor))
             {
                 case DbFlavor.PostgreSql:
                 case DbFlavor.MySql:

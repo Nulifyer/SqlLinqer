@@ -83,6 +83,7 @@ namespace SqlLinqer.Extensions.TypeExtensions
             if (type == typeof(string)) return DbType.String;
             if (type == typeof(char)) return DbType.StringFixedLength;
             if (type == typeof(DateTime)) return DbType.DateTime;
+            if (type == typeof(DateTimeOffset)) return DbType.DateTimeOffset;
             if (type == typeof(TimeSpan)) return DbType.Time;
             if (type == typeof(byte[])) return DbType.Binary;
             if (type == typeof(Guid)) return DbType.Guid;
@@ -96,10 +97,11 @@ namespace SqlLinqer.Extensions.TypeExtensions
                 case "bool":
                 case "boolean": return "BIT";
                 case "byte": return "TINYINT";
-                case "char": return "CHAR(1)";
-                case "decimal": return "DECIMAL(18,29)";
+                case "char": return "NCHAR(1)";
+                case "decimal": return "DECIMAL(38,18)";
                 case "double": return "FLOAT";
-                case "float": return "REAL";
+                case "float":
+                case "single": return "REAL";
                 case "int":
                 case "uint":
                 case "int32":
@@ -117,7 +119,7 @@ namespace SqlLinqer.Extensions.TypeExtensions
                     return "SMALLINT";
                 case "sbyte": return "TINYINT";
                 case "datetimeoffset": return "DATETIMEOFFSET";
-                case "datetime": return "DATETIME";
+                case "datetime": return "DATETIME2(7)";
                 case "byte[]": return "VARBINARY(MAX)";
                 case "string": return "NVARCHAR(MAX)";
                 case "timespan": return "TIME";

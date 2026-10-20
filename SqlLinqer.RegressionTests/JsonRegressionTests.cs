@@ -93,7 +93,7 @@ internal static class JsonRegressionTests
     private static T Read<T>(string json, DbFlavor flavor) where T : class
     {
         // SQL Server can split one FOR JSON result over multiple database rows.
-        var database = new FakeDatabase { JsonRows = flavor == DbFlavor.SqlServer ? new[] { "[", json, "]" } : new[] { json } };
+        var database = new FakeDatabase { JsonRows = flavor is DbFlavor.SqlServer or DbFlavor.AzureSql ? new[] { "[", json, "]" } : new[] { json } };
         var response = new FakeConnector(database, flavor).ExecuteReaderJson<T>(new RenderedQuery("SELECT json"));
         if (response.State != ResponseState.Valid)
             throw response.Error;

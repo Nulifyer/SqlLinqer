@@ -117,7 +117,7 @@ foreach (DbFlavor flavor in Enum.GetValues<DbFlavor>())
             query.Page(3, 5);
             string first = query.Render(flavor).Text;
             Expect(query.Render(flavor).Text == first, "Stale render state overwrote the repaired query");
-            Contains(first, flavor == DbFlavor.SqlServer ? "OFFSET 10 ROWS FETCH NEXT 5 ROWS ONLY" : "LIMIT 5 OFFSET 10");
+            Contains(first, flavor is DbFlavor.SqlServer or DbFlavor.AzureSql ? "OFFSET 10 ROWS FETCH NEXT 5 ROWS ONLY" : "LIMIT 5 OFFSET 10");
         });
     }
 }
@@ -371,6 +371,7 @@ foreach (object value in new object[] { null, DBNull.Value, SqlNull.NULL })
     });
 }
 
+AzureSqlRegressionTests.Run(Test);
 JsonRegressionTests.Run(Test);
 
 SqlLinqer.Default.Connector = null;

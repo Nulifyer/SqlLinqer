@@ -9,6 +9,7 @@ namespace SqlLinqer.RegressionTests;
 internal sealed class FakeDatabase
 {
     public string FailAt;
+    public string FailSql;
     public bool FailRollback;
     public int Rows = 2;
     public long Total = 22;
@@ -127,6 +128,8 @@ internal sealed class FakeCommand(FakeConnection connection) : DbCommand
     {
         connection.DatabaseState.Executed.Add(this);
         connection.DatabaseState.ThrowIf("execute");
+        if (connection.DatabaseState.FailSql != null && CommandText.TrimStart().StartsWith(connection.DatabaseState.FailSql))
+            throw new InvalidOperationException("SQL stage failure: " + connection.DatabaseState.FailSql);
     }
     public override int ExecuteNonQuery() { Execute(); return 1; }
     public override object ExecuteScalar() { Execute(); return connection.DatabaseState.Total; }
