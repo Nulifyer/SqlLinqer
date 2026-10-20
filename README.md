@@ -44,6 +44,7 @@ These checks cover PostgreSQL and MySQL. They do not cover SQL Server.
 
 ## Guides
 
+- [Publish a NuGet release](docs/RELEASING.md)
 - [Set up a connection](docs/SETUP_A_CONNECTION.md)
 - [Inject a connector](docs/SETUP_A_CONNECTION.md#inject-a-connector)
 - [Build a data model](docs/BUILDING_A_DATAMODEL.md)
