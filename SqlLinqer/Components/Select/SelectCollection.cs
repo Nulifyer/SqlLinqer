@@ -18,7 +18,6 @@ namespace SqlLinqer.Components.Select
 
         public string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool forJson)
         {
-            flavor = SqlDialect.Resolve(flavor);
             if (Count == 0)
                 return null;
 
@@ -46,6 +45,7 @@ namespace SqlLinqer.Components.Select
                         else
                             return $"JSON_ARRAYAGG( JSON_OBJECT( {string.Join(",", strs)} ) )";
                     case DbFlavor.SqlServer:
+                    case DbFlavor.AzureSql:
                         return $"{string.Join(",", strs)}";
                     default:
                         throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(SelectCollection)}.{nameof(Render)}");

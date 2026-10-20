@@ -37,7 +37,6 @@ namespace SqlLinqer.Extensions.StringExtensions
         /// <param name="flavor">The type of SQL database</param>
         public static string DbWrap(this string str, DbFlavor flavor)
         {
-            flavor = SqlDialect.Resolve(flavor);
             if (flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb)
                 return "\"" + str.Replace("\"", "\"\"") + "\"";
             char begin, end;
@@ -51,6 +50,7 @@ namespace SqlLinqer.Extensions.StringExtensions
                     begin = end = '`';
                     break;
                 case DbFlavor.SqlServer:
+                case DbFlavor.AzureSql:
                     begin = '[';
                     end = ']';
                     break;
@@ -70,7 +70,6 @@ namespace SqlLinqer.Extensions.StringExtensions
         /// <param name="flavor">The type of SQL database</param>
         public static string DbWrapString(this string str, DbFlavor flavor)
         {
-            flavor = SqlDialect.Resolve(flavor);
             if (flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb)
                 return "'" + str.Replace("'", "''") + "'";
             char begin, end;
@@ -80,6 +79,7 @@ namespace SqlLinqer.Extensions.StringExtensions
                 case DbFlavor.PostgreSql:
                 case DbFlavor.MySql:
                 case DbFlavor.SqlServer:
+                case DbFlavor.AzureSql:
                     begin = end = '\'';
                     break;
                 default:
@@ -98,10 +98,10 @@ namespace SqlLinqer.Extensions.StringExtensions
         /// <param name="flavor">The flavor of database</param>
         public static string EscapeForSqlLike(this string str, DbFlavor flavor)
         {
-            flavor = SqlDialect.Resolve(flavor);
             switch (flavor)
             {
                 case DbFlavor.SqlServer:
+                case DbFlavor.AzureSql:
                     return str
                         .Replace("[", "[[]")
                         .Replace("_", "[_]")

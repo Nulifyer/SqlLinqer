@@ -37,7 +37,6 @@ namespace SqlLinqer.Components.Select
         /// <inheritdoc/>
         public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool forJson, bool include_alias)
         {
-            flavor = SqlDialect.Resolve(flavor);
             // A relationship remains one JSON-valued column in tabular results.
             // A multi-column scalar subquery would produce invalid SQL.
             string rendered_query = SubQuery.Render(parameters, flavor, true);
@@ -58,6 +57,7 @@ namespace SqlLinqer.Components.Select
                         return $"{Alias.DbWrapString(flavor)}, {rendered_query}";
                     break;
                 case DbFlavor.SqlServer:
+                case DbFlavor.AzureSql:
                     if (Relationship.Type == RelationshipType.OneToOne)
                     {
                         rendered_query = $"JSON_QUERY({rendered_query}, '$[0]')";

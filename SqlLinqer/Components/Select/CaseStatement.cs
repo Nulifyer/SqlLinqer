@@ -25,7 +25,6 @@ namespace SqlLinqer.Components.Select
 
         public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool for_json, bool include_alias)
         {
-            flavor = SqlDialect.Resolve(flavor);
             var builder = new StringBuilder();
             builder.Append("case ");
             bool first = true;
@@ -50,6 +49,7 @@ namespace SqlLinqer.Components.Select
                     case DbFlavor.MySql:
                         return $"{Alias.DbWrapString(flavor)}, ({caseStr})";
                     case DbFlavor.SqlServer:
+                    case DbFlavor.AzureSql:
                         string alias = include_alias ? $" AS {Alias.DbWrap(flavor)}" : null;
                         return $"({caseStr})" + alias;
                     default:

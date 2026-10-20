@@ -23,7 +23,6 @@ namespace SqlLinqer.Queries.Core
 
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
-            flavor = SqlDialect.Resolve(flavor);
             if (flavor == DbFlavor.Sqlite)
                 throw new NotSupportedException("SQLite does not support stored procedures.");
             if (flavor == DbFlavor.DuckDb)
@@ -32,7 +31,7 @@ namespace SqlLinqer.Queries.Core
             var valueKeys = new List<string>();
             foreach (var parameter in Parameters.GetAll())
             {
-                if (parameter is TvpParameter && flavor != DbFlavor.SqlServer)
+                if (parameter is TvpParameter && (flavor != DbFlavor.SqlServer && flavor != DbFlavor.AzureSql))
                     throw new System.NotSupportedException("Stored procedure table-valued parameters require SQL Server or Azure SQL.");
                 string placeholder = parameter is TvpParameter tvp
                     ? parameters.AddTvpParameter((System.Data.DataTable)tvp.Value, tvp.TypeName)
@@ -40,6 +39,7 @@ namespace SqlLinqer.Queries.Core
                 switch (flavor)
                 {
                     case DbFlavor.SqlServer:
+                    case DbFlavor.AzureSql:
                         valueKeys.Add($"@{parameter.Placehodler} = {placeholder}");
                         break;
                     case DbFlavor.MySql:
@@ -54,6 +54,7 @@ namespace SqlLinqer.Queries.Core
             switch (flavor)
             {
                 case DbFlavor.SqlServer:
+                case DbFlavor.AzureSql:
                     return $"EXEC {(Schema != null ? $"{Schema.DbWrap(flavor)}." : null)}{Procedure.DbWrap(flavor)} {string.Join(",", valueKeys)}";
                 case DbFlavor.MySql:
                 case DbFlavor.PostgreSql:

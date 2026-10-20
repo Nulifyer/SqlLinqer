@@ -25,10 +25,10 @@ namespace SqlLinqer.Components.Outputs
 
         internal string Render(DbFlavor flavor, string targetAlias)
         {
-            flavor = SqlDialect.Resolve(flavor);
             switch (flavor)
             {
                 case DbFlavor.SqlServer:
+                case DbFlavor.AzureSql:
                     return $"{PseudoTable.DbWrap(flavor)}.{Column.ColumnName.DbWrap(flavor)}";
                 case DbFlavor.Sqlite:
                     return Column.ColumnName.DbWrap(flavor);

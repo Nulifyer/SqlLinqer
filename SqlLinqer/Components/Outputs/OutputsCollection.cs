@@ -24,7 +24,6 @@ namespace SqlLinqer.Components.Outputs
 
         internal string Render(DbFlavor flavor, string targetAlias)
         {
-            flavor = SqlDialect.Resolve(flavor);
             if (Count == 0)
                 return null;
 
@@ -32,6 +31,7 @@ namespace SqlLinqer.Components.Outputs
             switch (flavor)
             {
                 case DbFlavor.SqlServer:
+                case DbFlavor.AzureSql:
                     keyword = "OUTPUT";
                     break;
                 case DbFlavor.Sqlite:

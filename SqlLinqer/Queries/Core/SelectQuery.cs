@@ -289,7 +289,6 @@ namespace SqlLinqer.Queries.Core
         /// <param name="forJson">Include the FOR JSON statement at the end</param>
         public string Render(ParameterCollection parameters, DbFlavor flavor, bool forJson)
         {
-            flavor = SqlDialect.Resolve(flavor);
             parameters.SetFlavor(flavor);
             var stashables = new IStashable[]
             {
@@ -315,7 +314,7 @@ namespace SqlLinqer.Queries.Core
                         var column = Table.PrimaryKey ?? Table.Columns.GetAll().First();
                         OrderBy(column, SqlDir.ASC, true, flavor != DbFlavor.Sqlite);
                     }
-                    else if ((flavor == DbFlavor.SqlServer) && Selects.Count > 0)
+                    else if ((flavor == DbFlavor.SqlServer || flavor == DbFlavor.AzureSql) && Selects.Count > 0)
                     {
                         OrderBys.AddStatement(new ProjectionOrderBy(Selects.GetAll().First().Alias));
                     }
@@ -337,14 +336,14 @@ namespace SqlLinqer.Queries.Core
                 string rendered = string.Join(" ", new[]
                 {
                     with,
-                    $"SELECT{(Distinct ? " DISTINCT" : null)}{(flavor == DbFlavor.SqlServer && PagingControls.Top > 0 ? $" TOP {PagingControls.Top}" : null)}",
+                    $"SELECT{(Distinct ? " DISTINCT" : null)}{((flavor == DbFlavor.SqlServer || flavor == DbFlavor.AzureSql) && PagingControls.Top > 0 ? $" TOP {PagingControls.Top}" : null)}",
                     select + (forJson && flavor == DbFlavor.Sqlite ? " AS \"__sqlite_json\"" : null),
                     joins,
                     where,
                     groupBy,
                     order_by,
                     paging_controls,
-                    (forJson && flavor == DbFlavor.SqlServer ? "FOR JSON AUTO, INCLUDE_NULL_VALUES" : null),
+                    (forJson && (flavor == DbFlavor.SqlServer || flavor == DbFlavor.AzureSql) ? "FOR JSON AUTO, INCLUDE_NULL_VALUES" : null),
                 });
                 if (forJson && flavor == DbFlavor.Sqlite && IsSubQuery
                     && Table.ParentRelationship?.Type != RelationshipType.OneToOne)
@@ -373,7 +372,6 @@ namespace SqlLinqer.Queries.Core
         /// <param name="flavor">The type of Sql database being used</param>
         public string RenderForCount(ParameterCollection parameters, DbFlavor flavor)
         {
-            flavor = SqlDialect.Resolve(flavor);
             parameters.SetFlavor(flavor);
             var stashables = new IStashable[]
             {
@@ -391,7 +389,7 @@ namespace SqlLinqer.Queries.Core
             {
                 // A total for a DISTINCT or aggregate projection counts projected rows,
                 // including the single row produced by an ungrouped aggregate.
-                if (flavor == DbFlavor.SqlServer)
+                if (flavor == DbFlavor.SqlServer || flavor == DbFlavor.AzureSql)
                 {
                     PagingControls.Reset();
                     OrderBys.Clear();

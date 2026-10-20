@@ -28,15 +28,13 @@ namespace SqlLinqer.Queries.Core
         /// <returns></returns>
         public virtual (string Create, string Drop) RenderTempType(DbFlavor flavor, string typeName)
         {
-            flavor = SqlDialect.Resolve(flavor);
-            if (flavor != DbFlavor.SqlServer)
+            if (flavor != DbFlavor.SqlServer && flavor != DbFlavor.AzureSql)
                 throw new System.NotSupportedException("Table-valued parameters are supported only for SQL Server.");
             return Inserts.RenderTempType(flavor, typeName);
         }
         /// <inheritdoc/>
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
-            flavor = SqlDialect.Resolve(flavor);
             parameters.SetFlavor(flavor);
             var stashables = new IStashable[]
             {
@@ -75,7 +73,7 @@ namespace SqlLinqer.Queries.Core
                 {
                     $"INSERT INTO {Table.RenderFullName(flavor)}",
                     $"({columns})",
-                    flavor == DbFlavor.SqlServer ? outputs : null,
+                    (flavor == DbFlavor.SqlServer || flavor == DbFlavor.AzureSql) ? outputs : null,
                     "VALUES",
                     inserts,
                     (flavor == DbFlavor.PostgreSql || flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb) ? outputs : null,
@@ -96,8 +94,7 @@ namespace SqlLinqer.Queries.Core
         /// <returns></returns>
         public (string Query, string TempTypeId) RenderTVP(ParameterCollection existingCollection, DbFlavor flavor, string schema)
         {
-            flavor = SqlDialect.Resolve(flavor);
-            if (flavor != DbFlavor.SqlServer)
+            if (flavor != DbFlavor.SqlServer && flavor != DbFlavor.AzureSql)
                 throw new System.NotSupportedException("Table-valued parameters are supported only for SQL Server.");
 
             string tempTypeId =

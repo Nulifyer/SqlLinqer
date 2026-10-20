@@ -45,7 +45,6 @@ namespace SqlLinqer.Components.Select
 
         public string Render(DbFlavor flavor)
         {
-            flavor = SqlDialect.Resolve(flavor);
             int limit = Limit;
             int offset = Offset;
             switch (flavor)
@@ -61,6 +60,7 @@ namespace SqlLinqer.Components.Select
                     }
                     break;
                 case DbFlavor.SqlServer:
+                case DbFlavor.AzureSql:
                     // nothing
                     break;
                 default:
@@ -77,6 +77,7 @@ namespace SqlLinqer.Components.Select
                     case DbFlavor.MySql:
                         return $" LIMIT {limit} OFFSET {offset} ";
                     case DbFlavor.SqlServer:
+                    case DbFlavor.AzureSql:
                         return $" OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY";
                     default:
                         throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(PagingControls)}");

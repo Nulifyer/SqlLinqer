@@ -345,7 +345,7 @@ namespace SqlLinqer.Connections
         /// </summary>
         public virtual bool JsonResultsRowByRow()
         {
-            switch (SqlDialect.Resolve(DbFlavor))
+            switch (DbFlavor)
             {
                 case DbFlavor.DuckDb:
                 case DbFlavor.PostgreSql:
@@ -353,6 +353,7 @@ namespace SqlLinqer.Connections
                 case DbFlavor.Sqlite:
                     return true;
                 case DbFlavor.SqlServer:
+                case DbFlavor.AzureSql:
                     return false;
                 default:
                     throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {DbFlavor} is not supported by {nameof(BaseConnector)}.{nameof(JsonResultsRowByRow)}");

@@ -39,13 +39,14 @@ namespace SqlLinqer.Connections
             }
 
             string connTimeoutKey;
-            switch (SqlDialect.Resolve(DbFlavor))
+            switch (DbFlavor)
             {
                 case DbFlavor.PostgreSql:
                     connTimeoutKey = "Timeout";
                     break;
                 case DbFlavor.MySql:
                 case DbFlavor.SqlServer:
+                case DbFlavor.AzureSql:
                     connTimeoutKey = "Connect Timeout";
                     break;
                 default:

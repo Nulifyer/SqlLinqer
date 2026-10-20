@@ -27,7 +27,6 @@ namespace SqlLinqer.Components.Select
         /// <inheritdoc/>
         public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool forJson, bool include_alias)
         {
-            flavor = SqlDialect.Resolve(flavor);
             query.Joins.AddTable(Column.Table);
 
             if (forJson && flavor == DbFlavor.Sqlite
@@ -51,6 +50,7 @@ namespace SqlLinqer.Components.Select
                             value = $"to_base64({value})";
                         return $"{Alias.DbWrapString(flavor)}, {value}";
                     case DbFlavor.SqlServer:
+                    case DbFlavor.AzureSql:
                         string alias = include_alias ? $" AS {Alias.DbWrap(flavor)}" : null;
                         return Column.Render(flavor) + alias;
                     default:

@@ -19,7 +19,6 @@ namespace SqlLinqer.Queries.Core
         /// <inheritdoc/>
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
-            flavor = SqlDialect.Resolve(flavor);
             parameters.SetFlavor(flavor);
             var stashables = new IStashable[]
             {
@@ -51,6 +50,7 @@ namespace SqlLinqer.Queries.Core
                         return string.Join(" ", with, $"DELETE FROM {Table.RenderFullName(flavor)} AS {Table.Alias.DbWrap(flavor)}",
                             where, Outputs.Render(flavor));
                     case DbFlavor.SqlServer:
+                    case DbFlavor.AzureSql:
                         return string.Join(" ", with, $"DELETE {Table.Alias.DbWrap(flavor)}", Outputs.Render(flavor), joins, where);
                     case DbFlavor.MySql:
                         Outputs.Render(flavor);

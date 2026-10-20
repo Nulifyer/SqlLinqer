@@ -33,7 +33,6 @@ namespace SqlLinqer.Components.Select
         /// <inheritdoc/>
         public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool forJson, bool include_alias)
         {
-            flavor = SqlDialect.Resolve(flavor);
             var args_processed = new List<object>();
             for (int argumentIndex = 0; argumentIndex < Args.Length; argumentIndex++)
             {
@@ -117,6 +116,7 @@ namespace SqlLinqer.Components.Select
                     case DbFlavor.MySql:
                         return $"{Alias.DbWrapString(flavor)}, {val}";
                     case DbFlavor.SqlServer:
+                    case DbFlavor.AzureSql:
                         return $"{val}{(include_alias ? $" AS {Alias.DbWrap(flavor)}" : null)}";
                     default:
                         throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(SelectFuncStatement)}.{nameof(Render)}");

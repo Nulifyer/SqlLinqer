@@ -21,7 +21,6 @@ namespace SqlLinqer.Queries.Core
 
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
-            flavor = SqlDialect.Resolve(flavor);
             parameters.SetFlavor(flavor);
             var stashables = new IStashable[]
             {
@@ -70,6 +69,7 @@ namespace SqlLinqer.Queries.Core
                         return string.Join(" ", with, $"UPDATE {Table.RenderFullName(flavor)} AS {sqliteTargetAlias.DbWrap(flavor)} SET {assignments}",
                             sqliteFrom, where, Outputs.Render(flavor));
                     case DbFlavor.SqlServer:
+                    case DbFlavor.AzureSql:
                         return string.Join(" ", with, $"UPDATE {Table.Alias.DbWrap(flavor)} SET {assignments}",
                             Outputs.Render(flavor), joins, where);
                     case DbFlavor.MySql:

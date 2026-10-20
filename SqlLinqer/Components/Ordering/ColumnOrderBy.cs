@@ -20,7 +20,6 @@ namespace SqlLinqer.Components.Ordering
 
         public string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
-            flavor = SqlDialect.Resolve(flavor);
             switch (flavor)
             {
                 case DbFlavor.Sqlite:
@@ -43,6 +42,7 @@ namespace SqlLinqer.Components.Ordering
                         : selectStatement.Render(query, parameters, flavor, false, false);
                     return $"{staement} {Dir.GetDescription()}";
                 case DbFlavor.SqlServer:
+                case DbFlavor.AzureSql:
                     return $"{Column.Alias.DbWrap(flavor)} {Dir.GetDescription()}";
                 default:
                     throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(ColumnOrderBy)}.{nameof(Render)}");
