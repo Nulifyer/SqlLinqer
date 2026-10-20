@@ -20,7 +20,22 @@ namespace SqlLinqer.Components.Outputs
         /// <inheritdoc/>
         public string Render(DbFlavor flavor)
         {
-            return $"{PseudoTable.DbWrap(flavor)}.{Column.ColumnName.DbWrap(flavor)}";
+            return Render(flavor, null);
+        }
+
+        internal string Render(DbFlavor flavor, string targetAlias)
+        {
+            switch (flavor)
+            {
+                case DbFlavor.SqlServer:
+                    return $"{PseudoTable.DbWrap(flavor)}.{Column.ColumnName.DbWrap(flavor)}";
+                case DbFlavor.PostgreSql:
+                    return targetAlias == null
+                        ? Column.ColumnName.DbWrap(flavor)
+                        : $"{targetAlias.DbWrap(flavor)}.{Column.ColumnName.DbWrap(flavor)}";
+                default:
+                    throw new System.NotSupportedException($"Returning modified rows is not supported for {flavor}.");
+            }
         }
     }
 }

@@ -23,7 +23,9 @@ namespace SqlLinqer.Components.Where
         public WhereColumnValue(Column column, object value, SqlOp op, SqlSubQueryOp sub_query_op)
         {
             Column = column;
-            Value = value;
+            Value = value is IEnumerable values && !(value is string)
+                ? values.Cast<object>().ToArray()
+                : value;
             Operator = op;
             SubQueryOp = sub_query_op;
         }
@@ -37,6 +39,9 @@ namespace SqlLinqer.Components.Where
 
         public override IWhereComponent Finalize(WhereQuery query)
         {
+            if (Value is object[] items && items.Length == 0)
+                return new WhereConstant(SubQueryOp == SqlSubQueryOp.ALL);
+
             if (query == null || query.Withs == null)
                 return this;
 
@@ -159,6 +164,11 @@ namespace SqlLinqer.Components.Where
                 foreach (var _ in values)
                     ++count;
 
+                if (count == 0)
+                {
+                    builder.Append(SubQueryOp == SqlSubQueryOp.ALL ? "1 = 1" : "1 = 0");
+                    return;
+                }
                 if (count == 1)
                 {
                     foreach (var val in values)

@@ -1,6 +1,7 @@
 using SqlLinqer.Components.Render;
 using SqlLinqer.Components.Modeling;
 using SqlLinqer.Queries.Core;
+using SqlLinqer.Extensions.StringExtensions;
 
 namespace SqlLinqer.Components.Update
 {
@@ -13,6 +14,11 @@ namespace SqlLinqer.Components.Update
         /// Value Column
         /// </summary>
         public Column UpdateColumn { get; protected set;}
+
+        internal string RenderTarget(DbFlavor flavor)
+        {
+            return flavor == DbFlavor.PostgreSql ? UpdateColumn.ColumnName.DbWrap(flavor) : UpdateColumn.Render(flavor);
+        }
 
         /// <summary>
         /// Renders the object into a string.

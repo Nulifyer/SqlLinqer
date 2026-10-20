@@ -28,6 +28,8 @@ namespace SqlLinqer.Queries.Core
         /// <returns></returns>
         public virtual (string Create, string Drop) RenderTempType(DbFlavor flavor, string typeName)
         {
+            if (flavor != DbFlavor.SqlServer)
+                throw new System.NotSupportedException("Table-valued parameters are supported only for SQL Server.");
             return Inserts.RenderTempType(flavor, typeName);
         }
         /// <inheritdoc/>
@@ -41,21 +43,27 @@ namespace SqlLinqer.Queries.Core
             foreach (var item in stashables)
                 item?.Stash();
 
-            string inserts = this.Inserts.RenderAsRows(parameters, flavor);
-            string columns = this.Inserts.RenderColumns(flavor);
-            string outputs = this.Outputs.Render(flavor);
-
-            foreach (var item in stashables)
-                item?.Unstash();
-
-            return string.Join(" ", new[]
+            try
             {
-                $"INSERT INTO {Table.RenderFullName(flavor)}",
-                $"({columns})",
-                outputs,
-                "VALUES",
-                inserts,
-            });
+                string inserts = this.Inserts.RenderAsRows(parameters, flavor);
+                string columns = this.Inserts.RenderColumns(flavor);
+                string outputs = this.Outputs.Render(flavor);
+
+                return string.Join(" ", new[]
+                {
+                    $"INSERT INTO {Table.RenderFullName(flavor)}",
+                    $"({columns})",
+                    flavor == DbFlavor.SqlServer ? outputs : null,
+                    "VALUES",
+                    inserts,
+                    flavor == DbFlavor.PostgreSql ? outputs : null,
+                });
+            }
+            finally
+            {
+                foreach (var item in stashables)
+                    item?.Unstash();
+            }
         }
         /// <summary>
         /// Render the create and drop queries of the temp type
@@ -66,6 +74,9 @@ namespace SqlLinqer.Queries.Core
         /// <returns></returns>
         public (string Query, string TempTypeId) RenderTVP(ParameterCollection existingCollection, DbFlavor flavor, string schema)
         {
+            if (flavor != DbFlavor.SqlServer)
+                throw new System.NotSupportedException("Table-valued parameters are supported only for SQL Server.");
+
             string tempTypeId =
                 (schema != null ? $"{schema.DbWrap(flavor)}." : null)
                 + $"TEMP_{StringExtensions.GetRandomHashString()}".DbWrap(flavor);

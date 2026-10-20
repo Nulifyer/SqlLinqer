@@ -255,7 +255,7 @@ namespace SqlLinqer.Queries.Typed
                 return selectRes;
             }
 
-            if (PagingControls.Limit > 0 && dataRes.Result.Count >= PagingControls.Limit)
+            if (PagingControls.Top > 0 || PagingControls.Limit > 0 || PagingControls.Offset > 0)
             {
                 var count_query = new SqlLinqer.Components.Render.RenderedQuery();
                 count_query.Text = RenderForCount(count_query.Parameters, connector.DbFlavor);

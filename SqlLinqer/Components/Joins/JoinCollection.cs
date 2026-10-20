@@ -45,6 +45,12 @@ namespace SqlLinqer.Components.Joins
             }
         }
 
+        internal bool HasJoinedTables(Table root)
+        {
+            return GetAll().Any(x => x.UUID != root.UUID)
+                || DirectJoins.GetAll().Any(x => x.Child.UUID != root.UUID);
+        }
+
         public string Render(JoinQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
             var joins = GetAll()

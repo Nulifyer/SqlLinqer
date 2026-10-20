@@ -298,46 +298,47 @@ namespace SqlLinqer.Queries.Core
                 this.PagingControls,
             };
 
-            foreach (var item in stashables)
-                item?.Stash();
+            var stashed = stashables.Where(item => item?.Stash() == true).ToArray();
+            bool withStashed = !IsSubQuery && this.Withs?.Stash() == true;
 
-            if (!IsSubQuery)
-                this.Withs?.Stash();
-
-            if (this.PagingControls.Limit > 0 && this.OrderBys.Count == 0)
+            try
             {
-                var column = Table.PrimaryKey ?? Table.Columns.GetAll().First();
-                OrderBy(column, SqlDir.ASC, true, true);
+                if (this.PagingControls.Limit > 0 && this.OrderBys.Count == 0)
+                {
+                    var column = Table.PrimaryKey ?? Table.Columns.GetAll().First();
+                    OrderBy(column, SqlDir.ASC, true, true);
+                }
+
+                string where = this.RootWhere.Render(this, parameters, flavor);
+                string select = this.Selects.Render(this, parameters, flavor, forJson);
+                string with = !IsSubQuery
+                    ? this.Withs?.Render(this, parameters, flavor)
+                    : null;
+                string groupBy = this.Selects.RenderGroupBy(this, parameters, flavor);
+                string joins = this.Joins.Render(this, parameters, flavor);
+                string order_by = this.OrderBys.Render(this, parameters, flavor);
+                string paging_controls = this.PagingControls.Render(flavor);
+
+                return string.Join(" ", new[]
+                {
+                    with,
+                    $"SELECT{(Distinct ? " DISTINCT" : null)}{(flavor == DbFlavor.SqlServer && PagingControls.Top > 0 ? $" TOP {PagingControls.Top}" : null)}",
+                    select,
+                    joins,
+                    where,
+                    groupBy,
+                    order_by,
+                    paging_controls,
+                    (forJson && flavor == DbFlavor.SqlServer ? "FOR JSON AUTO, INCLUDE_NULL_VALUES" : null),
+                });
             }
-
-            string where = this.RootWhere.Render(this, parameters, flavor);            
-            string select = this.Selects.Render(this, parameters, flavor, forJson);
-            string with = !IsSubQuery
-                ? this.Withs?.Render(this, parameters, flavor)
-                : null;
-            string groupBy = this.Selects.RenderGroupBy(this, parameters, flavor);
-            string joins = this.Joins.Render(this, parameters, flavor);
-            string order_by = this.OrderBys.Render(this, parameters, flavor);
-            string paging_controls = this.PagingControls.Render(flavor);
-
-            foreach (var item in stashables)
-                item?.Unstash();
-
-            if (!IsSubQuery)
-                this.Withs?.Unstash();
-
-            return string.Join(" ", new[]
+            finally
             {
-                with,
-                $"SELECT{(Distinct ? " DISTINCT" : null)}{(PagingControls.Top > 0 ? $" TOP {PagingControls.Top}" : null)}",
-                select,
-                joins,
-                where,
-                groupBy,
-                order_by,
-                paging_controls,
-                (forJson && flavor == DbFlavor.SqlServer ? "FOR JSON AUTO, INCLUDE_NULL_VALUES" : null),
-            });
+                foreach (var item in stashed)
+                    item.Unstash();
+                if (withStashed)
+                    this.Withs.Unstash();
+            }
         }
 
         /// <summary>
@@ -356,34 +357,35 @@ namespace SqlLinqer.Queries.Core
                 this.PagingControls,
             };
 
-            foreach (var item in stashables)
-                item?.Stash();
+            var stashed = stashables.Where(item => item?.Stash() == true).ToArray();
+            bool withStashed = !IsSubQuery && this.Withs?.Stash() == true;
 
-            if (!IsSubQuery)
-                this.Withs?.Stash();
+            try
+            {
+                // render to setup joins
+                this.RootWhere.Render(this, parameters, flavor);
+                this.Selects.Render(this, parameters, flavor, false);
 
-            // render to setup joins
-            this.RootWhere.Render(this, parameters, flavor);
-            this.Selects.Render(this, parameters, flavor, false);
-            
-            // clear non-needed stuff
-            this.PagingControls.Reset();
-            this.Selects.Clear();
-            this.OrderBys.Clear();
+                // clear non-needed stuff
+                this.PagingControls.Reset();
+                this.Selects.Clear();
+                this.OrderBys.Clear();
 
-            // add count statement
-            this.Selects.AddStatement(new SelectFuncStatement(SqlFunc.COUNT, StringExtensions.GetRandomHashString(), 1));
-            
-            // render count query
-            string rendered = Render(parameters, flavor, false);
+                // add count statement
+                this.Selects.AddStatement(new SelectFuncStatement(SqlFunc.COUNT, StringExtensions.GetRandomHashString(), 1));
 
-            foreach (var item in stashables)
-                item?.Unstash();
+                // render count query
+                string rendered = Render(parameters, flavor, false);
 
-            if (!IsSubQuery)
-                this.Withs?.Unstash();
-
-            return rendered;
+                return rendered;
+            }
+            finally
+            {
+                foreach (var item in stashed)
+                    item.Unstash();
+                if (withStashed)
+                    this.Withs.Unstash();
+            }
         }
     }
 }

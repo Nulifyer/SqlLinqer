@@ -28,7 +28,8 @@ namespace SqlLinqer.Components.Update
         /// <inheritdoc/>
         public override string Render(UpdateQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
-            return $"{UpdateColumn.Render(flavor)} = {ValueColumn.Render(flavor)}";
+            query.Joins.AddTable(ValueColumn.Table);
+            return $"{RenderTarget(flavor)} = {ValueColumn.Render(flavor)}";
         }
     }
 }

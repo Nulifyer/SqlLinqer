@@ -19,11 +19,29 @@ namespace SqlLinqer.Components.Outputs
         /// <param name="flavor">The type of Sql database being used</param>
         public string Render(DbFlavor flavor)
         {
+            return Render(flavor, null);
+        }
+
+        internal string Render(DbFlavor flavor, string targetAlias)
+        {
             if (Count == 0)
                 return null;
 
-            var strs = GetAll().Select(x => x.Render(flavor));
-            return $"OUTPUT {string.Join(",", strs)}";
+            string keyword;
+            switch (flavor)
+            {
+                case DbFlavor.SqlServer:
+                    keyword = "OUTPUT";
+                    break;
+                case DbFlavor.PostgreSql:
+                    keyword = "RETURNING";
+                    break;
+                default:
+                    throw new System.NotSupportedException($"Returning modified rows is not supported for {flavor}. Use a query without output columns.");
+            }
+
+            var strs = GetAll().Select(x => x is ColumnOutput column ? column.Render(flavor, targetAlias) : x.Render(flavor));
+            return $"{keyword} {string.Join(",", strs)}";
         }
     }
 }

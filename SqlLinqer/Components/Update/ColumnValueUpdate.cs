@@ -29,7 +29,7 @@ namespace SqlLinqer.Components.Update
         public override string Render(UpdateQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
             string placeholder = parameters.AddParameter(Value);
-            return $"{UpdateColumn.Render(flavor)} = {placeholder}";
+            return $"{RenderTarget(flavor)} = {placeholder}";
         }
     }
 }

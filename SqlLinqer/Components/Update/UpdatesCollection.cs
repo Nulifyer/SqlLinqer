@@ -18,8 +18,12 @@ namespace SqlLinqer.Components.Update
             if (Count == 0)
                 return null;
 
-            var strs = GetAll().Select(x => x.Render(query, parameters, flavor));
-            return $"UPDATE {query.Table.Alias.DbWrap(flavor)} SET {string.Join(",", strs)}";
+            return $"UPDATE {query.Table.Alias.DbWrap(flavor)} SET {RenderAssignments(query, parameters, flavor)}";
+        }
+
+        internal string RenderAssignments(UpdateQuery query, ParameterCollection parameters, DbFlavor flavor)
+        {
+            return string.Join(",", GetAll().Select(x => x.Render(query, parameters, flavor)));
         }
     }
 }

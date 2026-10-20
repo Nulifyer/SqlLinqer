@@ -21,7 +21,7 @@ namespace SqlLinqer.Components.Update
             string placeholder = parameters.AddParameter(this.Value);
             string columnStr = statement.UpdateColumn.Render(flavor);
             string opStr = Operator.GetDescription();
-            return $"{columnStr} = {columnStr} {opStr} {placeholder}";
+            return $"{statement.RenderTarget(flavor)} = {columnStr} {opStr} {placeholder}";
         }
         
         /// <summary>

@@ -20,6 +20,8 @@ dotnet run --project SqlLinqer.RegressionTests/SqlLinqer.RegressionTests.csproj
 
 The regression checks use fake database connections and do not require a running database. The demos require the employee database described in their connection settings.
 
+Returned rows and primary keys are supported for SQL Server and PostgreSQL. MySQL queries that request output columns throw `NotSupportedException` before execution. For MySQL writes without returned rows, use `Queries.Typed.InsertQuery<T>`, `UpdateQuery<T>`, or `DeleteQuery<T>` without output columns. Joined PostgreSQL updates and deletes require a primary key on the target model. Table-valued parameters are supported only for SQL Server.
+
 When passing a transaction, the caller owns its commit, rollback, and disposal, including after a query fails. The connector disposes its commands and connections it creates itself.
 
 ## How to build a data model:

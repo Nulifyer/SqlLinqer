@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using SqlLinqer.Exceptions;
 using SqlLinqer.Components.Modeling;
 
@@ -54,15 +55,22 @@ namespace SqlLinqer.Components.Where
                     throw new System.NotSupportedException($"The operator {array_op} is not supported.");
             }
 
+            var items = values.ToArray();
+            if (items.Length == 0)
+            {
+                AddComponent(new WhereConstant(computed_subop == SqlSubQueryOp.ALL));
+                return;
+            }
+
             if (computed_subop == SqlSubQueryOp.ANY)
             {
-                AddComponent(new WhereColumnValue(column, values, computed_op, computed_subop));
+                AddComponent(new WhereColumnValue(column, items, computed_op, computed_subop));
             }
             else
             {
                 var sub_group = new TableWhereCollection(Table, SqlWhereOp.AND);
 
-                foreach (var val in values)
+                foreach (var val in items)
                 {
                     sub_group.AddComponent(new WhereColumnValue(column, val, computed_op, computed_subop));
                 }

@@ -32,9 +32,6 @@ namespace SqlLinqer.Components.Render
                 case null:
                     value = DBNull.Value;
                     break;
-                case bool b:
-                    value = b ? 1 : 0;
-                    break;
                 case DateTime dt:
                     value = dt;
                     break;

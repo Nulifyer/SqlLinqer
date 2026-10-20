@@ -45,15 +45,16 @@ namespace SqlLinqer.Components.Select
 
         public string Render(DbFlavor flavor)
         {
+            int limit = Limit;
+            int offset = Offset;
             switch (flavor)
             {
                 case DbFlavor.PostgreSql:
                 case DbFlavor.MySql:
                     if (Top > 0)
                     {
-                        Limit = Top;
-                        Offset = 0;
-                        Top = 0;
+                        limit = Top;
+                        offset = 0;
                     }
                     break;
                 case DbFlavor.SqlServer:
@@ -63,15 +64,15 @@ namespace SqlLinqer.Components.Select
                     throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(PagingControls)}");
             }
 
-            if (Limit > 0)
+            if (limit > 0)
             {
                 switch (flavor)
                 {
                     case DbFlavor.PostgreSql:
                     case DbFlavor.MySql:
-                        return $" LIMIT {Limit} OFFSET {Offset} ";
+                        return $" LIMIT {limit} OFFSET {offset} ";
                     case DbFlavor.SqlServer:
-                        return $" OFFSET {Offset} ROWS FETCH NEXT {Limit} ROWS ONLY";
+                        return $" OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY";
                     default:
                         throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(PagingControls)}");
                 }
@@ -90,6 +91,7 @@ namespace SqlLinqer.Components.Select
                 _Top = Top;
                 _Limit = Limit;
                 _Offset = Offset;
+                _stashed = true;
                 return true;
             }
             return false;
@@ -101,6 +103,7 @@ namespace SqlLinqer.Components.Select
                 Top = _Top;
                 Limit = _Limit;
                 Offset = _Offset;
+                _stashed = false;
                 return true;
             }
             return false;

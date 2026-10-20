@@ -18,6 +18,113 @@ void Test(string name, Action run)
     catch (Exception error) { failed++; Console.Error.WriteLine("FAIL " + name + ": " + error); }
 }
 void Expect(bool condition, string message) { if (!condition) throw new Exception(message); }
+void Contains(string text, string expected) => Expect(text.Contains(expected), $"Expected '{expected}' in {text}");
+void Excludes(string text, string unexpected) => Expect(!text.Contains(unexpected), $"Unexpected '{unexpected}' in {text}");
+void Throws<T>(Action run) where T : Exception
+{
+    try { run(); } catch (T) { return; }
+    throw new Exception("Expected " + typeof(T).Name);
+}
+string Sql(SqlLinqer.Queries.Core.Abstract.BaseQuery query, DbFlavor flavor)
+    => Regex.Replace(query.Render(flavor).Text, @"\s+", " ").Trim();
+
+foreach (DbFlavor flavor in Enum.GetValues<DbFlavor>())
+{
+    Test($"paging survives count rendering for {flavor}", () =>
+    {
+        var query = new SelectQuery<Item>().SelectRootColumns().Page(3, 10);
+        string original = query.Render(flavor).Text;
+        query.RenderForCount(new ParameterCollection(), flavor);
+        Expect(query.Render(flavor).Text == original, "Counting changed the original query");
+    });
+    Test($"Top counts all matching rows for {flavor}", () =>
+    {
+        var database = new FakeDatabase();
+        // Use row-by-row JSON while testing each dialect's paging behavior.
+        var connector = new RowJsonConnector(database, flavor);
+        var result = new SelectQuery<Item>().SelectRootColumns().Top(10).ExecuteWithTotalCount(connector);
+        Expect(result.State == ResponseState.Valid, result.Error?.ToString());
+        Expect(result.TotalResults == 22, "Top returned page length as total");
+        Expect(database.Executed.Count == 2, "Count query was skipped");
+    });
+    Test($"Boolean parameters retain type for {flavor}", () =>
+    {
+        var rendered = new SelectQuery<Item>().SelectRootColumns().Where(x => x.Enabled, true, SqlOp.EQ).Render(flavor);
+        Expect(rendered.Parameters.GetAll().Single().Value is true, "Boolean was converted to an integer");
+    });
+    Test($"empty IN stays false in a write for {flavor}", () =>
+    {
+        string sql = Sql(new DeleteQuery<Item>().Where(x => x.Id, Array.Empty<int>(), SqlArrayOp.IN), flavor);
+        Contains(sql, "WHERE 1 = 0");
+        Excludes(sql, "IN ()");
+    });
+    Test($"empty NOT IN stays true inside OR for {flavor}", () =>
+    {
+        var query = new SelectQuery<Item>().SelectRootColumns();
+        var group = query.NewWhere(SqlWhereOp.OR)
+            .Where(x => x.Id, Array.Empty<int>(), SqlArrayOp.NOTIN)
+            .Where(x => x.Name, "sample", SqlOp.EQ);
+        Contains(Sql(query.Where(group), flavor), "1 = 1 OR");
+    });
+}
+
+Test("rendering Top across dialects preserves SQL Server TOP", () =>
+{
+    var query = new SelectQuery<Item>().SelectRootColumns().Top(10);
+    Excludes(Sql(query, DbFlavor.PostgreSql), "TOP");
+    Excludes(Sql(query, DbFlavor.MySql), "TOP");
+    Contains(Sql(query, DbFlavor.SqlServer), "SELECT TOP 10");
+    Excludes(Sql(query, DbFlavor.SqlServer), "FETCH NEXT");
+});
+Test("paging stash can be reused", () =>
+{
+    var paging = new PagingControls();
+    paging.SetPage(2, 10);
+    Expect(paging.Stash(), "First stash failed");
+    Expect(!paging.Stash(), "Nested stash overwrote saved state");
+    paging.Reset(); paging.Unstash();
+    Expect(paging.Limit == 10 && paging.Offset == 10, "Paging was not restored");
+    paging.SetPage(3, 5); paging.Stash(); paging.Reset(); paging.Unstash();
+    Expect(paging.Limit == 5 && paging.Offset == 10, "Second stash reused old state");
+});
+foreach (DbFlavor flavor in Enum.GetValues<DbFlavor>())
+{
+    foreach (bool count in new[] { false, true })
+    {
+        Test($"failed {(count ? "count" : "select")} rendering restores query state for {flavor}", () =>
+        {
+            var query = new SelectQuery<Item>().SelectRootColumns().Page(2, 10);
+            Throws<NotSupportedException>(() =>
+            {
+                if (count) query.RenderForCount(new ParameterCollection(), (DbFlavor)999);
+                else query.Render((DbFlavor)999);
+            });
+            query.Page(3, 5);
+            string first = query.Render(flavor).Text;
+            Expect(query.Render(flavor).Text == first, "Stale render state overwrote the repaired query");
+            Contains(first, flavor == DbFlavor.SqlServer ? "OFFSET 10 ROWS FETCH NEXT 5 ROWS ONLY" : "LIMIT 5 OFFSET 10");
+        });
+    }
+}
+foreach (int rows in new[] { 0, 2, 10 })
+{
+    Test($"page total is independent of returned row count {rows}", () =>
+    {
+        var database = new FakeDatabase { Rows = rows };
+        var result = new SelectQuery<Item>().SelectRootColumns().Page(3, 10)
+            .ExecuteWithTotalCount(new FakeConnector(database));
+        Expect(result.State == ResponseState.Valid, result.Error?.ToString());
+        Expect(result.TotalResults == 22, "Incorrect total");
+        Expect(result.Result.Count == rows, "Incorrect returned rows");
+    });
+}
+Test("unpaged select does not execute a redundant count", () =>
+{
+    var database = new FakeDatabase();
+    var result = new SelectQuery<Item>().SelectRootColumns().ExecuteWithTotalCount(new FakeConnector(database));
+    Expect(result.TotalResults == 2 && database.Executed.Count == 1, "Unexpected count query");
+});
+
 foreach (string operation in new[] { "select", "delete", "aggregate", "exists", "procedure-json", "procedure-table" })
 {
     Test($"{operation} overload forwards caller transaction", () =>
@@ -138,6 +245,80 @@ foreach (bool fail in new[] { false, true })
         Expect(transaction.Commits == (fail ? 0 : 1) && transaction.Rollbacks == (fail ? 1 : 0), "Incorrect TVP transaction result");
     });
 }
+
+Test("PostgreSQL inserts put RETURNING after VALUES", () =>
+{
+    string sql = Sql(new InsertWithPrimaryKeyQuery<Item, int>().InsertAuto(new Item { Name = "sample" }), DbFlavor.PostgreSql);
+    Contains(sql, "INSERT INTO \"items\"");
+    Contains(sql, "RETURNING \"Id\""); Excludes(sql, "OUTPUT");
+    Expect(sql.IndexOf("RETURNING") > sql.IndexOf("VALUES"), "RETURNING precedes VALUES");
+});
+Test("PostgreSQL updates use physical target and unqualified assignment", () =>
+{
+    var query = new UpdateWithPrimaryKeyQuery<Item, int>().Update(x => x.Name, "sample").Where(x => x.Id, 7, SqlOp.EQ);
+    string sql = Sql(query, DbFlavor.PostgreSql);
+    Contains(sql, "UPDATE \"items\" AS"); Contains(sql, "SET \"Name\" = @"); Contains(sql, "RETURNING");
+    Excludes(sql, "OUTPUT"); Excludes(sql, " FROM ");
+});
+Test("PostgreSQL arithmetic and column assignments use valid targets", () =>
+{
+    Contains(Sql(new UpdateQuery<Item>().Update(x => x.Id, new BasicMathOperation(BasicMathOperation.MathOp.Add, 1)), DbFlavor.PostgreSql), "SET \"Id\" =");
+    Contains(Sql(new UpdateQuery<Item>().Update(x => x.Name, x => x.OtherName), DbFlavor.PostgreSql), "SET \"Name\" =");
+});
+Test("PostgreSQL deletes include RETURNING", () =>
+{
+    string sql = Sql(new DeleteWithPrimaryKeyQuery<Item, int>().Where(x => x.Id, 7, SqlOp.EQ), DbFlavor.PostgreSql);
+    Contains(sql, "DELETE FROM \"items\" AS"); Contains(sql, "RETURNING"); Excludes(sql, "OUTPUT");
+});
+foreach (DbFlavor flavor in new[] { DbFlavor.PostgreSql, DbFlavor.SqlServer })
+{
+    Test($"delete captures keys for {flavor}", () =>
+    {
+        var result = new DeleteWithPrimaryKeyQuery<Item, int>().Where(x => x.Id, 7, SqlOp.EQ)
+            .Execute(new FakeConnector(new FakeDatabase(), flavor));
+        Expect(result.State == ResponseState.Valid, result.Error?.ToString());
+        Expect(result.Result == 1 && result.TouchedPrimaryKeys.Single() == 7, "Deleted keys were not captured");
+    });
+    Test($"delete output precedes FROM or follows WHERE for {flavor}", () =>
+    {
+        string sql = Sql(new DeleteQuery<Item>().Output(x => x.Id).Where(x => x.Id, 7, SqlOp.EQ), flavor);
+        if (flavor == DbFlavor.SqlServer)
+            Expect(sql.IndexOf("OUTPUT [Deleted].[Id]") < sql.IndexOf("FROM"), "Invalid OUTPUT position");
+        else
+            Expect(sql.IndexOf("RETURNING") > sql.IndexOf("WHERE"), "Invalid RETURNING position");
+    });
+}
+Test("PostgreSQL joined update preserves joins and correlates target primary key", () =>
+{
+    string sql = Sql(new UpdateWithPrimaryKeyQuery<Item, int>().Update(x => x.Name, x => x.Category.Name)
+        .Where(x => x.Category.Name, "sample", SqlOp.EQ), DbFlavor.PostgreSql);
+    Contains(sql, "LEFT JOIN \"categories\""); Contains(sql, "FROM \"items\"");
+    Contains(sql, "WHERE \"target_"); Contains(sql, "AND ("); Contains(sql, "RETURNING \"target_");
+});
+Test("PostgreSQL joined delete preserves joins and correlates target primary key", () =>
+{
+    string sql = Sql(new DeleteWithPrimaryKeyQuery<Item, int>().Where(x => x.Category.Name, "sample", SqlOp.EQ), DbFlavor.PostgreSql);
+    Contains(sql, "USING \"items\""); Contains(sql, "LEFT JOIN \"categories\""); Contains(sql, "WHERE \"target_");
+});
+Test("MySQL puts joined tables before SET", () =>
+{
+    string sql = Sql(new UpdateQuery<Item>().Update(x => x.Name, x => x.Category.Name), DbFlavor.MySql);
+    Contains(sql, "UPDATE `items` AS"); Contains(sql, "LEFT JOIN `categories`");
+    Expect(sql.IndexOf("LEFT JOIN") < sql.IndexOf(" SET "), "JOIN follows SET"); Excludes(sql, " FROM ");
+});
+Test("MySQL plain writes do not contain SQL Server output", () =>
+{
+    Excludes(Sql(new InsertQuery<Item>().InsertAuto(new Item { Name = "sample" }), DbFlavor.MySql), "OUTPUT");
+    Contains(Sql(new DeleteQuery<Item>(), DbFlavor.MySql), "FROM `items`");
+});
+Test("MySQL returned-row requests fail before execution", () =>
+{
+    var database = new FakeDatabase(); var connector = new FakeConnector(database, DbFlavor.MySql);
+    Throws<NotSupportedException>(() => new InsertWithPrimaryKeyQuery<Item, int>().InsertAuto(new Item()).Execute(connector));
+    Throws<NotSupportedException>(() => new UpdateQuery<Item>().Update(x => x.Name, "sample").Output(x => x.Id).ExecuteWithOutput(connector));
+    Throws<NotSupportedException>(() => new DeleteWithPrimaryKeyQuery<Item, int>().Execute(connector));
+    Expect(database.Connections.Count == 0, "An unsupported request touched the database");
+});
 
 foreach (string password in new[] { "abc=def", "abc;def=ghi", "both\"'quotes;=", "space at end " })
 {
