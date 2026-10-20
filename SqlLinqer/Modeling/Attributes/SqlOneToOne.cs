@@ -51,7 +51,7 @@ namespace SqlLinqer.Modeling
                 throw new FormatException($"One to One relationship error. '{unprocessed.ParentType.Name}.{unprocessed.UnprocessedMember.Member.Name}' should be a single instance not enumerable.");
             }
 
-            var related_table = new Table(col_type);
+            var related_table = new Table(col_type, currentTable.DefaultSchema);
 
             ReflectedColumn primaryKey = null;
             if (JoiningPrimaryKey != null)

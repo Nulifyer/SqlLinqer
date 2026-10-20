@@ -10,6 +10,7 @@ internal sealed class FakeDatabase
 {
     public string FailAt;
     public string FailSql;
+    public int FailOnExecution;
     public bool FailRollback;
     public int Rows = 2;
     public long Total = 22;
@@ -67,6 +68,7 @@ public sealed class FakeConnection : DbConnection
         IsDisposed = true;
         Close();
         base.Dispose(disposing);
+        DatabaseState.ThrowIf("dispose-connection");
     }
     protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
     {
@@ -92,7 +94,7 @@ internal sealed class FakeTransaction(FakeConnection connection, IsolationLevel 
     public bool Completed;
     public override IsolationLevel IsolationLevel => isolationLevel;
     protected override DbConnection DbConnection => Completed ? null : connection;
-    public override void Commit() => Commits++;
+    public override void Commit() { Commits++; connection.DatabaseState.ThrowIf("commit"); }
     public override void Rollback()
     {
         Rollbacks++;
@@ -102,6 +104,7 @@ internal sealed class FakeTransaction(FakeConnection connection, IsolationLevel 
     {
         IsDisposed = true;
         base.Dispose(disposing);
+        connection.DatabaseState.ThrowIf("dispose-transaction");
     }
 }
 
@@ -127,6 +130,8 @@ internal sealed class FakeCommand(FakeConnection connection) : DbCommand
     private void Execute()
     {
         connection.DatabaseState.Executed.Add(this);
+        if (connection.DatabaseState.FailOnExecution == connection.DatabaseState.Executed.Count)
+            throw new InvalidOperationException("execution " + connection.DatabaseState.FailOnExecution);
         connection.DatabaseState.ThrowIf("execute");
         if (connection.DatabaseState.FailSql != null && CommandText.TrimStart().StartsWith(connection.DatabaseState.FailSql))
             throw new InvalidOperationException("SQL stage failure: " + connection.DatabaseState.FailSql);

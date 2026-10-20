@@ -29,6 +29,7 @@ namespace SqlLinqer.Components.Modeling
         /// The schema of this table
         /// </summary>
         public readonly string Schema;
+        internal readonly string DefaultSchema;
         /// <summary>
         /// The sql name of this table
         /// </summary>
@@ -101,6 +102,7 @@ namespace SqlLinqer.Components.Modeling
         }
         internal Table(Type type, string default_schema = null) : this()
         {
+            DefaultSchema = default_schema;
             var parsedType = ParsedType.GetCached(type);
 
             SourceType = type;
@@ -126,7 +128,7 @@ namespace SqlLinqer.Components.Modeling
             if (ParentRelationship == null || SourceType == null) 
                 UUID = StringExtensions.GetRandomHashString();
             else
-                UUID = $"{ParentRelationship?.ParentTable.UUID}.{SourceType?.Name}.{Name}".GetHashString();
+                UUID = $"{ParentRelationship.ParentTable.UUID}.{ParentRelationship.DataTarget.Alias}.{SourceType.FullName}.{Name}".GetHashString();
         }
 
         /// <summary>
@@ -280,8 +282,8 @@ namespace SqlLinqer.Components.Modeling
             return collection;
         }
         
-        private static readonly MemoryCache<string, Table> _cache
-            = new MemoryCache<string, Table>(TimeSpan.FromSeconds(10), true);
+        private static readonly MemoryCache<Tuple<Type, string>, Table> _cache
+            = new MemoryCache<Tuple<Type, string>, Table>(TimeSpan.FromSeconds(10), true);
         
         /// <summary>
         /// Get the table from a given type
@@ -295,7 +297,7 @@ namespace SqlLinqer.Components.Modeling
         /// <param name="default_schema">The default schema to use if not defined</param>
         public static Table GetCached(Type type, string default_schema = null)
         {
-            string key = $"({default_schema}){type.FullName}";
+            var key = Tuple.Create(type, default_schema);
             Table table;
             if (!_cache.TryGetValue(key, out table))
             {

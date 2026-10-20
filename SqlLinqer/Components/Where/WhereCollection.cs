@@ -50,17 +50,22 @@ namespace SqlLinqer.Components.Where
         private WhereCollection Simplify()
         {
             var newCollection = new WhereCollection(WhereOp);
-            var old_components = GetAll();
-            foreach (var com in old_components)
+            var combinable = new List<IWhereComponent>();
+            foreach (var com in Components)
             {
                 var current_com = com;
                 bool addToNew = true;
 
                 if (current_com is WhereCollection sub_collection)
                     current_com = sub_collection.Simplify();
+                else if (current_com.GetType() == typeof(WhereWithJoinBack))
+                    current_com = ((WhereWithJoinBack)current_com).CopyForFinalize();
 
-                foreach (var new_com in newCollection.GetAll())
+                bool leaf = IsNonCombiningLeaf(current_com);
+                var candidates = leaf ? combinable : newCollection.Components;
+                for (int i = 0; i < candidates.Count; i++)
                 {
+                    var new_com = candidates[i];
                     if (current_com.TryCombineInto(newCollection, new_com))
                     {
                         addToNew = false;
@@ -70,6 +75,7 @@ namespace SqlLinqer.Components.Where
                     {
                         addToNew = true;
                         newCollection.Components.Remove(new_com);
+                        combinable.Remove(new_com);
                         break;
                     }
                 }
@@ -80,10 +86,18 @@ namespace SqlLinqer.Components.Where
                 )
                 {
                     newCollection.AddComponent(current_com);
+                    if (!leaf)
+                        combinable.Add(current_com);
                 }
             }
 
             return newCollection;
+        }
+
+        private static bool IsNonCombiningLeaf(IWhereComponent component)
+        {
+            var type = component.GetType();
+            return type == typeof(WhereColumnValue) || type == typeof(WhereTwoColumn) || type == typeof(WhereConstant);
         }
         internal WhereCollection FinalizeStatements(WhereQuery query, DbFlavor? flavor = null)
         {

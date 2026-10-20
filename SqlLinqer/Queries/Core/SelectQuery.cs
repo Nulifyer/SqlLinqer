@@ -307,12 +307,18 @@ namespace SqlLinqer.Queries.Core
             {
                 // Constant and aggregate projections still operate on the root table.
                 Joins.AddRootTable(Table);
-                if (this.PagingControls.Limit > 0 && this.OrderBys.Count == 0
-                    && !(flavor == DbFlavor.Sqlite && Selects.GetAll().Any(x => !x.DoGroupBy()))
-                    && !(flavor == DbFlavor.DuckDb && (Distinct || Selects.GetAll().Any(x => !x.DoGroupBy()))))
+                if (this.PagingControls.Limit > 0 && this.OrderBys.Count == 0)
                 {
-                    var column = Table.PrimaryKey ?? Table.Columns.GetAll().First();
-                    OrderBy(column, SqlDir.ASC, true, flavor != DbFlavor.Sqlite);
+                    bool preserveProjection = Distinct || Selects.GetAll().Any(x => !x.DoGroupBy());
+                    if (!preserveProjection)
+                    {
+                        var column = Table.PrimaryKey ?? Table.Columns.GetAll().First();
+                        OrderBy(column, SqlDir.ASC, true, flavor != DbFlavor.Sqlite);
+                    }
+                    else if ((flavor == DbFlavor.SqlServer) && Selects.Count > 0)
+                    {
+                        OrderBys.AddStatement(new ProjectionOrderBy(Selects.GetAll().First().Alias));
+                    }
                 }
 
                 string where = this.RootWhere.Render(this, parameters, flavor);
@@ -385,7 +391,7 @@ namespace SqlLinqer.Queries.Core
             {
                 // A total for a DISTINCT or aggregate projection counts projected rows,
                 // including the single row produced by an ungrouped aggregate.
-                if (flavor == DbFlavor.SqlServer && (Distinct || Selects.GetAll().Any(x => !x.DoGroupBy())))
+                if (flavor == DbFlavor.SqlServer)
                 {
                     PagingControls.Reset();
                     OrderBys.Clear();
@@ -419,22 +425,11 @@ namespace SqlLinqer.Queries.Core
                     return $"SELECT COUNT(*) FROM ({rows}) AS \"__sqlinqer_count\"";
                 }
 
-                // Render to discover joins for the existing dialect count path.
-                this.RootWhere.Render(this, parameters, flavor);
-                this.Selects.Render(this, parameters, flavor, false);
-
-                // clear non-needed stuff
-                this.PagingControls.Reset();
-                this.Selects.Clear();
-                this.OrderBys.Clear();
-
-                // add count statement
-                this.Selects.AddStatement(new SelectFuncStatement(SqlFunc.COUNT, StringExtensions.GetRandomHashString(), 1));
-
-                // render count query
-                string rendered = Render(parameters, flavor, false);
-
-                return rendered;
+                // Count the same JSON projection used for PostgreSQL/MySQL loading.
+                // This preserves DISTINCT semantics even for nested JSON-valued columns.
+                PagingControls.Reset();
+                OrderBys.Clear();
+                return $"SELECT COUNT(*) FROM ({Render(parameters, flavor, true)}) AS {"SqlLinqerCount".DbWrap(flavor)}";
             }
             finally
             {

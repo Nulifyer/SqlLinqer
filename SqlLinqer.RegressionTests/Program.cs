@@ -11,6 +11,12 @@ using SqlLinqer.Queries.Typed;
 using SqlLinqer.Queries.TypedExt;
 using SqlLinqer.RegressionTests;
 
+if (args.Contains("--benchmark-render-only"))
+{
+    CompatibleQueryRegressionTests.MeasureRendering();
+    return 0;
+}
+
 int passed = 0, failed = 0;
 void Test(string name, Action run)
 {
@@ -394,6 +400,8 @@ foreach (object value in new object[] { null, DBNull.Value, SqlNull.NULL })
 
 AzureSqlRegressionTests.Run(Test);
 JsonRegressionTests.Run(Test);
+CompatibleQueryRegressionTests.Run(Test);
+if (args.Contains("--benchmark-render")) CompatibleQueryRegressionTests.MeasureRendering();
 
 SqlLinqer.Default.Connector = null;
 Console.WriteLine($"{passed} passed, {failed} failed");

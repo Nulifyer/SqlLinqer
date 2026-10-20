@@ -62,7 +62,7 @@ namespace SqlLinqer.Modeling
             var related_type = unprocessed.UnprocessedMember.Member.GetFieldOrPropValueType();
             related_type = related_type.GetItemTypeFromIEnumerable() ?? related_type;
 
-            var related_table = new Table(related_type);
+            var related_table = new Table(related_type, currentTable.DefaultSchema);
 
             var fkColumn = related_table.Columns.TryGet(JoiningForeignKey);
             if (fkColumn == null)

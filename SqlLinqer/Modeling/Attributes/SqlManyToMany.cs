@@ -98,14 +98,14 @@ namespace SqlLinqer.Modeling
             Table middleTable;
             if (directTargets)
             {
-                middleTable = new Table(JoiningSchema, JoiningTable);
+                middleTable = new Table(JoiningSchema ?? currentTable.DefaultSchema, JoiningTable);
 
                 middleTable.Columns.AddColumn(new Column(middleTable, LeftForeignKey));
                 middleTable.Columns.AddColumn(new Column(middleTable, RightForeignKey));
             }
             else
             {
-                middleTable = new Table(JoiningType);
+                middleTable = new Table(JoiningType, currentTable.DefaultSchema);
             }
 
             Column middle_left_fk = null;
@@ -142,7 +142,7 @@ namespace SqlLinqer.Modeling
             dataTargetType = dataTargetType.GetItemTypeFromIEnumerable();
             if (dataTargetType == null)
                 throw new FormatException($"Type of '{unprocessed.UnprocessedMember.Member.ReflectedType.Name}.{unprocessed.UnprocessedMember.Member.Name}' does not implement {nameof(System.Collections.IEnumerable)}");
-            Table childTable = new Table(dataTargetType);
+            Table childTable = new Table(dataTargetType, currentTable.DefaultSchema);
 
             if (childTable.PrimaryKey == null)
                 throw new FormatException($"Many to Many relationships require base table to have a primary key. {dataTargetType.Name} has no primary key.");

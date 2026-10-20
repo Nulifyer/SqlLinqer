@@ -74,6 +74,24 @@ namespace SqlLinqer.Components.Where
             SubQuery.SelectColumn(ReturnColumn, enable_sub_queries: false);
         }
 
+        private WhereWithJoinBack(WhereWithJoinBack source)
+        {
+            Inverted = source.Inverted;
+            ParentQuery = source.ParentQuery;
+            ReturnColumn = source.ReturnColumn;
+            SubQuery = new SelectQuery(source.SubQuery.Table, ParentQuery.Withs);
+            SubQuery.DisableWiths();
+            SubQuery.AddTableAsRoot();
+            SubQuery.Distinct = source.SubQuery.Distinct;
+            SubQuery.RootWhere.ImportFrom(source.SubQuery.RootWhere);
+            foreach (var select in source.SubQuery.Selects.GetAll())
+                SubQuery.Selects.AddStatement(select);
+            foreach (var table in source.SubQuery.Joins.GetAll())
+                SubQuery.Joins.AddTable(table);
+        }
+
+        internal WhereWithJoinBack CopyForFinalize() => new WhereWithJoinBack(this);
+
         public override int Order => 150;
 
         public override IWhereComponent Invert() => throw new System.NotSupportedException();
@@ -95,14 +113,15 @@ namespace SqlLinqer.Components.Where
             return false;
         }
 
-        private string _with_uuid;
         public override void Render(WhereQuery query, ParameterCollection parameters, DbFlavor flavor, StringBuilder builder)
         {
+            var withQuery = SubQuery;
             if (Inverted)
             {
-                SubQuery.RootWhere = SubQuery.RootWhere.Invert();
+                withQuery = new WhereWithJoinBack(this).SubQuery;
+                withQuery.RootWhere = withQuery.RootWhere.Invert();
             }
-            var with = new With(SubQuery, StringExtensions.GetRandomHashString());
+            var with = new With(withQuery, ParentQuery.Withs.NextFilterAlias());
             ParentQuery.Withs.AddWith(with);
 
             var join = new Join(query.Table, with.OutputTable);

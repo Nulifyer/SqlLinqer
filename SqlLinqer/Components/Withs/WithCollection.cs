@@ -17,6 +17,15 @@ namespace SqlLinqer.Components.Withs
             AddComponentOverwrite(with.Alias, with);
         }
 
+        internal string NextFilterAlias()
+        {
+            int index = Count;
+            string alias;
+            do { alias = "__sqlinqer_filter" + index++; }
+            while (HasKey(alias));
+            return alias;
+        }
+
         public string Render(JoinQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
             if (Count == 0)

@@ -462,6 +462,7 @@ try
             var output = Result(new DeleteQuery<Item>().Output(x => x.Name).Where(x => x.Id, 3, SqlOp.EQ).ExecuteWithOutput(connector));
             Expect((string)output.Rows[0][0] == "third");
         });
+        SqlLinqer.RegressionTests.CompatibleDatabaseTests.Run(connector, (name, action) => Test($"{label}: {name}", action));
         Test($"{label}: attached schema remains qualified and missing schemas fail", () =>
         {
             using var transaction = keeper.BeginTransaction();

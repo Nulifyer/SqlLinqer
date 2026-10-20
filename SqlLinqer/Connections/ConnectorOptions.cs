@@ -12,7 +12,7 @@ namespace SqlLinqer.Connections
         /// </summary>
         public string DefaultSchema { get; set; }
         /// <summary>
-        /// The parameter limit of the database connection
+        /// The insert parameter budget. Non-positive values disable this budget; native SQL Server limits still apply.
         /// </summary>
         public int ParameterLimit { get; set; }
         /// <summary>

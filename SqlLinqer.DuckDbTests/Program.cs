@@ -483,6 +483,7 @@ try
         Expect(Convert.ToInt64(probe.ExecuteScalar()) == 0, "Expected isolated memory connection");
         transaction.Rollback();
     });
+    SqlLinqer.RegressionTests.CompatibleDatabaseTests.Run(connector, Test);
     // Optional diagnostic only: elapsed time depends on the host and is not a regression assertion.
     if (Environment.GetEnvironmentVariable("SQLLINQER_DUCKDB_TIMEOUT_PROBE") == "1")
     {

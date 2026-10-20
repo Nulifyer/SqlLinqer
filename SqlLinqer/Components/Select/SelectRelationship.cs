@@ -38,32 +38,33 @@ namespace SqlLinqer.Components.Select
         public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool forJson, bool include_alias)
         {
             flavor = SqlDialect.Resolve(flavor);
-            // A relationship is a JSON-valued column even in a tabular SQL Server result.
-            // Rendering it as a multi-column scalar subquery produces invalid SQL.
-            bool nestedJson = forJson || flavor == DbFlavor.SqlServer;
-            string rendered_query = SubQuery.Render(parameters, flavor, nestedJson);
+            // A relationship remains one JSON-valued column in tabular results.
+            // A multi-column scalar subquery would produce invalid SQL.
+            string rendered_query = SubQuery.Render(parameters, flavor, true);
             rendered_query = $"({rendered_query})";
 
-            // if is FOR JSON and is OneToOne, run JSON_QUERY to pull first element from array
-            if (nestedJson)
+            // One-to-one SQL Server relationships extract the first JSON element.
+            switch (flavor)
             {
-                switch (flavor)
-                {
-                    case DbFlavor.Sqlite:
+                case DbFlavor.Sqlite:
+                    if (forJson)
                         return $"{Alias.DbWrapString(flavor)}, json({rendered_query})";
-                    case DbFlavor.DuckDb:
-                    case DbFlavor.PostgreSql:
-                    case DbFlavor.MySql:
+                    rendered_query = $"json({rendered_query})";
+                    break;
+                case DbFlavor.DuckDb:
+                case DbFlavor.PostgreSql:
+                case DbFlavor.MySql:
+                    if (forJson)
                         return $"{Alias.DbWrapString(flavor)}, {rendered_query}";
-                    case DbFlavor.SqlServer:
-                        if (Relationship.Type == RelationshipType.OneToOne)
-                        {
-                            rendered_query = $"JSON_QUERY({rendered_query}, '$[0]')";
-                        }
-                        break;
-                    default:
-                        throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(SelectRelationship)}.{nameof(Render)}");
-                }
+                    break;
+                case DbFlavor.SqlServer:
+                    if (Relationship.Type == RelationshipType.OneToOne)
+                    {
+                        rendered_query = $"JSON_QUERY({rendered_query}, '$[0]')";
+                    }
+                    break;
+                default:
+                    throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(SelectRelationship)}.{nameof(Render)}");
             }
 
             string alias = include_alias ? $" AS {Alias.DbWrap(flavor)}" : null;

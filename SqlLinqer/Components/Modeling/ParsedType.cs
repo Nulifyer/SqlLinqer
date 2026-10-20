@@ -74,16 +74,16 @@ namespace SqlLinqer.Components.Modeling
             return depth;
         }
 
-        private static readonly MemoryCache<string, ParsedType> _cache
-            = new MemoryCache<string, ParsedType>(TimeSpan.FromSeconds(10), true);
+        private static readonly MemoryCache<Type, ParsedType> _cache
+            = new MemoryCache<Type, ParsedType>(TimeSpan.FromSeconds(10), true);
         public static ParsedType GetCached<T>() => GetCached(typeof(T));
         public static ParsedType GetCached(Type type)
         {
             ParsedType parsedType;
-            if (!_cache.TryGetValue(type.FullName, out parsedType))
+            if (!_cache.TryGetValue(type, out parsedType))
             {
                 parsedType = new ParsedType(type);
-                _cache.Add(type.FullName, parsedType, TimeSpan.FromSeconds(60));
+                _cache.Add(type, parsedType, TimeSpan.FromSeconds(60));
             }
             return parsedType;
         }

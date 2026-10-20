@@ -33,10 +33,13 @@ namespace SqlLinqer.Components.Select
                     case DbFlavor.DuckDb:
                         return $"json_object({string.Join(",", strs)}) AS \"__sqlinqer_json\"";
                     case DbFlavor.PostgreSql:
+                        // DISTINCT requires equality, which PostgreSQL provides for jsonb, not json.
+                        string jsonObject = query.Distinct ? "jsonb_build_object" : "json_build_object";
+                        string jsonAggregate = query.Distinct ? "jsonb_agg" : "json_agg";
                         if (!query.IsSubQuery || query.Table.ParentRelationship?.Type == Modeling.RelationshipType.OneToOne)
-                            return $"json_build_object( {string.Join(",", strs)} )";
+                            return $"{jsonObject}( {string.Join(",", strs)} )";
                         else
-                            return $"json_agg( json_build_object( {string.Join(",", strs)} ) )";
+                            return $"{jsonAggregate}( {jsonObject}( {string.Join(",", strs)} ) )";
                     case DbFlavor.MySql:
                         if (!query.IsSubQuery || query.Table.ParentRelationship?.Type == Modeling.RelationshipType.OneToOne)
                             return $"JSON_OBJECT( {string.Join(",", strs)} )";

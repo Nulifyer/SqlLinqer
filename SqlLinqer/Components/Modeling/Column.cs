@@ -6,9 +6,22 @@ namespace SqlLinqer.Components.Modeling
 {
     public class Column
     {
+        private string _uuid;
+        private string _uuidTable;
+        private string _uuidColumn;
         public string UUID
         { 
-            get => $"{Table.UUID}.{ColumnName}".GetHashString();
+            get
+            {
+                var tableId = Table.UUID;
+                if (_uuid == null || _uuidTable != tableId || _uuidColumn != ColumnName)
+                {
+                    _uuid = $"{tableId}.{ColumnName}".GetHashString();
+                    _uuidTable = tableId;
+                    _uuidColumn = ColumnName;
+                }
+                return _uuid;
+            }
         }
 
         public Table Table;

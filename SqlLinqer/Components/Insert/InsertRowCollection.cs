@@ -66,8 +66,24 @@ namespace SqlLinqer.Components.Insert
         /// <param name="parameterLimit">The known limit of parameters</param>
         public int GetBatchSize(int parameterLimit)
         {
-            int batchCount = (int)Math.Ceiling(((double)Columns.Count * Rows.Count) / parameterLimit);
-            return Rows.Count / batchCount;
+            if (Rows.Count == 0)
+                return 0;
+            if (Columns.Count == 0 || parameterLimit <= 0)
+                return Rows.Count;
+            int size = parameterLimit / Columns.Count;
+            if (size == 0)
+                throw new InvalidOperationException("One insert row exceeds the configured parameter limit.");
+            return Math.Min(Rows.Count, size);
+        }
+
+        internal InsertRowCollection Slice(int offset, int count)
+        {
+            var batch = new InsertRowCollection();
+            foreach (var column in Columns.Values)
+                batch.AddColumn(column);
+            for (int i = offset; i < offset + count; i++)
+                batch.AddRow(Rows[i]);
+            return batch;
         }
 
         /// <summary>
