@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/SQLTest/bin/Debug/net8.0/SQLTest.dll",
+            "program": "${workspaceFolder}/SQLTest/bin/Debug/net10.0/SQLTest.dll",
             "args": [],
             "cwd": "${workspaceFolder}/SQLTest",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
@@ -21,7 +21,7 @@
             "name": ".NET Framework Launch (console)",
             "type": "clr",
             "request": "launch",
-            "preLaunchTask": "build",
+            "preLaunchTask": "build-framework",
             "program": "${workspaceFolder}/SQLTestFramework/bin/Debug/net48/SQLTestFramework.exe",
             "args": [],
             "cwd": "${workspaceFolder}/SQLTestFramework",
