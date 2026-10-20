@@ -22,6 +22,20 @@ dotnet run --project SqlLinqer.RegressionTests/SqlLinqer.RegressionTests.csproj
 
 The regression checks use fake database connections and do not require a running database. The demos require the employee database described in their connection settings.
 
+To run integration checks against real PostgreSQL 18 and MySQL 8.4 containers:
+
+```sh
+bash TestDBs/test-containers.sh --engine docker
+# If Docker requires sudo, run this from your terminal:
+bash TestDBs/test-containers.sh --engine docker --sudo
+# Podman is also supported:
+bash TestDBs/test-containers.sh --engine podman
+# If host connections to Docker ports time out, keep tests inside containers:
+bash TestDBs/test-containers.sh --engine docker --containerized
+```
+
+The runner needs .NET 10 and access to Docker or Podman. It creates disposable databases on automatically assigned localhost ports. With `--containerized`, it runs the built tests in a .NET 10 runtime container sharing the databases' isolated network, without publishing ports. It removes its containers and anonymous volumes after the checks. Only container commands use sudo. Test results are saved to a temporary log whose path is printed by the runner. These checks cover PostgreSQL and MySQL; SQL Server is not included.
+
 Returned rows and primary keys are supported for SQL Server and PostgreSQL. MySQL queries that request output columns throw `NotSupportedException` before execution. For MySQL writes without returned rows, use `Queries.Typed.InsertQuery<T>`, `UpdateQuery<T>`, or `DeleteQuery<T>` without output columns. Joined PostgreSQL updates and deletes require a primary key on the target model. Table-valued parameters are supported only for SQL Server.
 
 When passing a transaction, the caller owns its commit, rollback, and disposal, including after a query fails. The connector disposes its commands and connections it creates itself.
