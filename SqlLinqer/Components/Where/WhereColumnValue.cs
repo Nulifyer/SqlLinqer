@@ -22,7 +22,9 @@ namespace SqlLinqer.Components.Where
         public WhereColumnValue(Column column, object value, SqlOp op, SqlSubQueryOp sub_query_op)
         {
             Column = column;
-            Value = value is IEnumerable values && !(value is string)
+            bool binary = value is byte[] && ((column as ReflectedColumn)?.ValueType == typeof(byte[])
+                || column.DbType == System.Data.DbType.Binary);
+            Value = value is IEnumerable values && !(value is string) && !binary
                 ? values.Cast<object>().ToArray()
                 : value;
             Operator = op;
@@ -68,7 +70,7 @@ namespace SqlLinqer.Components.Where
                 where_with.SubQuery.RootWhere.AddComponent(this);
                 return where_with;
             }
-            else if (Value != null && typeof(IEnumerable).IsAssignableFrom(Value.GetType()) && Value.GetType() != typeof(string))
+            else if (Value != null && typeof(IEnumerable).IsAssignableFrom(Value.GetType()) && Value.GetType() != typeof(string) && !(Value is byte[]))
             {
                 switch (Operator)
                 {
@@ -108,16 +110,8 @@ namespace SqlLinqer.Components.Where
                         return groupORNULL.FinalizeStatements(query);
                     case SqlOp.LIKEWORD:
                     case SqlOp.NOTLIKEWORD:
-                        var likeOp = Operator == SqlOp.LIKEWORD ? SqlOp.LIKE : SqlOp.NOTLIKE;
-                        var groupOp = Operator == SqlOp.LIKEWORD ? SqlWhereOp.OR : SqlWhereOp.AND;
-                        var group = new WhereCollection(groupOp);
-
-                        group.AddComponent(new WhereColumnValue(this.Column, this.Value, likeOp, SqlSubQueryOp.ANY));
-                        group.AddComponent(new WhereColumnValue(this.Column, $"{this.Value}[^0-9A-z]%", likeOp, SqlSubQueryOp.ANY));
-                        group.AddComponent(new WhereColumnValue(this.Column, $"%[^0-9A-z]{this.Value}", likeOp, SqlSubQueryOp.ANY));
-                        group.AddComponent(new WhereColumnValue(this.Column, $"%[^0-9A-z]{this.Value}[^0-9A-z]%", likeOp, SqlSubQueryOp.ANY));
-
-                        return group;
+                        // Keep word operations intact until the dialect is known.
+                        return this;
                     default:
                         return this;
                 }
@@ -147,6 +141,15 @@ namespace SqlLinqer.Components.Where
             }
             else if (hanldedValue is Queries.Core.SelectQuery subquery)
             {
+                if (flavor == DbFlavor.Sqlite)
+                {
+                    if (!((Operator == SqlOp.EQ && SubQueryOp == SqlSubQueryOp.ANY)
+                        || (Operator == SqlOp.NOT && SubQueryOp == SqlSubQueryOp.ALL)))
+                        throw new NotSupportedException("SQLite quantified subqueries support only IN and NOT IN.");
+                    subquery.DisableWiths();
+                    builder.Append($"{columnTarget} {(Operator == SqlOp.EQ ? "IN" : "NOT IN")} ({subquery.Render(parameters, flavor, false)})");
+                    return;
+                }
                 subquery.DisableWiths();
                 string rendered = subquery.Render(parameters, flavor, false); 
 
@@ -155,7 +158,7 @@ namespace SqlLinqer.Components.Where
                 builder.Append($"{Column.Render(flavor)} {Operator.GetDescription()} {SubQueryOp.GetDescription()} ({rendered})");
                 return;
             }
-            else if (typeof(IEnumerable).IsAssignableFrom(hanldedValue.GetType()) && hanldedValue.GetType() != typeof(string))
+            else if (typeof(IEnumerable).IsAssignableFrom(hanldedValue.GetType()) && hanldedValue.GetType() != typeof(string) && !(hanldedValue is byte[]))
             {
                 var values = hanldedValue as IEnumerable;
 
@@ -207,6 +210,20 @@ namespace SqlLinqer.Components.Where
             {
                 case SqlOp.LIKEWORD:
                 case SqlOp.NOTLIKEWORD:
+                    if (flavor == DbFlavor.Sqlite)
+                    {
+                        string pattern = hanldedValue == null ? null : Convert.ToString(hanldedValue, System.Globalization.CultureInfo.InvariantCulture);
+                        string wordPattern = parameters.AddParameter(pattern == null ? null : SqliteWordPattern(pattern));
+                        string lowerPattern = parameters.AddParameter(pattern == null ? null : SqliteWordPattern(
+                            new string(pattern.Select(c => c >= 'A' && c <= 'Z' ? (char)(c + ('a' - 'A')) : c).ToArray())));
+                        // GLOB supplies the ASCII boundary class missing from SQLite LIKE.
+                        // Probe LIKE case behavior on this connection before folding ASCII text.
+                        string target = $"(' ' || {columnTarget} || ' ')";
+                        string foldedTarget = $"(CASE WHEN 'a' LIKE 'A' THEN lower({target}) ELSE {target} END)";
+                        string foldedPattern = $"(CASE WHEN 'a' LIKE 'A' THEN {lowerPattern} ELSE {wordPattern} END)";
+                        builder.Append($"{foldedTarget} {(Operator == SqlOp.NOTLIKEWORD ? "NOT GLOB" : "GLOB")} {foldedPattern}");
+                        return;
+                    }
                     var likeOp = Operator == SqlOp.LIKEWORD ? SqlOp.LIKE : SqlOp.NOTLIKE;
                     var groupOp = Operator == SqlOp.LIKEWORD ? SqlWhereOp.OR : SqlWhereOp.AND;
                     var group = new WhereCollection(groupOp);
@@ -221,8 +238,34 @@ namespace SqlLinqer.Components.Where
                 default:
                     string placeholder = parameters.AddParameter(hanldedValue);
                     builder.Append($"{Column.Render(flavor)} {Operator.GetDescription()} {placeholder}");
+                    if (flavor == DbFlavor.Sqlite && (Operator == SqlOp.LIKE || Operator == SqlOp.NOTLIKE))
+                        builder.Append(" ESCAPE '\\'");
                     return;
             }
+        }
+
+        private static string SqliteWordPattern(string pattern)
+        {
+            var glob = new StringBuilder("*[^0-9A-z]");
+            for (int i = 0; i < pattern.Length; i++)
+            {
+                char value = pattern[i];
+                bool literal = value == '\\';
+                if (literal)
+                {
+                    // A dangling LIKE escape yields an invalid GLOB that never matches.
+                    if (++i == pattern.Length)
+                        return "[";
+                    value = pattern[i];
+                }
+                if (!literal && value == '%') glob.Append('*');
+                else if (!literal && value == '_') glob.Append('?');
+                else if (value == '*') glob.Append("[*]");
+                else if (value == '?') glob.Append("[?]");
+                else if (value == '[') glob.Append("[[]");
+                else glob.Append(value);
+            }
+            return glob.Append("[^0-9A-z]*").ToString();
         }
 
         public override IEnumerable<Column> GetColumnReferences()

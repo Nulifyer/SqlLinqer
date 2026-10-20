@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using SqlLinqer.Components.Modeling;
 using SqlLinqer.Components.Render;
 using SqlLinqer.Extensions.StringExtensions;
@@ -29,10 +30,19 @@ namespace SqlLinqer.Components.Select
             flavor = SqlDialect.Resolve(flavor);
             query.Joins.AddTable(Column.Table);
 
+            if (forJson && flavor == DbFlavor.Sqlite
+                && (Column.DbType == System.Data.DbType.Binary || Column.Table.Columns.GetAll<ReflectedColumn>()
+                    .Any(x => x.ColumnName == Column.ColumnName && x.ValueType == typeof(byte[]))))
+            {
+                string value = Column.Render(flavor);
+                return $"{Alias.DbWrapString(flavor)}, CASE WHEN {value} IS NULL THEN NULL ELSE hex({value}) END";
+            }
+
             if (forJson)
             {
                 switch (flavor)
                 {
+                    case DbFlavor.Sqlite:
                     case DbFlavor.PostgreSql:
                     case DbFlavor.MySql:
                         return $"{Alias.DbWrapString(flavor)}, {Column.Render(flavor)}";

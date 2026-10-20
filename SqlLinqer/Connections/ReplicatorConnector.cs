@@ -31,6 +31,14 @@ namespace SqlLinqer.Connections
             _type = connection.GetType();
             var connectionParams = new DbConnectionStringBuilder { ConnectionString = connection.ConnectionString };
 
+            // SQLite has no connection timeout. Preserve provider Default Timeout;
+            // CommandTimeout controls lock waits when each command executes.
+            if (DbFlavor == DbFlavor.Sqlite)
+            {
+                _connectionString = connectionParams.ConnectionString;
+                return;
+            }
+
             string connTimeoutKey;
             switch (SqlDialect.Resolve(DbFlavor))
             {

@@ -47,6 +47,14 @@ namespace SqlLinqer.Queries.Core
 
             try
             {
+                if (flavor == DbFlavor.Sqlite && Inserts.Count == 0)
+                    throw new System.InvalidOperationException("An insert query must contain at least one row.");
+                if (flavor == DbFlavor.Sqlite && string.IsNullOrWhiteSpace(Inserts.RenderColumns(flavor)))
+                {
+                    if (Inserts.Count != 1)
+                        throw new System.NotSupportedException("SQLite DEFAULT VALUES inserts support one row per query.");
+                    return $"INSERT INTO {Table.RenderFullName(flavor)} DEFAULT VALUES {Outputs.Render(flavor)}";
+                }
                 string inserts = this.Inserts.RenderAsRows(parameters, flavor);
                 string columns = this.Inserts.RenderColumns(flavor);
                 string outputs = this.Outputs.Render(flavor);
@@ -58,7 +66,7 @@ namespace SqlLinqer.Queries.Core
                     flavor == DbFlavor.SqlServer ? outputs : null,
                     "VALUES",
                     inserts,
-                    flavor == DbFlavor.PostgreSql ? outputs : null,
+                    (flavor == DbFlavor.PostgreSql || flavor == DbFlavor.Sqlite) ? outputs : null,
                 });
             }
             finally

@@ -28,6 +28,8 @@ namespace SqlLinqer.Components.Select
             {
                 switch (flavor)
                 {
+                    case DbFlavor.Sqlite:
+                        return $"json_object({string.Join(",", strs)})";
                     case DbFlavor.PostgreSql:
                         if (!query.IsSubQuery || query.Table.ParentRelationship?.Type == Modeling.RelationshipType.OneToOne)
                             return $"json_build_object( {string.Join(",", strs)} )";

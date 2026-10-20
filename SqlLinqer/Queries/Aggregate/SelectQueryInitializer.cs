@@ -48,7 +48,10 @@ namespace SqlLinqer.Queries.Typed
             foreach (var (member, argument) in info)
             {
                 var argument2 = argument;
-                switch (argument)
+                while (argument2 is UnaryExpression conversion
+                    && (conversion.NodeType == ExpressionType.Convert || conversion.NodeType == ExpressionType.ConvertChecked))
+                    argument2 = conversion.Operand;
+                switch (argument2)
                 {
                     case UnaryExpression unary_expression:
                         if (unary_expression.Operand is MethodCallExpression call_expression)

@@ -306,27 +306,31 @@ namespace SqlLinqer.Queries.Core
             {
                 // COUNT(1) and constant projections still operate on the root table.
                 Joins.AddRootTable(Table);
-                if (this.PagingControls.Limit > 0 && this.OrderBys.Count == 0)
+                if (this.PagingControls.Limit > 0 && this.OrderBys.Count == 0
+                    && !(flavor == DbFlavor.Sqlite && Selects.GetAll().Any(x => !x.DoGroupBy())))
                 {
                     var column = Table.PrimaryKey ?? Table.Columns.GetAll().First();
-                    OrderBy(column, SqlDir.ASC, true, true);
+                    OrderBy(column, SqlDir.ASC, true, flavor != DbFlavor.Sqlite);
                 }
 
                 string where = this.RootWhere.Render(this, parameters, flavor);
                 string select = this.Selects.Render(this, parameters, flavor, forJson);
+                // Ordering can reference a related column or an anonymous selected expression.
+                // Discover its joins before rendering SQLite FROM and WITH clauses.
+                string sqliteOrderBy = flavor == DbFlavor.Sqlite ? this.OrderBys.Render(this, parameters, flavor) : null;
                 string with = !IsSubQuery
                     ? this.Withs?.Render(this, parameters, flavor)
                     : null;
                 string groupBy = this.Selects.RenderGroupBy(this, parameters, flavor);
                 string joins = this.Joins.Render(this, parameters, flavor);
-                string order_by = this.OrderBys.Render(this, parameters, flavor);
+                string order_by = flavor == DbFlavor.Sqlite ? sqliteOrderBy : this.OrderBys.Render(this, parameters, flavor);
                 string paging_controls = this.PagingControls.Render(flavor);
 
-                return string.Join(" ", new[]
+                string rendered = string.Join(" ", new[]
                 {
                     with,
                     $"SELECT{(Distinct ? " DISTINCT" : null)}{(flavor == DbFlavor.SqlServer && PagingControls.Top > 0 ? $" TOP {PagingControls.Top}" : null)}",
-                    select,
+                    select + (forJson && flavor == DbFlavor.Sqlite ? " AS \"__sqlite_json\"" : null),
                     joins,
                     where,
                     groupBy,
@@ -334,6 +338,10 @@ namespace SqlLinqer.Queries.Core
                     paging_controls,
                     (forJson && flavor == DbFlavor.SqlServer ? "FOR JSON AUTO, INCLUDE_NULL_VALUES" : null),
                 });
+                if (forJson && flavor == DbFlavor.Sqlite && IsSubQuery
+                    && Table.ParentRelationship?.Type != RelationshipType.OneToOne)
+                    return $"SELECT json_group_array(json(\"__sqlite_json\")) FROM ({rendered})";
+                return rendered;
             }
             finally
             {
@@ -384,6 +392,13 @@ namespace SqlLinqer.Queries.Core
                         return $"{with} SELECT COUNT(*) FROM ({projection}) AS [SqlLinqerCount]";
                     }
                     finally { IsSubQuery = subQuery; }
+                }
+                if (flavor == DbFlavor.Sqlite)
+                {
+                    PagingControls.Reset();
+                    OrderBys.Clear();
+                    // Count the result rows, preserving grouping and DISTINCT.
+                    return $"SELECT count(*) FROM ({Render(parameters, flavor, true)})";
                 }
 
                 // render to setup joins

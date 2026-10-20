@@ -23,6 +23,17 @@ namespace SqlLinqer.Components.Ordering
             flavor = SqlDialect.Resolve(flavor);
             switch (flavor)
             {
+                case DbFlavor.Sqlite:
+                    // Anonymous result columns name selected expressions, not source tables.
+                    if (Column.Table.UUID != query.Table.UUID && !Column.Table.IsChildOf(query.Table))
+                    {
+                        var selected = query.Selects.TryGet(Column.Alias);
+                        if (selected == null)
+                            throw new InvalidOperationException($"No selected expression matches ordering column '{Column.Alias}'.");
+                        return $"{selected.Render(query, parameters, flavor, false, false)} {Dir.GetDescription()}";
+                    }
+                    query.Joins.AddTable(Column.Table);
+                    return $"{Column.Render(flavor)} {Dir.GetDescription()}";
                 case DbFlavor.PostgreSql:
                 case DbFlavor.MySql:
                     var selectStatement = query.Selects.TryGet(Column.Alias);

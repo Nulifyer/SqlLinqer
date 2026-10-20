@@ -47,6 +47,27 @@ namespace SqlLinqer.Queries.Core
 
                 switch (flavor)
                 {
+                    case DbFlavor.Sqlite:
+                        foreach (var update in Updates.GetAll())
+                        {
+                            if (update.UpdateColumn.Table.UUID != Table.UUID)
+                                throw new System.NotSupportedException("SQLite updates can assign only columns on the target table.");
+                        }
+                        string sqliteTargetAlias = Table.Alias;
+                        string sqliteFrom = null;
+                        if (Joins.HasJoinedTables(Table))
+                        {
+                            if (Table.PrimaryKey == null)
+                                throw new System.NotSupportedException("Joined SQLite updates require a primary key on the target model.");
+                            // Keep the original source joins intact, including LEFT JOIN nulls.
+                            // SQLite chooses one arbitrary source row if several match a target.
+                            sqliteTargetAlias = "target_" + Table.UUID;
+                            string match = $"{sqliteTargetAlias.DbWrap(flavor)}.{Table.PrimaryKey.ColumnName.DbWrap(flavor)} = {Table.PrimaryKey.Render(flavor)}";
+                            where = string.IsNullOrEmpty(where) ? $"WHERE {match}" : $"WHERE {match} AND ({where.Substring(6)})";
+                            sqliteFrom = joins;
+                        }
+                        return string.Join(" ", with, $"UPDATE {Table.RenderFullName(flavor)} AS {sqliteTargetAlias.DbWrap(flavor)} SET {assignments}",
+                            sqliteFrom, where, Outputs.Render(flavor));
                     case DbFlavor.SqlServer:
                         return string.Join(" ", with, $"UPDATE {Table.Alias.DbWrap(flavor)} SET {assignments}",
                             Outputs.Render(flavor), joins, where);

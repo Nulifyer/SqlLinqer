@@ -34,6 +34,7 @@ namespace SqlLinqer.Components.Outputs
                 case DbFlavor.SqlServer:
                     keyword = "OUTPUT";
                     break;
+                case DbFlavor.Sqlite:
                 case DbFlavor.PostgreSql:
                     keyword = "RETURNING";
                     break;

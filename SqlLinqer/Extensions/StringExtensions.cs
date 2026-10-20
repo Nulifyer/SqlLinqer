@@ -38,6 +38,8 @@ namespace SqlLinqer.Extensions.StringExtensions
         public static string DbWrap(this string str, DbFlavor flavor)
         {
             flavor = SqlDialect.Resolve(flavor);
+            if (flavor == DbFlavor.Sqlite)
+                return "\"" + str.Replace("\"", "\"\"") + "\"";
             char begin, end;
 
             switch (flavor)
@@ -69,6 +71,8 @@ namespace SqlLinqer.Extensions.StringExtensions
         public static string DbWrapString(this string str, DbFlavor flavor)
         {
             flavor = SqlDialect.Resolve(flavor);
+            if (flavor == DbFlavor.Sqlite)
+                return "'" + str.Replace("'", "''") + "'";
             char begin, end;
 
             switch (flavor)
@@ -104,6 +108,7 @@ namespace SqlLinqer.Extensions.StringExtensions
                         .Replace("%", "[%]");
                 case DbFlavor.MySql:
                 case DbFlavor.PostgreSql:
+                case DbFlavor.Sqlite:
                     return str
                         .Replace("\\", "\\\\")
                         .Replace("_", "\\_")

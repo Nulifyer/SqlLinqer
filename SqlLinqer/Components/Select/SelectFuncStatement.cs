@@ -51,7 +51,7 @@ namespace SqlLinqer.Components.Select
                         }
                         break;
                     case SelectStatement sub_statement:
-                        string rendered_sub_stm = sub_statement.Render(query, parameters, flavor, forJson, false);
+                        string rendered_sub_stm = sub_statement.Render(query, parameters, flavor, flavor == DbFlavor.Sqlite ? false : forJson, false);
                         args_processed.Add($"({rendered_sub_stm})");
                         break;
                     default:
@@ -64,6 +64,9 @@ namespace SqlLinqer.Components.Select
             string val;
             switch (flavor)
             {
+                case DbFlavor.Sqlite:
+                    val = RenderSqliteFunction(args_processed);
+                    break;
                 case DbFlavor.PostgreSql:
                     switch (Func)
                     {
@@ -86,6 +89,7 @@ namespace SqlLinqer.Components.Select
             {
                 switch (flavor)
                 {
+                    case DbFlavor.Sqlite:
                     case DbFlavor.PostgreSql:
                     case DbFlavor.MySql:
                         return $"{Alias.DbWrapString(flavor)}, {val}";
@@ -98,6 +102,51 @@ namespace SqlLinqer.Components.Select
             else
             {
                 return $"{val}{(include_alias ? $" AS {Alias.DbWrap(flavor)}" : null)}";
+            }
+        }
+
+        private string RenderSqliteFunction(List<object> args)
+        {
+            string joined = string.Join(",", args);
+            switch (Func)
+            {
+                case SqlFunc.DAY:
+                case SqlFunc.MONTH:
+                case SqlFunc.YEAR:
+                    string format = Func == SqlFunc.DAY ? "%d" : Func == SqlFunc.MONTH ? "%m" : "%Y";
+                    return $"CAST(strftime('{format}', {joined}) AS INTEGER)";
+                case SqlFunc.RIGHT:
+                    return $"CASE WHEN {args[1]} = 0 THEN '' ELSE substr({args[0]}, -({args[1]})) END";
+                case SqlFunc.SUBSTRING:
+                    return $"substr({joined})";
+                case SqlFunc.COUNT_BIG:
+                    return $"count({ArgPrefix}{joined})";
+                case SqlFunc.STRING_AGG:
+                    return $"group_concat({ArgPrefix}{joined})";
+                case SqlFunc.CONCAT:
+                    return args.Count == 0 ? "''" : "(" + string.Join(" || ", args.Select(x => $"coalesce({x}, '')")) + ")";
+                case SqlFunc.CONCAT_WS:
+                    // Skip NULL arguments and separators, including on SQLite 3.38.
+                    if (args.Count == 0)
+                        throw new NotSupportedException("SQLite CONCAT_WS requires a separator.");
+                    string result = "''";
+                    string hasValue = "0";
+                    foreach (var arg in args.Skip(1))
+                    {
+                        result = $"({result} || CASE WHEN {arg} IS NULL THEN '' ELSE (CASE WHEN {hasValue} THEN {args[0]} ELSE '' END || {arg}) END)";
+                        hasValue = $"({hasValue} OR {arg} IS NOT NULL)";
+                    }
+                    return $"CASE WHEN {args[0]} IS NULL THEN NULL ELSE {result} END";
+                case SqlFunc.REVERSE:
+                case SqlFunc.SOUNDDEX:
+                case SqlFunc.CHECKSUM_AGG:
+                case SqlFunc.STDEV:
+                case SqlFunc.STDEVP:
+                case SqlFunc.VAR:
+                case SqlFunc.VARP:
+                    throw new NotSupportedException($"SQLite does not provide {Func} without extensions.");
+                default:
+                    return $"{Func.GetDescription()}({ArgPrefix}{joined})";
             }
         }
 

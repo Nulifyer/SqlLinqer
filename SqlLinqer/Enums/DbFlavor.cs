@@ -1,4 +1,4 @@
-﻿namespace SqlLinqer
+namespace SqlLinqer
 {
     /// <summary>
     /// Sql database/implementation type
@@ -21,5 +21,7 @@
         /// Azure SQL Database, using the SQL Server dialect
         /// </summary>
         AzureSql = 5,
+        /// <summary>SQLite 3.38 or newer with JSON support.</summary>
+        Sqlite = 3,
     }
 }

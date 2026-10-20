@@ -5,6 +5,24 @@ using System.Text.Json.Serialization;
 
 namespace SqlLinqer.Components.Json
 {
+    // SQLite JSON cannot contain BLOB values. Typed column projections use hex.
+    internal sealed class DatabaseHexBytesConverter : JsonConverter<byte[]>
+    {
+        public override byte[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            string hex = reader.GetString();
+            if (hex.Length % 2 != 0)
+                throw new JsonException("Expected an even-length SQLite hex string.");
+            var bytes = new byte[hex.Length / 2];
+            for (int i = 0; i < bytes.Length; i++)
+                bytes[i] = byte.Parse(hex.Substring(i * 2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+            return bytes;
+        }
+
+        public override void Write(Utf8JsonWriter writer, byte[] value, JsonSerializerOptions options)
+            => writer.WriteStringValue(BitConverter.ToString(value).Replace("-", ""));
+    }
+
     // MySQL JSON represents boolean database columns as numeric values.
     internal sealed class DatabaseBooleanConverter : JsonConverter<bool>
     {

@@ -95,3 +95,18 @@ var query = User
 Use `DbFlavor.AzureSql` with a SQL Server-compatible provider. Azure SQL uses SQL Server rendering while preserving the connector flavor. Provider setup, encrypted SQL and Microsoft Entra connection examples, token callback limitations and the optional live test suite are documented in [SqlLinqer.AzureSqlTests](https://github.com/Nulifyer/SqlLinqer/tree/master/SqlLinqer.AzureSqlTests).
 
 For Azure SQL authentication supplied through connection properties, use `ConnectionFactoryConnector` with a factory that creates a fresh provider connection and attaches its callback or credential. The factory owns login configuration; the connector applies command timeout and disposes connections it creates. See the [Azure SQL tests and connection guide](../SqlLinqer.AzureSqlTests/README.md) for required-live verification, scoped TVP/procedure tests, and remaining live validation.
+
+## SQLite
+
+Use SQLite 3.38 or newer with JSON support and `DbFlavor.Sqlite`. Reference `Microsoft.Data.Sqlite` in the application; the netstandard2.0 core library has no provider dependency.
+
+```csharp
+using var example = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=example.db;Default Timeout=15");
+var connector = new SqlLinqer.Connections.ReplicatorConnector(example, DbFlavor.Sqlite);
+```
+
+Create the schema before querying. A model schema names `main`, `temp`, or an attached database. Null leaves the table unqualified; explicit schemas are preserved. Attachments belong to a connection, so use a caller transaction for operations that share an attachment. For memory databases, use a named `Mode=Memory;Cache=Shared` database and retain an open keeper connection.
+
+Typed SELECTs support root and aggregate JSON, nested objects and arrays, and LIMIT/OFFSET pagination. Writes support outputs and primary keys through RETURNING. Joined writes require a primary key; updates support target and joined-source column assignments. Caller transactions remain caller-owned. Owned writes use serializable transactions. CommandTimeout sets command lock waits; ConnectionTimeout is ignored and the provider's Default Timeout is preserved.
+
+Store exact decimals as TEXT. DateTime.Kind does not round-trip. Direct byte[] projections use hex JSON and a SQLite-only converter. Joined updates support source-column assignments with SQLite's native arbitrary-source policy for duplicate matches. Word-boundary LIKE supports escaped patterns and the library's ASCII boundaries. Stored procedures, TVPs, TruncateQuery, and extension-only functions are unsupported. The repository's SqlLinqer.SqliteTests executable and README provide setup, coverage, and the full limitations.

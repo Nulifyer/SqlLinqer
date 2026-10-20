@@ -18,6 +18,7 @@ Query results use `System.Text.Json`. Use JSON attributes from `System.Text.Json
 dotnet build SQLTest/SQLTest.csproj
 dotnet build SQLTestFramework/SQLTestFramework.csproj
 dotnet run --project SqlLinqer.RegressionTests/SqlLinqer.RegressionTests.csproj
+dotnet run --project SqlLinqer.SqliteTests/SqlLinqer.SqliteTests.csproj
 ```
 
 The regression checks use fake database connections and do not require a running database. The demos require the employee database described in their connection settings.
@@ -36,7 +37,9 @@ bash TestDBs/test-containers.sh --engine docker --containerized
 
 The runner needs .NET 10 and access to Docker or Podman. It creates disposable databases on automatically assigned localhost ports. With `--containerized`, it runs the built tests in a .NET 10 runtime container sharing the databases' isolated network, without publishing ports. It removes its containers and anonymous volumes after the checks. Only container commands use sudo. Test results are saved to a temporary log whose path is printed by the runner. These checks cover PostgreSQL and MySQL; SQL Server is not included.
 
-Returned rows and primary keys are supported for SQL Server and PostgreSQL. MySQL queries that request output columns throw `NotSupportedException` before execution. For MySQL writes without returned rows, use `Queries.Typed.InsertQuery<T>`, `UpdateQuery<T>`, or `DeleteQuery<T>` without output columns. Joined PostgreSQL updates and deletes require a primary key on the target model. Table-valued parameters are supported only for SQL Server.
+Returned rows and primary keys are supported for SQL Server, PostgreSQL, and SQLite. MySQL queries that request output columns throw `NotSupportedException` before execution. For MySQL writes without returned rows, use `Queries.Typed.InsertQuery<T>`, `UpdateQuery<T>`, or `DeleteQuery<T>` without output columns. Joined PostgreSQL updates and deletes require a primary key on the target model. Table-valued parameters are supported only for SQL Server.
+
+SQLite 3.38 or newer with JSON is supported through `DbFlavor.Sqlite = 3`. The [SQLite setup and integration guide](SqlLinqer.SqliteTests/README.md) covers provider installation, schemas, shared memory, transaction ownership, types, and rejected operations. Its executable tests use actual file and shared-memory databases. The guide also includes a pinned SQLite 3.38.0 validation script.
 
 When passing a transaction, the caller owns its commit, rollback, and disposal, including after a query fails. The connector disposes its commands and connections it creates itself.
 

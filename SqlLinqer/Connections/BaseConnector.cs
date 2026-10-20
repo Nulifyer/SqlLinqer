@@ -16,6 +16,14 @@ namespace SqlLinqer.Connections
     public abstract class BaseConnector
     {
         private static readonly JsonSerializerOptions JsonOptions = ModelConfigResolver.CreateOptions();
+        private static readonly JsonSerializerOptions SqliteJsonOptions = CreateSqliteJsonOptions();
+
+        private static JsonSerializerOptions CreateSqliteJsonOptions()
+        {
+            var options = ModelConfigResolver.CreateOptions();
+            options.Converters.Add(new DatabaseHexBytesConverter());
+            return options;
+        }
 
         /// <summary>
         /// The type of Sql database
@@ -64,8 +72,13 @@ namespace SqlLinqer.Connections
                 if (param.DbType.HasValue)
                     dbParam.DbType = param.DbType.Value;
 
+                if (DbFlavor == DbFlavor.Sqlite && param.Value is Enum enumValue)
+                    dbParam.Value = Convert.ChangeType(enumValue, Enum.GetUnderlyingType(enumValue.GetType()));
+
                 if (param is TvpParameter tvpParam)
                 {
+                    if (DbFlavor == DbFlavor.Sqlite)
+                        throw new NotSupportedException("SQLite does not support table-valued parameters.");
                     var parameterType = dbParam.GetType();
                     parameterType.GetProperty("TypeName")?.SetValue(dbParam, tvpParam.TypeName);
                     var sqlDbType = parameterType.GetProperty("SqlDbType");
@@ -103,7 +116,8 @@ namespace SqlLinqer.Connections
                         PreProcessCommand(command);
 
                         if (transactional && ownsConnection)
-                            ownedTransaction = connection.BeginTransaction(IsolationLevel.ReadCommitted);
+                            ownedTransaction = connection.BeginTransaction(DbFlavor == DbFlavor.Sqlite
+                                ? IsolationLevel.Serializable : IsolationLevel.ReadCommitted);
 
                         command.Transaction = existingTransaction ?? ownedTransaction;
                         T result = action(command);
@@ -168,7 +182,8 @@ namespace SqlLinqer.Connections
                     {
                         var rows = new List<T>();
                         while (reader.Read())
-                            rows.Add(JsonSerializer.Deserialize<T>(reader[0].ToString(), JsonOptions));
+                            rows.Add(JsonSerializer.Deserialize<T>(reader[0].ToString(),
+                                DbFlavor == DbFlavor.Sqlite ? SqliteJsonOptions : JsonOptions));
                         return rows;
                     }
 
@@ -191,7 +206,7 @@ namespace SqlLinqer.Connections
         /// <returns>A response containing the results in a <see cref="DataTable"/>.</returns>
         public SqlResponse<DataTable> ExecuteReaderDataTable(RenderedQuery query, DbTransaction existingTransaction = null)
         {
-            return ExecuteOnConnection(query, existingTransaction, false, command =>
+            return ExecuteOnConnection(query, existingTransaction, query.Transactional, command =>
             {
                 var table = new DataTable();
                 try
@@ -256,6 +271,7 @@ namespace SqlLinqer.Connections
             {
                 case DbFlavor.PostgreSql:
                 case DbFlavor.MySql:
+                case DbFlavor.Sqlite:
                     return true;
                 case DbFlavor.SqlServer:
                     return false;

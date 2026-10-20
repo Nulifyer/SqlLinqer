@@ -8,6 +8,7 @@ namespace SqlLinqer.Components.Render
     /// </summary>
     public class RenderedQuery
     {
+        internal bool Transactional;
         /// <summary>
         /// The text of the query
         /// </summary>

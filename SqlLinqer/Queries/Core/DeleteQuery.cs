@@ -40,6 +40,15 @@ namespace SqlLinqer.Queries.Core
 
                 switch (flavor)
                 {
+                    case DbFlavor.Sqlite:
+                        if (Joins.HasJoinedTables(Table))
+                        {
+                            if (Table.PrimaryKey == null)
+                                throw new System.NotSupportedException("Joined SQLite deletes require a primary key on the target model.");
+                            where = $"WHERE {Table.PrimaryKey.Render(flavor)} IN (SELECT {Table.PrimaryKey.Render(flavor)} {joins} {where})";
+                        }
+                        return string.Join(" ", with, $"DELETE FROM {Table.RenderFullName(flavor)} AS {Table.Alias.DbWrap(flavor)}",
+                            where, Outputs.Render(flavor));
                     case DbFlavor.SqlServer:
                         return string.Join(" ", with, $"DELETE {Table.Alias.DbWrap(flavor)}", Outputs.Render(flavor), joins, where);
                     case DbFlavor.MySql:

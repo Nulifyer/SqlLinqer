@@ -277,6 +277,11 @@ namespace SqlLinqer.Queries.Typed
             args.AddRange(ProcessArgs(call_expression.Arguments));
             var args_array = args.ToArray();
 
+            // Keep the public void LEFT helper compatible while returning its
+            // statement through expression dispatch, with a one-based start.
+            if (call_expression.Method.Name == nameof(LEFT))
+                return SUBSTRING(member, (Expression)args_array[1], Expression.Constant(1), (ConstantExpression)args_array[2]);
+
             var arg_types = args_array.Select(x => x.GetType()).ToArray();
 
             var method = this.GetType().GetMethod(call_expression.Method.Name, arg_types);

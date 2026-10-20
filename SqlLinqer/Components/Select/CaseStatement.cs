@@ -38,10 +38,11 @@ namespace SqlLinqer.Components.Select
             builder.Append(" end");
             string caseStr = builder.ToString();
 
-            if (for_json && !query.IsSubQuery)
+            if (for_json && (!query.IsSubQuery || flavor == DbFlavor.Sqlite))
             {
                 switch (flavor)
                 {
+                    case DbFlavor.Sqlite:
                     case DbFlavor.PostgreSql:                        
                     case DbFlavor.MySql:
                         return $"{Alias.DbWrapString(flavor)}, ({caseStr})";
@@ -63,6 +64,9 @@ namespace SqlLinqer.Components.Select
 
         public override IEnumerable<string> RenderForGroupBy(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
+            if (flavor == DbFlavor.Sqlite)
+                return new[] { Render(query, parameters, flavor, false, false) };
+
             var cols = Conditions
                 .SelectMany(x => x.Condition?.GetColumnReferences() ?? Array.Empty<Column>())
                 .GroupBy(x => x.UUID)

@@ -123,7 +123,8 @@ namespace SqlLinqer.Queries.TypedExt
             switch (baseRes.State)
             {
                 case ResponseState.Valid:
-                    response.SetResult(baseRes.Result, primaryKeys.Cast<TPk>().ToList());
+                    response.SetResult(baseRes.Result, primaryKeys.Select(x => connector.DbFlavor == DbFlavor.Sqlite
+                        ? Components.Render.SqliteValue.ConvertTo<TPk>(x) : (TPk)x).ToList());
                     break;
                 case ResponseState.Error:
                     response.SetError(baseRes.Error);

@@ -24,6 +24,8 @@ namespace SqlLinqer.Queries.Core
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
             flavor = SqlDialect.Resolve(flavor);
+            if (flavor == DbFlavor.Sqlite)
+                throw new NotSupportedException("SQLite does not support stored procedures.");
             var valueKeys = new List<string>();
             foreach (var parameter in Parameters.GetAll())
             {
