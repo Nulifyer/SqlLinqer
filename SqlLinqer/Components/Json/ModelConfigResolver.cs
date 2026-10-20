@@ -1,26 +1,29 @@
 using System;
-using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
-using SqlLinqer.Extensions.MemberInfoExtensions;
 
 namespace SqlLinqer.Components.Json
 {
-    internal sealed class ModelConfigResolver : DefaultJsonTypeInfoResolver
+    // SQL JSON is a library-owned wire format, independent of API serialization.
+    internal sealed class ModelConfigResolver : IJsonTypeInfoResolver
     {
+        private readonly DefaultJsonTypeInfoResolver _frameworkResolver = new DefaultJsonTypeInfoResolver();
+
         internal static JsonSerializerOptions CreateOptions()
         {
             return new JsonSerializerOptions
             {
-                IncludeFields = true,
                 PropertyNameCaseInsensitive = true,
                 NumberHandling = JsonNumberHandling.AllowReadingFromString,
                 TypeInfoResolver = new ModelConfigResolver(),
                 Converters =
                 {
-                    new JsonStringEnumConverter(),
+                    new DatabaseModelConverterFactory(),
+                    new DatabaseEnumConverterFactory(),
                     new DatabaseBooleanConverter(),
                     new DatabaseDateTimeConverter(),
                     new DatabaseDateTimeOffsetConverter(),
@@ -28,36 +31,26 @@ namespace SqlLinqer.Components.Json
             };
         }
 
-        public override JsonTypeInfo GetTypeInfo(Type type, JsonSerializerOptions options)
+        public JsonTypeInfo GetTypeInfo(Type type, JsonSerializerOptions options)
         {
-            var info = base.GetTypeInfo(type, options);
-            if (info.Kind != JsonTypeInfoKind.Object)
-                return info;
+            // Framework collections cannot carry application-defined attributes.
+            // Their element/value contracts still resolve through this SQL-only resolver.
+            if (typeof(IEnumerable).IsAssignableFrom(type)
+                && (type.Assembly == typeof(List<>).Assembly
+                    || type.Assembly == typeof(HashSet<>).Assembly))
+                return _frameworkResolver.GetTypeInfo(type, options);
 
-            // Models may use private default constructors rather than public ones.
-            if (type.IsClass && !type.IsAbstract)
+            // This factory skips JsonConverter attributes. Model converters also
+            // bypass application property and constructor serialization attributes.
+            var info = JsonTypeInfo.CreateJsonTypeInfo(type, options);
+            if ((info.Kind == JsonTypeInfoKind.Enumerable || info.Kind == JsonTypeInfoKind.Dictionary)
+                && !type.IsArray && !type.IsAbstract && !type.IsInterface)
             {
-                var constructors = type.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                if (!constructors.Any(x => x.IsDefined(typeof(JsonConstructorAttribute), false)))
-                {
-                    var constructor = type.GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
-                    if (constructor != null)
-                        info.CreateObject = () => constructor.Invoke(null);
-                }
+                var constructor = type.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                    null, Type.EmptyTypes, null);
+                if (constructor != null)
+                    info.CreateObject = () => constructor.Invoke(null);
             }
-
-            foreach (var property in info.Properties)
-            {
-                if (!(property.AttributeProvider is PropertyInfo member))
-                    continue;
-                var ignoreCondition = member.GetCustomAttribute<JsonIgnoreAttribute>()?.Condition;
-                if (ignoreCondition == JsonIgnoreCondition.Always || ignoreCondition == JsonIgnoreCondition.WhenReading)
-                    continue;
-
-                if (property.Set == null && (member.SetMethod != null || member.GetBackingField() != null))
-                    property.Set = (target, value) => member.SetFieldOrPropValue(target, value);
-            }
-
             return info;
         }
     }

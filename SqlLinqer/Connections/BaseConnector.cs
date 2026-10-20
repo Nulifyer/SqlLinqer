@@ -16,12 +16,14 @@ namespace SqlLinqer.Connections
     /// </summary>
     public abstract class BaseConnector
     {
-        private static readonly JsonSerializerOptions JsonOptions = ModelConfigResolver.CreateOptions();
-        private static readonly JsonSerializerOptions SqliteJsonOptions = CreateSqliteJsonOptions();
+        private static readonly JsonSerializerOptions JsonOptions = LegacyModelConfigResolver.CreateOptions();
+        private static readonly JsonSerializerOptions SqliteJsonOptions = CreateSqliteJsonOptions(false);
+        private static readonly JsonSerializerOptions SqlModelJsonOptions = ModelConfigResolver.CreateOptions();
+        private static readonly JsonSerializerOptions SqliteSqlModelJsonOptions = CreateSqliteJsonOptions(true);
 
-        private static JsonSerializerOptions CreateSqliteJsonOptions()
+        private static JsonSerializerOptions CreateSqliteJsonOptions(bool useSqlModelContract)
         {
-            var options = ModelConfigResolver.CreateOptions();
+            var options = useSqlModelContract ? ModelConfigResolver.CreateOptions() : LegacyModelConfigResolver.CreateOptions();
             options.Converters.Add(new DatabaseHexBytesConverter());
             return options;
         }
@@ -187,6 +189,9 @@ namespace SqlLinqer.Connections
         /// <returns>A response containing a list of objects of type 'T' derserialized from the resulting JSON string output from the database.</returns>
         public SqlResponse<List<T>> ExecuteReaderJson<T>(RenderedQuery query, DbTransaction existingTransaction = null) where T : class
         {
+            var jsonOptions = Options.UseSqlModelJsonContract
+                ? (DbFlavor == DbFlavor.Sqlite ? SqliteSqlModelJsonOptions : SqlModelJsonOptions)
+                : (DbFlavor == DbFlavor.Sqlite ? SqliteJsonOptions : JsonOptions);
             return ExecuteOnConnection(query, existingTransaction, false, command =>
             {
                 using (var reader = command.ExecuteReader())
@@ -195,8 +200,7 @@ namespace SqlLinqer.Connections
                     {
                         var rows = new List<T>();
                         while (reader.Read())
-                            rows.Add(JsonSerializer.Deserialize<T>(reader[0].ToString(),
-                                DbFlavor == DbFlavor.Sqlite ? SqliteJsonOptions : JsonOptions));
+                            rows.Add(JsonSerializer.Deserialize<T>(reader[0].ToString(), jsonOptions));
                         return rows;
                     }
 
@@ -206,7 +210,7 @@ namespace SqlLinqer.Connections
                     string json = builder.ToString();
                     return string.IsNullOrWhiteSpace(json)
                         ? new List<T>()
-                        : JsonSerializer.Deserialize<List<T>>(json, JsonOptions);
+                        : JsonSerializer.Deserialize<List<T>>(json, jsonOptions);
                 }
             });
         }

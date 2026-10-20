@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace SqlLinqer.Connections
 {
@@ -15,6 +15,11 @@ namespace SqlLinqer.Connections
         /// The parameter limit of the database connection
         /// </summary>
         public int ParameterLimit { get; set; }
+        /// <summary>
+        /// Load SQL JSON using only SqlLinqer mappings, ignoring API JSON attributes and converters.
+        /// Defaults to false to preserve existing JSON loading behavior in the current major version.
+        /// </summary>
+        public bool UseSqlModelJsonContract { get; set; }
         /// <summary>
         /// The timeout for making a connection to the database
         /// </summary>
