@@ -30,11 +30,16 @@ namespace SqlLinqer.Components.Insert
         {
             Column = column;
             Value = value;
+            DbType = dbType;
+            // Providers use DateTime.Kind to distinguish timestamp types. In particular,
+            // Npgsql maps DbType.DateTime to timestamptz, which rejects non-UTC values.
+            if (DbType.HasValue || value is System.DateTime)
+                return;
             try
             {
-                DbType = dbType ?? value?.GetType().GetDbType();
+                DbType = value?.GetType().GetDbType();
             }
-            catch { }
+            catch (System.NotSupportedException) { }
         }
     }
 }

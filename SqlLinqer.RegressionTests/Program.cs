@@ -76,6 +76,21 @@ Test("rendering Top across dialects preserves SQL Server TOP", () =>
     Contains(Sql(query, DbFlavor.SqlServer), "SELECT TOP 10");
     Excludes(Sql(query, DbFlavor.SqlServer), "FETCH NEXT");
 });
+foreach (DateTimeKind kind in Enum.GetValues<DateTimeKind>())
+{
+    Test($"insert leaves {kind} timestamp inference to the provider", () =>
+    {
+        var date = new DateTime(2025, 6, 15, 13, 14, 15, kind);
+        var value = new SqlLinqer.Components.Insert.InsertRowValue("happened_at", date, null);
+        Expect(value.DbType == null && (DateTime)value.Value == date && ((DateTime)value.Value).Kind == kind,
+            "Insert forced a timestamp type or changed its value");
+    });
+}
+Test("insert honors an explicitly requested timestamp type", () =>
+{
+    var value = new SqlLinqer.Components.Insert.InsertRowValue("happened_at", DateTime.UtcNow, DbType.DateTime2);
+    Expect(value.DbType == DbType.DateTime2, "Explicit timestamp type was discarded");
+});
 Test("paging stash can be reused", () =>
 {
     var paging = new PagingControls();
