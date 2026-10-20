@@ -1,0 +1,9 @@
+# Keep text files consistent across Windows and Linux, regardless of core.autocrlf.
+* text=auto eol=lf
+
+# Windows command scripts require CRLF in the working tree.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Shell scripts must use LF on Linux.
+*.sh text eol=lf
