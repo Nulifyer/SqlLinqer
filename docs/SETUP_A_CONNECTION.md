@@ -1,65 +1,107 @@
-[<<< README](../README.md)
+[README](../README.md)
 
-# Setup a connection 
-The 'ReplicatorConnector' works as a connection factory, creating new connections based on the one you pass in.
-```C#
+# Set up a connection
+
+These examples use SQL Server. Add its provider to your application:
+
+```sh
+dotnet add package Microsoft.Data.SqlClient
+```
+
+Create a connector from a connection string and reuse it across queries:
+
+```csharp
+using System;
+using Microsoft.Data.SqlClient;
+using SqlLinqer;
 using SqlLinqer.Connections;
 
-// This is to pass to the replicator
-var tempConn = new System.Data.SqlClient.SqlConnection("Data Source=fake_host;Initial Catalog=fake_database;User Id=fake_user;Password=fake_password;");
-
-// Setup some options
-var options = new ConnectorOptions()
+var connectionString = "Server=<server>;Database=<database>;Integrated Security=true;Encrypt=true;TrustServerCertificate=false";
+using var template = new SqlConnection(connectionString);
+var options = new ConnectorOptions
 {
     DefaultSchema = "dbo",
-    ConnectionTimeout = TimeSpan.FromSeconds(10)
+    ConnectionTimeout = TimeSpan.FromSeconds(10),
     CommandTimeout = TimeSpan.FromSeconds(120)
 };
 
-// Create the connector, this should be a static reference and should be reused by multiple queries
-var connector = new ReplicatorConnector(tempConn, DbFlavor.SqlServer, options);
+var connector = new ReplicatorConnector(template, DbFlavor.SqlServer, options);
 ```
 
-## Set the default connection for all queries
-This saves time defining the connection everywhere and enables easier updating should the connection need to be changed.
-```C#
-SqlLinqer.Default.Connector = new ReplicatorConnector(tempConn, DbFlavor.SqlServer, options);
+Replace the placeholders with your connection settings. Reuse `connector` across queries.
+
+## Set a default connector
+
+Set the default once during application startup to use parameterless `Execute()` calls:
+
+```csharp
+SqlLinqer.Default.Connector = connector;
 ```
 
-## Create your own connector
-This example would be used for SQL Server user impersonation login
-```C#
-public class SqlServerImpersonationConnector : BaseConnector
+## Create connections with a factory
+
+Use `ConnectionFactoryConnector` to configure each new connection in a factory:
+
+```csharp
+var factoryConnector = new ConnectionFactoryConnector(
+    () => new SqlConnection(connectionString),
+    DbFlavor.SqlServer,
+    options);
+```
+
+Return a fresh connection on every factory call.
+
+## Inject a connector
+
+Register the connector with dependency injection and receive it through a constructor.
+This example uses `Microsoft.Extensions.DependencyInjection`:
+
+```sh
+dotnet add package Microsoft.Extensions.DependencyInjection
+```
+
+Create a repository that accepts `BaseConnector`. It uses the [sample `User` model](BUILDING_A_DATAMODEL.md):
+
+```csharp
+using System.Collections.Generic;
+using SqlLinqer;
+using SqlLinqer.Connections;
+
+public class UserRepository
 {
-    protected readonly string Server;
-    protected readonly string Database;
-    public SqlServerImpersonationConnector(string server, string database) : base(DbFlavor.SqlServer, new ConnectorOptions() {
-        DefaultSchema = "dbo",
-    })
+    private readonly BaseConnector connector;
+
+    public UserRepository(BaseConnector connector)
     {
-        Server = server;
-        Database = database;
+        this.connector = connector;
     }
 
-    public override DbConnection CreateConnection()
+    public List<User> GetUsers()
     {
-        var settings = new[]
-        {
-            ("Data Source", Server),
-            ("Initial Catalog", Database),
-            ("Integrated Security", "true"),
-            ("Connect Timeout", this.Options.CommandTimeout.TotalSeconds.ToString()),
-        };
-        string connStr = string.Join(";", settings.Select(x => $"{x.Item1}={x.Item2}"));
-        return new System.Data.SqlClient.SqlConnection(connStr);
-    }
+        var response = User.BeginSelect(connector)
+            .SelectRootColumns()
+            .Execute(connector);
 
-    protected override SqlResponse<T> ExecuteCommand<T>(RenderedQuery query, Func<SqlResponse<T>> action)
-    {
-        using (/* Impersonate */)
-        {
-            return base.ExecuteCommand(query, action);
-        }
+        if (response.State != ResponseState.Valid)
+            throw response.Error;
+
+        return response.Result;
     }
 }
 ```
+
+Register the `connector` created above as a singleton, then resolve the repository:
+
+```csharp
+using Microsoft.Extensions.DependencyInjection;
+
+var services = new ServiceCollection();
+services.AddSingleton<BaseConnector>(connector);
+services.AddTransient<UserRepository>();
+
+using var serviceProvider = services.BuildServiceProvider();
+var repository = serviceProvider.GetRequiredService<UserRepository>();
+var users = repository.GetUsers();
+```
+
+The container supplies the connector to each repository. The shared connector creates connections as queries execute.

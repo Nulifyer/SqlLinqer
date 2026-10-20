@@ -1,46 +1,46 @@
-[<<< README](../README.md)
+[README](../README.md)
 
-# INSERT Queries
-Below is some examples of SQL INSERT queries.
+# Insert rows
 
-### Insert single object
-```C#
-var newUser = new User()
+These examples use the [sample models](BUILDING_A_DATAMODEL.md) and a [configured connector](SETUP_A_CONNECTION.md).
+Import `SqlLinqer` for response states. See [response handling](RESPONSES.md) for `State`, `Result`, and `Error` examples.
+
+## Insert one user
+
+`BeginInsert` creates the query. `InsertAuto` reads the columns from the object.
+
+```csharp
+var newUser = new User
 {
     Username = "js354",
     Name = "John Smith",
-    Email = "myemail@company.com",
-    ManagerId = "ab789",
+    Email = "myemail@company.com"
 };
 
-var query = User
-    .BeginInsertPK()        // Creates a new query
-    .InsertAuto(newUser)    // Adds the object to insert
+var query = User.BeginInsert(connector).InsertAuto(newUser);
+var response = query.Execute(connector);
+if (response.State != ResponseState.Valid)
+    throw response.Error;
+
+var insertedCount = response.Result;
+var insertedIds = response.TouchedPrimaryKeys;
 ```
 
-### Insert multiple objects
-```C#
-var newUsers = new[] 
+`Result` contains the affected-row count. `TouchedPrimaryKeys` contains the inserted IDs.
+
+## Insert multiple users
+
+Pass a collection to `InsertAuto`:
+
+```csharp
+var newUsers = new[]
 {
-    new User()
-    {
-        Username = "ab789",
-        Name = "Big Boss",
-        Email = "boss@company.com",
-        ManagerId = null,
-    },
-    new User()
-    {
-        Username = "js354",
-        Name = "John Smith",
-        Email = "myemail@company.com",
-        ManagerId = "ab789",
-    },
+    new User { Username = "ab789", Name = "Big Boss", Email = "boss@company.com" },
+    new User { Username = "ml123", Name = "Morgan Lee", Email = "morgan@company.com" }
 };
 
-var query = User
-    .BeginInsertPK()        // Creates a new query
-    .InsertAuto(newUsers)   // Adds the objects to insert
+var batchQuery = User.BeginInsert(connector).InsertAuto(newUsers);
+var batchResponse = batchQuery.Execute(connector);
 ```
 
 ## Batch limits and transactions
@@ -63,27 +63,27 @@ Batching applies during execution. `Render` still renders all supplied rows as o
 Applications that execute rendered SQL themselves must enforce their own command limits.
 `ExecuteTvp` uses its existing table-valued parameter path.
 
-### Execute the query
-For objects with primary keys, a primary key insert can be created. This will return the new primary keys along with the rest of the result.
-```C#
-// Execute insert in batches
-SqlPrimaryKeysResponse<int, string> response = query.Execute();
+## Insert from an instance
 
-// Execute insert as TVP
-SqlPrimaryKeysResponse<int, string> responseTvp = query.ExecuteTVP();
-```
+`BeginInsertAuto` reads the instance and creates an insert with its automatic-insert columns:
 
-### Create query form an instance
-```C#
-var newUser = new User()
+```csharp
+var anotherUser = new User
 {
-    Username = "js354",
-    Name = "John Smith",
-    Email = "myemail@company.com",
-    ManagerId = "ab789",
+    Username = "rk456",
+    Name = "Riley Kim",
+    Email = "riley@company.com"
 };
 
-var response = newUser
-    .BeginInsertPKAuto()
-    .Execute();
+var instanceResponse = anotherUser
+    .BeginInsertAuto(connector)
+    .Execute(connector);
+```
+
+## Use a table-valued parameter
+
+On SQL Server, use `ExecuteTvp` as an alternative to `Execute` for a table-valued parameter insert:
+
+```csharp
+var tvpResponse = batchQuery.ExecuteTvp(connector);
 ```

@@ -1,21 +1,15 @@
 # SQL Linqer
 
-### What is it used for?
-
-This library is used to create application using a type of SQL database without the need to write queries as strings and maintain a strong set of data models that represent the data. This makes it much easier to develope complex database queries without the need of the developer to perform complex operations and it easier to update the code as all the developer needs to do is update the one data model and all queries will be updated.
+SqlLinqer builds SQL queries from C# model mappings and expressions. It supports typed selects, nested relationships, aggregates, and writes.
+The library targets .NET Standard 2.0. Install the database provider in your application and create the database schema before querying.
 
 Set `ConnectorOptions.UseSqlModelJsonContract = true` to load SQL results independently of API JSON attributes and converters.
 This opt-in mode lets one class use SqlLinqer attributes for database mappings and JSON attributes for API serialization. The default preserves existing JSON loading behavior.
 
-### Why not just use Microsoft's Enity Framework (EF)?
-
-This is more of a personal preference. They way this library behaves is difference than EF and might not have all of the functionality that EF does. EF can sometimes be cumbersome to handle as it forces a certain developer style on the stucture of the data and I find this style of use to be easier. This includes modification, extending the functionality, and allowing for more complex queries.
-
 ## Build and check
 
-The Core demo targets .NET 10. The Framework demo targets .NET Framework 4.8 and uses Npgsql 4.1.14 for compatibility. The library continues to target .NET Standard 2.0.
-
-Query results use `System.Text.Json`. Use JSON attributes from `System.Text.Json.Serialization`, such as `JsonIgnore` and `JsonPropertyName`, when customizing model loading. The loader supports public fields, private setters and default constructors, getter-only auto-properties, and string enums. It also accepts numeric booleans and database date/time strings.
+The Core demo targets .NET 10. The Framework demo targets .NET Framework 4.8 and uses Npgsql 4.1.14 for compatibility.
+The library targets .NET Standard 2.0.
 
 ```sh
 dotnet build SQLTest/SQLTest.csproj
@@ -26,7 +20,8 @@ dotnet run --project SqlLinqer.DuckDbTests/SqlLinqer.DuckDbTests.csproj
 dotnet run --project SqlLinqer.AzureSqlTests/SqlLinqer.AzureSqlTests.csproj
 ```
 
-The regression checks use fake database connections and do not require a running database. The demos require the employee database described in their connection settings.
+The regression checks use fake database connections and do not require a running database.
+The demos require the employee database described in their connection settings.
 
 To run integration checks against real PostgreSQL 18 and MySQL 8.4 containers:
 
@@ -40,66 +35,56 @@ bash TestDBs/test-containers.sh --engine podman
 bash TestDBs/test-containers.sh --engine docker --containerized
 ```
 
-The runner needs .NET 10 and access to Docker or Podman. It creates disposable databases on automatically assigned localhost ports. With `--containerized`, it runs the built tests in a .NET 10 runtime container sharing the databases' isolated network, without publishing ports. It removes its containers and anonymous volumes after the checks. Only container commands use sudo. Test results are saved to a temporary log whose path is printed by the runner. These checks cover PostgreSQL and MySQL; SQL Server is not included.
+The runner needs .NET 10 and access to Docker or Podman. It creates disposable databases on automatically assigned localhost ports.
+With `--containerized`, it runs tests in a .NET 10 runtime container on the databases' isolated network. This mode does not publish ports.
+The runner removes its containers and anonymous volumes after the checks. Only container commands use sudo.
 
-Returned rows and primary keys are supported for SQL Server, Azure SQL, PostgreSQL, SQLite, and DuckDB. MySQL queries that request output columns throw `NotSupportedException` before execution. For MySQL writes without returned rows, use `Queries.Typed.InsertQuery<T>`, `UpdateQuery<T>`, or `DeleteQuery<T>` without output columns. Joined PostgreSQL, SQLite, and DuckDB writes require a primary key on the target model. DuckDB rejects ambiguous joined updates. Table-valued parameters are supported only for SQL Server and Azure SQL.
+The runner saves test results to a temporary log and prints its path.
+These checks cover PostgreSQL and MySQL. They do not cover SQL Server.
 
-SQLite 3.38 or newer with JSON is supported through `DbFlavor.Sqlite = 3`. The [SQLite setup and integration guide](SqlLinqer.SqliteTests/README.md) covers provider installation, schemas, shared memory, transaction ownership, types, and rejected operations. Its executable tests use actual file and shared-memory databases. The guide also includes a pinned SQLite 3.38.0 validation script.
+## Guides
 
-Azure SQL Database uses `DbFlavor.AzureSql = 5` and the SQL Server renderer. The [Azure SQL connection and verification guide](SqlLinqer.AzureSqlTests/README.md) covers authentication, the connection factory, and scoped live tests. Its executable runs local provider/parser checks and explicitly skips live execution when no endpoint is configured. Use `--require-live` when live execution must be required.
+- [Set up a connection](docs/SETUP_A_CONNECTION.md)
+- [Inject a connector](docs/SETUP_A_CONNECTION.md#inject-a-connector)
+- [Build a data model](docs/BUILDING_A_DATAMODEL.md)
+- [Insert rows](docs/QUERY_CREATE.md)
+- [Select rows](docs/QUERY_READ.md)
+- [Update rows](docs/QUERY_UPDATE.md)
+- [Delete rows](docs/QUERY_DELETE.md)
+- [Handle query responses](docs/RESPONSES.md)
+- [Run several writes in one transaction](docs/TRANSACTIONS.md)
+- [Change relationships](docs/QUERY_RELATIONSHIPS.md)
 
-When passing a transaction, the caller owns its commit, rollback, and disposal, including after a query fails. The connector disposes its commands and connections it creates itself.
+## Quick example
 
-## DuckDB
+Use the `User` model from the [model guide](docs/BUILDING_A_DATAMODEL.md).
+Configure a SQL Server connection string before running this example:
 
-Use `DbFlavor.DuckDb` with `DuckDB.NET.Data.Full`. The provider package belongs in your application; the core library remains provider independent and targets .NET Standard 2.0. See [DuckDB setup, behavior, and limits](docs/DUCKDB.md).
+```csharp
+using System.Linq;
+using Microsoft.Data.SqlClient;
+using SqlLinqer;
+using SqlLinqer.Connections;
 
-```sh
-dotnet run --project SqlLinqer.DuckDbTests/SqlLinqer.DuckDbTests.csproj
-```
+using var template = new SqlConnection(connectionString);
+var connector = new ReplicatorConnector(template, DbFlavor.SqlServer);
 
-This executable uses the native DuckDB engine with temporary local database files. It verifies joined writes, native command cancellation, JSON, paging, aggregate totals, returned keys and transactions. It requires no server.
-
-## How to build a data model:
-
-[Setup a connection](docs/SETUP_A_CONNECTION.md)
-
-## How to build a data model:
-
-[Building a data model](docs/BUILDING_A_DATAMODEL.md)
-
-## How to query:
-
-[Create/Insert Queries](docs/QUERY_CREATE.md)
-
-[Read/Select Queries](docs/QUERY_READ.md)
-
-[Update Queries](docs/QUERY_UPDATE.md)
-
-[Delete Queries](docs/QUERY_DELETE.md)
-
-## Quick Example
-
-```C#
-var connector = new ReplicatorConnector(new SqlConnection("<conn string>"), DbFlavor.SqlServer);
-
-SqlResponse<List<User>> response = User
-    .BeginSelect()
+var response = User
+    .BeginSelect(connector)
     .Top(10)
     .SelectRootColumns()
     .Select(x => x.Permissions)
-    .Where(x => x.Permissions.First().name, "% admin", SqlOp.NOTLIKE)
-    .OrderBy(x => x.Manger.Name, SqlDir.ASC)
-    .OrderBy(x => x.Name, SqlDir.ASC)
+    .Where(x => x.Permissions.First().Name, "% admin", SqlOp.NOTLIKE)
+    .OrderBy(x => x.Manager.Name, SqlDir.ASC)
+    .ThenBy(x => x.Name, SqlDir.ASC)
     .Execute(connector);
 
 if (response.State == ResponseState.Valid)
 {
-    List<User> users = response.Results;
+    var users = response.Result;
 }
 else
 {
     System.Diagnostics.Debug.WriteLine(response.Error?.Message);
-    System.Diagnostics.Debug.WriteLine((response.Error as SqlResponseException).Query.GetTextWithParameterValues());
 }
 ```

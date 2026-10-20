@@ -1,92 +1,133 @@
-[<<< README](../README.md)
+[README](../README.md)
 
-# UPDATE Queries
-Below is some examples of SQL UPDATE queries.
+# Update rows
 
-### Update a single instance of an object
-```C#
-var theCurrentUser = new User()
+These examples use the [sample models](BUILDING_A_DATAMODEL.md) and a [configured connector](SETUP_A_CONNECTION.md).
+Import `SqlLinqer` for operators and response states. See [response handling](RESPONSES.md) for success and error examples.
+
+## Update a user by primary key
+
+Set the ID of the user to update:
+
+```csharp
+var currentUser = new User
 {
-    Username = "js354",
-    Name = "John Smith",
-    Email = "myemail@company.com",
-    ManagerId = "ab789",
+    Id = "<existing-user-id>",
+    Email = "newEmail@company.com"
 };
 
-theCurrentUser.Email = "newEmail@company.com";
-theCurrentUser.ManagerId = null;
-
-// Begin a DELETE query for this primary key
-var query = User
-    .BeginUpdate()
-    .UpdateNonDefaults(theCurrentUser)
-    .Where(x => x.Id, theCurrentUser.Id, SqlOp.EQ);
-
-/**
- * Update the record with the current object's primary key
- * only with the columns that don't have default values.
- * This is the same as above.
- */
-var query = theCurrentUser.BeginUpdatePKNonDefaults();
+var query = User.BeginUpdate(connector)
+    .UpdateNonDefaults(currentUser)
+    .Where(x => x.Id, currentUser.Id, SqlOp.EQ);
 ```
 
-Columns can be defined to always update when doing a 'Update non-defaults'
-```C#
-public class User : SqlLinqerPrimaryKeyObject<User, string>
-{
-    /**
-     * This column will always be updated when running a 'Update non-defaults' query 
-     * even if the value is NULL
-     */    
-    [SqlUpdateDefaultAlways]
-    public string ManagerId { get; set; }
-}
+The instance method creates the same assignments and primary-key filter:
+
+```csharp
+var instanceQuery = currentUser.BeginUpdateNonDefaults(connector);
 ```
 
-### Update a with a condition
-```C#
-var query = User
-    .BeginUpdate()
+`UpdateNonDefaults` copies non-null values from the object. Use `UpdateAuto` to apply the model's automatic-update settings instead.
+
+## Set a column to null
+
+Use an explicit assignment to clear a nullable column:
+
+```csharp
+var clearManagerQuery = User.BeginUpdate(connector)
+    .Update(x => x.ManagerId, (string)null)
+    .Where(x => x.Id, currentUser.Id, SqlOp.EQ);
+```
+
+To include null for `ManagerId` whenever `UpdateNonDefaults` runs, add this attribute to the existing model member:
+
+```csharp
+[SqlColumn("manager"), SqlUpdateDefaultAlways]
+public string ManagerId { get; set; }
+```
+
+## Update rows that match a filter
+
+Add a filter before executing an update. A query without a filter updates every row in the table.
+
+```csharp
+var domainQuery = User.BeginUpdate(connector)
     .Update(x => x.Email, "noreply@company.com")
     .Where(x => x.Email, "%@company.com", SqlOp.LIKE);
 ```
 
-### Update a with a operation
-```C#
-var query = User.BeginUpdate();
-query
-    .Update(x => x.Email, query.NewSimpleMathOperation(SqlMathOperation.ADD, 1))
-    .Where(x => x.Email, "%@company.com", SqlOp.LIKE);
+## Apply a numeric operation
+
+Use `BasicMathOperation` to change a numeric column. For example, define a counter model:
+
+```csharp
+using SqlLinqer.Modeling;
+
+[SqlTable("UsageCounters")]
+public class UsageCounter : SqlLinqerPrimaryKeyObject<UsageCounter, int>
+{
+    [SqlPrimaryKey]
+    public int Id { get; set; }
+
+    public int Count { get; set; }
+}
 ```
 
-Custom operations are possible
-```C#
-using SqlLinqer.Components.Render;
-using SqlLinqer.Extensions.EnumExtensions;
+```csharp
+var counterQuery = UsageCounter.BeginUpdate(connector)
+    .Update(x => x.Count, new SqlLinqer.Components.Update.BasicMathOperation(
+        SqlLinqer.Components.Update.BasicMathOperation.MathOp.Add, 1))
+    .Where(x => x.Id, 1, SqlOp.EQ);
+```
 
-public class ReplaceEmailDomain : IUpdateOperation
-{        
-    public string NewDomain;
-    
+## Define a custom operation
+
+Inherit from `UpdateOperation` to define an assignment. This SQL Server example replaces an email domain:
+
+```csharp
+using System;
+using SqlLinqer;
+using SqlLinqer.Components.Render;
+using SqlLinqer.Components.Update;
+using SqlLinqer.Queries.Core;
+
+public class ReplaceEmailDomain : UpdateOperation
+{
+    private readonly string newDomain;
+
     public ReplaceEmailDomain(string newDomain)
     {
-        NewDomain = newDomain;
+        this.newDomain = newDomain;
     }
-    
-    public virtual string Render(IUpdateStatement statement, ParameterCollection existingCollection, DbFlavor flavor)
+
+    public override string Render(
+        UpdateQuery query,
+        UpdateStatement statement,
+        ParameterCollection parameters,
+        DbFlavor flavor)
     {
-        string placeholder = existingCollection.AddParameter(Value);
-        return $"CONCAT(SUBSTRING({statement.GetTarget(flavor)}, 1, CHARINDEX('@', {statement.GetTarget(flavor)}) - 1), {placeholder})";
+        if (flavor != DbFlavor.SqlServer && flavor != DbFlavor.AzureSql)
+            throw new NotSupportedException("This operation requires SQL Server or Azure SQL.");
+
+        var target = statement.UpdateColumn.Render(flavor);
+        var placeholder = parameters.AddParameter(newDomain);
+        return $"{target} = CONCAT(SUBSTRING({target}, 1, CHARINDEX('@', {target}) - 1), {placeholder})";
     }
 }
+```
 
-var query = User.BeginUpdate();
-query
+Apply it to emails that have the old domain:
+
+```csharp
+var replaceDomainQuery = User.BeginUpdate(connector)
     .Update(x => x.Email, new ReplaceEmailDomain("@newcompany.com"))
     .Where(x => x.Email, "%@company.com", SqlOp.LIKE);
 ```
 
-### Execute the query
-```C#
-SqlResponse<int> response = query.Execute();
+## Execute an update
+
+```csharp
+var response = query.Execute(connector);
 ```
+
+If `response.State` is `ResponseState.Valid`, `response.Result` contains the affected-row count. Otherwise, inspect `response.Error`.

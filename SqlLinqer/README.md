@@ -1,23 +1,17 @@
 # SQL Linqer
 
-### What is it used for?
-
-This library is used to create application using a type of SQL database without the need to write queries as strings and maintain a strong set of data models that represent the data. This makes it much easier to develope complex database queries without the need of the developer to perform complex operations and it easier to update the code as all the developer needs to do is update the one data model and all queries will be updated.
+SqlLinqer builds SQL queries from C# model mappings and expressions. It supports typed selects, nested relationships, aggregates, and writes.
+The library targets .NET Standard 2.0. Install the database provider in your application and create the database schema before querying.
 
 Set `ConnectorOptions.UseSqlModelJsonContract = true` to load SQL results independently of API JSON attributes and converters.
 This opt-in mode lets one class use SqlLinqer attributes for database mappings and JSON attributes for API serialization. The default preserves existing JSON loading behavior.
 
-### Why not just use Microsoft's Enity Framework (EF)?
+## Define a model
 
-This is more of a personal preference. They way this library behaves is difference than EF and might not have all of the functionality that EF does. EF can sometimes be cumbersome to handle as it forces a certain developer style on the stucture of the data and I find this style of use to be easier. This includes modification, extending the functionality, and allowing for more complex queries.
+Map a class to an existing table. These examples use SQL Server and the following model:
 
-## How to
-
-See source repo for working examples.
-
-### Build a data model:
-
-```C#
+```csharp
+using System;
 using SqlLinqer.Modeling;
 
 [SqlTable("Users")]
@@ -40,80 +34,81 @@ public class User : SqlLinqerPrimaryKeyObject<User, string>
 }
 ```
 
-### Create/Insert Queries
-```C#
-var newUsers = new[] 
-{
-    new User()
-    {
-        Username = "ab789",
-        Name = "Big Boss",
-        Email = "boss@company.com",
-        ManagerId = null,
-    },
-    new User()
-    {
-        Username = "js354",
-        Name = "John Smith",
-        Email = "myemail@company.com",
-        ManagerId = "ab789",
-    },
-};
+## Configure a connector
 
-var query = User
-    .BeginInsertAuto()      // Creates a new query
-    .InsertAuto(newUsers)   // Adds the objects to insert
-    .Execute(connector);
-```
-
-### Read/Select Queries
-```C#
-// select only root columns
-var query = User
-    .BeginSelect()
-    .SelectRootColumns()
-    .OrderBy(x => x.Name, SqlDir.ASC)
-    .Execute(connector);
-```
-
-### Update Queries
-```C#
-var query = User
-    .BeginUpdate()
-    .Update(x => x.Email, "noreply@company.com")
-    .Where(x => x.Email, "%@company.com", SqlOp.LIKE)
-    .Execute();
-```
-
-### Delete Queries
-```C#
-var query = User
-    .BeginDelete()
-    .Where(x => x.Email, "%@company.com", SqlOp.LIKE)
-    .Execute(connector);
-```
-
-## Azure SQL Database
-
-Use `DbFlavor.AzureSql` with a SQL Server-compatible provider. Azure SQL uses SQL Server rendering while preserving the connector flavor. Provider setup, encrypted SQL and Microsoft Entra connection examples, token callback limitations and the optional live test suite are documented in [SqlLinqer.AzureSqlTests](https://github.com/Nulifyer/SqlLinqer/tree/master/SqlLinqer.AzureSqlTests).
-
-For Azure SQL authentication supplied through connection properties, use `ConnectionFactoryConnector` with a factory that creates a fresh provider connection and attaches its callback or credential. The factory owns login configuration; the connector applies command timeout and disposes connections it creates. See the [Azure SQL tests and connection guide](../SqlLinqer.AzureSqlTests/README.md) for required-live verification, scoped TVP/procedure tests, and remaining live validation.
-
-## SQLite
-
-Use SQLite 3.38 or newer with JSON support and `DbFlavor.Sqlite`. Reference `Microsoft.Data.Sqlite` in the application; the netstandard2.0 core library has no provider dependency.
+Install `Microsoft.Data.SqlClient` in your application. Supply a connection string for an existing database:
 
 ```csharp
-using var example = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=example.db;Default Timeout=15");
-var connector = new SqlLinqer.Connections.ReplicatorConnector(example, DbFlavor.Sqlite);
+using Microsoft.Data.SqlClient;
+using SqlLinqer;
+using SqlLinqer.Connections;
+
+using var template = new SqlConnection(connectionString);
+var connector = new ReplicatorConnector(template, DbFlavor.SqlServer);
 ```
 
-Create the schema before querying. A model schema names `main`, `temp`, or an attached database. Null leaves the table unqualified; explicit schemas are preserved. Attachments belong to a connection, so use a caller transaction for operations that share an attachment. For memory databases, use a named `Mode=Memory;Cache=Shared` database and retain an open keeper connection.
+The connector creates and disposes connections for queries. Pass it explicitly when starting and executing each query.
+If you supply a transaction to `Execute`, you own its commit, rollback, and disposal.
 
-Typed SELECTs support root and aggregate JSON, nested objects and arrays, and LIMIT/OFFSET pagination. Writes support outputs and primary keys through RETURNING. Joined writes require a primary key; updates support target and joined-source column assignments. Caller transactions remain caller-owned. Owned writes use serializable transactions. CommandTimeout sets command lock waits; ConnectionTimeout is ignored and the provider's Default Timeout is preserved.
+## Insert rows
 
-Store exact decimals as TEXT. DateTime.Kind does not round-trip. Direct byte[] projections use hex JSON and a SQLite-only converter. Joined updates support source-column assignments with SQLite's native arbitrary-source policy for duplicate matches. Word-boundary LIKE supports escaped patterns and the library's ASCII boundaries. Stored procedures, TVPs, TruncateQuery, and extension-only functions are unsupported. The repository's SqlLinqer.SqliteTests executable and README provide setup, coverage, and the full limitations.
+```csharp
+var newUsers = new[]
+{
+    new User { Username = "ab789", Email = "boss@company.com" },
+    new User { Username = "js354", Email = "myemail@company.com" }
+};
 
-## DuckDB
+var insertResponse = User.BeginInsert(connector)
+    .InsertAuto(newUsers)
+    .Execute(connector);
+```
 
-Use `DbFlavor.DuckDb = 4` with `DuckDB.NET.Data.Full` in the application. Typed JSON, nested relationships, paging, aggregates, returned rows and keys, joined writes, and command cancellation are supported. Joined updates reject multiple source matches for a target key. Native cancellation aborts a supplied transaction, which its caller must roll back. See the [DuckDB guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/DUCKDB.md) for setup and provider limitations.
+`BeginInsert` captures primary keys. If the response is valid, `TouchedPrimaryKeys` contains the inserted IDs and `Result` contains the affected-row count.
+
+## Select rows
+
+```csharp
+var selectResponse = User.BeginSelect(connector)
+    .SelectRootColumns()
+    .OrderBy(x => x.Username, SqlDir.ASC)
+    .Execute(connector);
+
+if (selectResponse.State == ResponseState.Valid)
+{
+    foreach (var user in selectResponse.Result)
+        Console.WriteLine(user.Username);
+}
+```
+
+`ExecuteWithTotalCount` returns `SqlSelectResponse<User>`, with rows in `Result` and the count before paging in `TotalResults`.
+
+## Update rows
+
+```csharp
+var updateResponse = User.BeginUpdate(connector)
+    .Update(x => x.Email, "noreply@company.com")
+    .Where(x => x.Email, "%@company.com", SqlOp.LIKE)
+    .Execute(connector);
+```
+
+## Delete rows
+
+```csharp
+var deleteResponse = User.BeginDelete(connector)
+    .Where(x => x.Email, "%@company.com", SqlOp.LIKE)
+    .Execute(connector);
+```
+
+Filter updates and deletes before executing them. Without a filter, they affect every row in the table.
+Check `State` before reading `Result`. If the response has an error, inspect `Error`.
+
+See the repository's [connection](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/SETUP_A_CONNECTION.md),
+[model](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/BUILDING_A_DATAMODEL.md), and
+[query guides](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/QUERY_READ.md) for more examples.
+
+See [response handling](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/RESPONSES.md) for state, results, and errors.
+The [connector guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/SETUP_A_CONNECTION.md#inject-a-connector) also shows constructor injection and service registration.
+
+See [transactions](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/TRANSACTIONS.md) to commit several writes together,
+and [relationship updates](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/QUERY_RELATIONSHIPS.md) to assign managers or change permissions.

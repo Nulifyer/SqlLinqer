@@ -1,82 +1,223 @@
-[<<< README](../README.md)
+[README](../README.md)
 
-# SELECT Queries
-Below is some examples of SQL SELECT queries.
+# Select rows
 
-## Typed Select Queries
-```C#
-// Get a specific user from the primary key
-var query = User
-    .BeginSelectPKAuto("js354");
+These examples use the [sample models](BUILDING_A_DATAMODEL.md) and a [configured connector](SETUP_A_CONNECTION.md).
+Import `System`, `System.Linq`, and `SqlLinqer` for the examples below. See [response handling](RESPONSES.md) for success and error examples.
 
-// This is the same as above
-var query = User
-    .BeginSelect()
+## Select by primary key
+
+Pass an existing user's `Id` to select one user:
+
+```csharp
+var userId = "<existing-user-id>";
+var byId = User.BeginSelectAuto(userId, connector);
+```
+
+The following query applies the same selection and filter:
+
+```csharp
+var explicitById = User.BeginSelect(connector)
     .SelectAuto()
-    .Where(x => x.Id, "js354", SqlOp.EQ);
+    .Where(x => x.Id, userId, SqlOp.EQ);
+```
 
-// select only root columns
-var query = User
-    .BeginSelect()
+## Select root columns
+
+`SelectRootColumns` selects the user's columns without loading relationships:
+
+```csharp
+var rootQuery = User.BeginSelect(connector)
     .SelectRootColumns()
     .OrderBy(x => x.Name, SqlDir.ASC);
+```
 
-// Explicitly select columns and relationships
-var query = User
-    .BeginSelect()
+## Select relationships
+
+Select relationship members to load related models. See [relationship updates](QUERY_RELATIONSHIPS.md) to change their links.
+Use `First()` to reference a column through a collection relationship:
+
+```csharp
+var relatedQuery = User.BeginSelect(connector)
     .Top(100)
-    .Distinct(false)
     .Select(x => x.Id)
     .Select(x => x.Email)
-    .Select(x => x.Manger)
+    .Select(x => x.Manager)
     .Select(x => x.Permissions)
-    /**
-     * The handling of the many relationship is automatically
-     * handled to preserve the results and prevent
-     */
-    .Where(x => x.Permissions.First().name, "% admin", SqlOp.NOTLIKE)
-    .OrderBy(x => x.Manger.Name, SqlDir.ASC)
-    .OrderBy(x => x.Name, SqlDir.ASC);
+    .Where(x => x.Permissions.First().Name, "% admin", SqlOp.NOTLIKE)
+    .OrderBy(x => x.Manager.Name, SqlDir.ASC)
+    .ThenBy(x => x.Name, SqlDir.ASC);
 ```
 
-### Execute the query
-```C#
-SqlResponse<List<User>> response = query.Execute();
+## Execute a typed select
 
-// These works the same as the above however, it also gets the count of results without limits, top, etc
-SqlSelectResponse<List<User>> response = query.ExecuteWithTotalCount();
+`Execute` returns a list of the model type. Check the response state before reading the result:
+
+```csharp
+var response = rootQuery.Execute(connector);
+if (response.State == ResponseState.Valid)
+{
+    foreach (var user in response.Result)
+        Console.WriteLine(user.Name);
+}
+else
+{
+    throw response.Error;
+}
 ```
 
-## Select Aggregate Queries
-Select Aggregate Queries are a more fre-form query that enable the developer to create soft typed queries.
+Use `ExecuteWithTotalCount` to get the results and the count before paging or limits:
 
-```C#
+```csharp
+var pagedQuery = User.BeginSelect(connector)
+    .SelectRootColumns()
+    .OrderBy(x => x.Id, SqlDir.ASC)
+    .Page(1, 10);
+
+var pageResponse = pagedQuery.ExecuteWithTotalCount(connector);
+if (pageResponse.State != ResponseState.Valid)
+    throw pageResponse.Error;
+
+var page = pageResponse.Result;
+var total = pageResponse.TotalResults;
+```
+
+Pages start at `1`. `Limit(limit, offset)` uses a zero-based offset.
+
+## Build an aggregate projection
+
+Use `BuildQuery` to define a result model. This example counts each user's permissions:
+
+```csharp
 public class MyResult
 {
-    public string Id;
-    public string Name;
-    public int PermissionCount;
+    public string Id { get; set; }
+    public string Name { get; set; }
+    public int PermissionCount { get; set; }
 }
-
-var query = User
-    .BeginSelectAggregate()
-    .Select(x => x.Id)
-    .Select(x => x.Name)
-    .Select(SqlAggFunc.COUNT, x => x.Permissions, nameof(MyResult.PermissionCount))
-    .OrderBy(nameof(MyResult.PermissionCount), SqlDir.DESC)
 ```
-### Execute the query
-```C#
-// Execute query and get results as a list of JTokens
-SqlResponse<List<JToken>> responseJToken = query.Execute();
 
-// Execute query and deserialze results as a list of type 'MyResult'
-SqlResponse<List<User>> responseTyped = query.Execute<MyResult>();
+```csharp
+var aggregateQuery = User.BeginSelectBuilder(connector)
+    .BuildQuery(x => new MyResult
+    {
+        Id = x.Select(p => p.Id),
+        Name = x.Select(p => p.Name),
+        PermissionCount = x.Count(p => p.Permissions.First().Id)
+    })
+    .OrderBy(x => x.PermissionCount, SqlDir.DESC)
+    .ThenBy(x => x.Id, SqlDir.ASC);
 
-// limit results to first 10 with starting index 0
-query.Limit(10, 0);
-
-// These work the same as the two above however, they also get the count of results without limits, top, etc
-SqlResponse<List<JToken>> responseTotalJtoken = query.ExecuteWithTotalCount();
-SqlSelectResponse<List<User>> responseTotalTyped = query.ExecuteWithTotalCount<MyResult>();
+var aggregateResponse = aggregateQuery.Execute(connector);
 ```
+
+`Execute` returns the type defined in `BuildQuery`. Use `new { ... }` for an anonymous result type.
+
+Apply a limit before requesting the total count:
+
+```csharp
+aggregateQuery.Limit(10, 0);
+var aggregatePage = aggregateQuery.ExecuteWithTotalCount(connector);
+```
+
+## Add optional search filters
+
+Add the following methods to the injected `UserRepository` from the [connector guide](SETUP_A_CONNECTION.md#inject-a-connector).
+Import `System.Collections.Generic` for their return types.
+
+Build the query first, then add filters for supplied values. Pass null for a filter you do not need:
+
+```csharp
+public List<User> SearchUsers(
+    string name,
+    string email,
+    string managerId,
+    int page = 1,
+    int pageSize = 20)
+{
+    var query = User.BeginSelect(connector).SelectRootColumns();
+
+    if (!string.IsNullOrWhiteSpace(name))
+        query.Where(x => x.Name, $"%{name}%", SqlOp.LIKE);
+
+    if (!string.IsNullOrWhiteSpace(email))
+        query.Where(x => x.Email, $"%{email}%", SqlOp.LIKE);
+
+    if (!string.IsNullOrWhiteSpace(managerId))
+        query.Where(x => x.ManagerId, managerId, SqlOp.EQ);
+
+    var response = query
+        .OrderBy(x => x.Id, SqlDir.ASC)
+        .Page(page, pageSize)
+        .Execute(connector);
+
+    if (response.State != ResponseState.Valid)
+        throw response.Error;
+
+    return response.Result;
+}
+```
+
+## Group conditions
+
+Use `NewWhere` to group name and email matches with OR. The manager filter applies to the entire group.
+This expresses `(name matches OR email matches) AND manager matches`:
+
+```csharp
+public List<User> FindManagedUsers(string searchText, string managerId)
+{
+    var query = User.BeginSelect(connector).SelectRootColumns();
+    var pattern = $"%{searchText}%";
+    var matches = query.NewWhere(SqlWhereOp.OR)
+        .Where(x => x.Name, pattern, SqlOp.LIKE)
+        .Where(x => x.Email, pattern, SqlOp.LIKE);
+
+    query.Where(matches)
+        .Where(x => x.ManagerId, managerId, SqlOp.EQ);
+
+    var response = query.Execute(connector);
+    if (response.State != ResponseState.Valid)
+        throw response.Error;
+
+    return response.Result;
+}
+```
+
+## Filter by several IDs
+
+Use `SqlArrayOp.IN` to match any ID in a collection:
+
+```csharp
+public List<User> GetUsersByIds(string[] userIds)
+{
+    if (userIds.Length == 0)
+        return new List<User>();
+
+    var response = User.BeginSelect(connector)
+        .SelectRootColumns()
+        .Where(x => x.Id, userIds, SqlArrayOp.IN)
+        .Execute(connector);
+
+    if (response.State != ResponseState.Valid)
+        throw response.Error;
+
+    return response.Result;
+}
+```
+
+## Check whether a user exists
+
+Use `BeginPrimaryKeyExists` to check an ID without loading a model:
+
+```csharp
+public bool UserExists(string userId)
+{
+    var response = User.BeginPrimaryKeyExists(userId, connector).Execute(connector);
+    if (response.State != ResponseState.Valid)
+        throw response.Error;
+
+    return response.Result;
+}
+```
+
+A successful `false` result means the ID was not found. A failed query has `State` set to `ResponseState.Error`.

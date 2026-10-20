@@ -1,7 +1,12 @@
-[<<< README](../README.md)
+[README](../README.md)
 
-# Building a Data Model
-Below is an example set of data models. 
+# Build a data model
+
+The query examples use these models for users, permissions, and their linking table.
+Map models to existing tables with `SqlTable`. Use `SqlColumn` when a column name differs from its C# member name.
+
+Use `SqlLinqerPrimaryKeyObject<T, TKey>` for a model with a primary key.
+Use `SqlLinqerObject<T>` for a model without one.
 
 ## Share a class between the database and API
 
@@ -52,37 +57,40 @@ Otherwise, a class needs one public constructor whose parameter names and types 
 This rule supports anonymous projections and does not use `JsonConstructor` to select a constructor.
 Private API members do not become database members through `JsonInclude`.
 
-### Permission
-An object to represent permissions granted to a user
+## Permission
 
-```C#
+This model has a database-generated integer key:
+
+```csharp
 using SqlLinqer.Modeling;
 
-/**
- * the table and schema can be defined on the model. 
- * If the schema is not defined it will be inherited from the controller
- */
-[SqlTable("Permissions", schema: "dbo")]    
-// the 'SqlLinqerPrimaryKeyObject' should be inherited by models with a primary key.
+[SqlTable("Permissions", schema: "dbo")]
 public class Permission : SqlLinqerPrimaryKeyObject<Permission, int>
 {
-    // Columns can be defined as fields or properties.
     [SqlPrimaryKey(dbGenerated: true)]
-    public int? id;
+    [SqlColumn("id")]
+    public int? Id;
 
     [SqlColumn("name")]
-    public string name;
+    public string Name;
+
+    public Permission() { }
 
     public Permission(string name)
     {
-        this.name = name;
+        Name = name;
     }
 }
 ```
-### User
-An object to represent a user
 
-```C#
+## User
+
+This model generates its own ID and defines relationships to other models.
+The relationships use `SqlAutoSelectExclude` so queries can select them explicitly.
+
+```csharp
+using System;
+using System.Collections.Generic;
 using SqlLinqer.Modeling;
 
 [SqlTable("Users")]
@@ -101,50 +109,45 @@ public class User : SqlLinqerPrimaryKeyObject<User, string>
     [SqlColumn("email")]
     public string Email { get; set; }
 
-    /**
-     * By default the name of the member is used.
-     * You can change the database name with the 'SqlColumn' attribute.
-     */
     [SqlColumn("manager")]
     public string ManagerId { get; set; }
 
-    /**
-     * Here are some different ways to define the relationships.
-     */
+    [SqlOneToOne(nameof(ManagerId)), SqlAutoSelectExclude]
+    public User Manager;
 
-    // As a one-to-one related model
-    [SqlOneToOne(nameof(User.ManagerId))]
-    public User Manger;
-
-    // As a collection of the relational class    
-    [SqlOneToMany(nameof(UserPermission.UserId))]
+    [SqlOneToMany(nameof(UserPermission.UserId)), SqlAutoSelectExclude]
     public List<UserPermission> UserPermissions;
 
-    // As a collection of the related class
-
-    // with a relational model
-    [SqlManyToMany(typeof(UserPermission), nameof(UserPermission.UserId), nameof(UserPermission.PermissionId))]
+    [SqlManyToMany(typeof(UserPermission), nameof(UserPermission.UserId), nameof(UserPermission.PermissionId)), SqlAutoSelectExclude]
     public IEnumerable<Permission> Permissions;
-
-    // without a relational model
-    [SqlManyToMany("UserPermissions", "user_id", "permission_id")]
-    public IEnumerable<Permission> Permissions2;
 
     public User()
     {
-        Id = Guid.NewGuid().ToString();     // Create the ID when the object is created
+        Id = Guid.NewGuid().ToString();
     }
 }
 ```
 
-### UserPermission
-An object to represent the relationship between Users and Permissions
+`ManagerId` references another user's `Id`. `UserPermissions` loads linking records. `Permissions` loads permission models through those records.
 
-```C#
+If you do not need a linking model, replace the `Permissions` attribute with this mapping:
+
+```csharp
+[SqlManyToMany("UserPermissions", "user_id", "permission_id"), SqlAutoSelectExclude]
+public IEnumerable<Permission> Permissions;
+```
+
+The string arguments name the database table and columns. The model-based mapping uses C# member names through `nameof`.
+
+## UserPermission
+
+This model represents a user-permission link. Use its parameterless constructor when loading records or its other constructor when creating a link.
+
+```csharp
+using System;
 using SqlLinqer.Modeling;
 
 [SqlTable("UserPermissions")]
-// the 'SqlLinqerObject' should be inherited by models with no primary key.
 public class UserPermission : SqlLinqerObject<UserPermission>
 {
     [SqlColumn("user_id")]
@@ -153,53 +156,42 @@ public class UserPermission : SqlLinqerObject<UserPermission>
     [SqlColumn("permission_id")]
     public int PermissionId;
 
-    [SqlOneToOne(nameof(UserId))]
+    [SqlOneToOne(nameof(UserId)), SqlAutoSelectExclude]
     public User User;
 
-    [SqlOneToOne(nameof(PermissionId))]
+    [SqlOneToOne(nameof(PermissionId)), SqlAutoSelectExclude]
     public Permission Permission;
+
+    public UserPermission() { }
 
     public UserPermission(User user, Permission permission)
     {
+        if (user == null)
+            throw new ArgumentNullException(nameof(user));
+        if (permission == null)
+            throw new ArgumentNullException(nameof(permission));
+        if (!permission.Id.HasValue)
+            throw new ArgumentException("Permission must have an ID.", nameof(permission));
+
         User = user;
-        UserId = User.Id;
-
+        UserId = user.Id;
         Permission = permission;
-        if (Permission.id == null)
-            throw new ArgumentNullException("Permission has no ID");
-
-        PermissionId = Permission.id.Value;
+        PermissionId = permission.Id.Value;
     }
 }
 ```
 
-## Auto query settings
-By default auto settings (Auto select, insert, and update) use all the root columns. However, this can be explicitly defined. Relationships are opted out by default from auto select.
+## Control automatic operations
 
-If an exclude is placed at the class level then the columns and relationships need to be opted in explicitly. The same is true for the reverse.
+`SelectAuto`, `InsertAuto`, and `UpdateAuto` use the model's automatic-operation attributes.
+Use an `Exclude` attribute to omit a member. Use an include attribute to select a relationship automatically.
 
-This allows the developer to create expected loading conditions for certain data models. Like a user object always loading the Manager and Permission from the database when auto selected, or controlling which columns get auto updated in an UPDATE query.
+For example, change these members on `User` to omit `ManagerId` from automatic selects and include `Permissions`:
 
-These are the various auto setting attributes. They can be placed on a data model class or one of the fields or properties.
-```C#
-[SqlAutoInsert]
-[SqlAutoInsertExclude]
+```csharp
+[SqlColumn("manager"), SqlAutoSelectExclude]
+public string ManagerId { get; set; }
 
-[SqlAutoSelect]
-[SqlAutoSelectExclude]
-
-[SqlAutoUpdate]
-[SqlAutoUpdateExclude]
-```
-
-In this example all columns on the user will be auto selected except for the Manager ID and the Manager object will be loaded
-```C#
-public class User : SqlLinqerPrimaryKeyObject<User, string>
-{
-    [SqlAutoSelectExclude]
-    public string ManagerId { get; set; }
-
-    [SqlAutoSelect]
-    public User Manger;
-}
+[SqlManyToMany(typeof(UserPermission), nameof(UserPermission.UserId), nameof(UserPermission.PermissionId)), SqlAutoSelect]
+public IEnumerable<Permission> Permissions;
 ```

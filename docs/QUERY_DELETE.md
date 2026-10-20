@@ -1,36 +1,43 @@
-[<<< README](../README.md)
+[README](../README.md)
 
-# DELETE Queries
-Below is some examples of SQL DELETE queries.
+# Delete rows
 
-### Delete a single object with primary key
-```C#
-var theUser = new User()
-{
-    Username = "js354",
-    Name = "John Smith",
-    Email = "myemail@company.com",
-    ManagerId = "ab789",
-};
+These examples use the [sample models](BUILDING_A_DATAMODEL.md) and a [configured connector](SETUP_A_CONNECTION.md).
+Import `SqlLinqer` for operators and response states. See [response handling](RESPONSES.md) for success and error examples.
 
-// Begin a DELETE query for this primary key
-var query = User
-    .BeginDelete()
-    .Where(x => x.Id, theCurrentUser.Id, SqlOp.EQ);
+## Delete one user by primary key
 
-// This is the same as the above except it gets the primary key from the object
-var query = theUser.BeginDeletePK()
+Set the ID of the user to delete:
+
+```csharp
+var user = new User { Id = "<existing-user-id>" };
+
+var query = User.BeginDelete(connector)
+    .Where(x => x.Id, user.Id, SqlOp.EQ);
 ```
 
-### Delete with a condition
-```C#
-// delete users who's email ends with '@company.com' domain
-var query = User
-    .BeginDelete()
-    .Where(x => x.Email, "%@company.com", SqlOp.LIKE)
+The instance method uses the primary key from the object:
+
+```csharp
+var instanceQuery = user.BeginDeleteAuto(connector);
 ```
 
-### Execute the query
-```C#
-SqlResponse<int> response = query.Execute();
+Both queries target the same row. Execute one of them.
+
+## Delete rows that match a filter
+
+Add a filter before executing a delete. A query without a filter deletes every row in the table.
+
+```csharp
+var domainQuery = User.BeginDelete(connector)
+    .Where(x => x.Email, "%@company.com", SqlOp.LIKE);
 ```
+
+## Execute a delete
+
+```csharp
+var response = query.Execute(connector);
+```
+
+If `response.State` is `ResponseState.Valid`, `response.Result` contains the affected-row count.
+`response.TouchedPrimaryKeys` contains the deleted keys. Otherwise, inspect `response.Error`.
