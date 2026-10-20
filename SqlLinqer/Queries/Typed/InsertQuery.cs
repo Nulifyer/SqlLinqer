@@ -215,14 +215,16 @@ namespace SqlLinqer.Queries.Typed
 
             try
             {
-                conn = existingTransaction?.Connection ?? connector.CreateConnection();
+                conn = existingTransaction == null
+                    ? connector.CreateConnection()
+                    : existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
 
                 if (conn.State != ConnectionState.Open)
                     conn.Open();
 
                 transaction = existingTransaction ?? conn.BeginTransaction(IsolationLevel.ReadCommitted);
 
-                var createTypeRes = connector.ExecuteNonQuery(new RenderedQuery(createType));
+                var createTypeRes = connector.ExecuteNonQuery(new RenderedQuery(createType), transaction);
                 if (createTypeRes.State == ResponseState.Error)
                     throw createTypeRes.Error;
 
@@ -248,35 +250,34 @@ namespace SqlLinqer.Queries.Typed
                     insertRes = insertResData;
                 }
 
-                var dropTypeRes = connector.ExecuteNonQuery(new RenderedQuery(dropType));
+                if (insertRes.State == ResponseState.Error)
+                    throw insertRes.Error;
+
+                var dropTypeRes = connector.ExecuteNonQuery(new RenderedQuery(dropType), transaction);
                 if (dropTypeRes.State == ResponseState.Error)
                     throw dropTypeRes.Error;
 
-                if (insertRes.State == ResponseState.Error)
-                    throw insertRes.Error;
+                if (existingTransaction == null)
+                    transaction.Commit();
             }
             catch (Exception error)
             {
+                if (existingTransaction == null && transaction != null)
+                {
+                    try { transaction.Rollback(); }
+                    catch { }
+                }
                 response.SetError(error);
             }
             finally
             {
-                if (response.State == ResponseState.Error || existingTransaction == null)
+                if (existingTransaction == null)
                 {
-                    switch (response.State)
+                    try { transaction?.Dispose(); }
+                    finally
                     {
-                        case ResponseState.Valid:
-                            transaction?.Commit();
-                            break;
-                        default:
-                            // this should already happen on it's own
-                            // transaction?.Rollback();
-                            break;
+                        conn?.Dispose();
                     }
-                    transaction?.Dispose();
-
-                    conn?.Close();
-                    conn?.Dispose();
                 }
             }
 

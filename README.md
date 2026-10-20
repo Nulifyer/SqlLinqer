@@ -8,16 +8,19 @@ This library is used to create application using a type of SQL database without 
 
 This is more of a personal preference. They way this library behaves is difference than EF and might not have all of the functionality that EF does. EF can sometimes be cumbersome to handle as it forces a certain developer style on the stucture of the data and I find this style of use to be easier. This includes modification, extending the functionality, and allowing for more complex queries.
 
-## Build
+## Build and check
 
 The Core demo targets .NET 10. The Framework demo targets .NET Framework 4.8 and uses Npgsql 4.1.14 for compatibility. The library continues to target .NET Standard 2.0.
 
 ```sh
 dotnet build SQLTest/SQLTest.csproj
 dotnet build SQLTestFramework/SQLTestFramework.csproj
+dotnet run --project SqlLinqer.RegressionTests/SqlLinqer.RegressionTests.csproj
 ```
 
-The demos require the employee database described in their connection settings.
+The regression checks use fake database connections and do not require a running database. The demos require the employee database described in their connection settings.
+
+When passing a transaction, the caller owns its commit, rollback, and disposal, including after a query fails. The connector disposes its commands and connections it creates itself.
 
 ## How to build a data model:
 

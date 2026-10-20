@@ -20,37 +20,36 @@ namespace SqlLinqer.Connections
         /// <param name="options">A set of configuration options</param>
         public ReplicatorConnector(DbConnection connection, DbFlavor dbFlavor, ConnectorOptions options) : base(dbFlavor, options)
         {
+            if (connection == null)
+                throw new ArgumentNullException(nameof(connection));
+
             _type = connection.GetType();
-            _connectionString = connection.ConnectionString;
+            var connectionParams = new DbConnectionStringBuilder { ConnectionString = connection.ConnectionString };
 
-            var connectionParams = _connectionString
-                .TrimEnd(';')
-                .Split(';')
-                .Select(x => x.Split('='))
-                .ToDictionary(x => x.FirstOrDefault(), x => x.LastOrDefault());
-
-            string connTimeoutKey = "connectiontimeout";
-            if (!connectionParams.ContainsKey(connTimeoutKey))
+            string connTimeoutKey;
+            switch (DbFlavor)
             {
-                switch (this.DbFlavor)
-                {
-                    case DbFlavor.PostgreSql:
-                        connTimeoutKey = "Timeout";
-                        break;
-                    case DbFlavor.MySql:
-                    case DbFlavor.SqlServer:
-                        connTimeoutKey = "Connect Timeout";
-                        break;
-                    default:
-                        throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {this.DbFlavor} is not supported");
-                }
+                case DbFlavor.PostgreSql:
+                    connTimeoutKey = "Timeout";
+                    break;
+                case DbFlavor.MySql:
+                case DbFlavor.SqlServer:
+                    connTimeoutKey = "Connect Timeout";
+                    break;
+                default:
+                    throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {DbFlavor} is not supported");
             }
 
-            if (connectionParams.ContainsKey(connTimeoutKey))
-                connectionParams[connTimeoutKey] = Options.ConnectionTimeout.TotalSeconds.ToString();
-            else
-                connectionParams.Add(connTimeoutKey, Options.ConnectionTimeout.TotalSeconds.ToString());
-            _connectionString = string.Join(";", connectionParams.Select(x => $"{x.Key}={x.Value}"));
+            foreach (var key in connectionParams.Keys.Cast<string>().ToArray())
+            {
+                string normalized = key.Replace(" ", "").ToLowerInvariant();
+                if ((DbFlavor == DbFlavor.PostgreSql && normalized == "timeout")
+                    || (DbFlavor != DbFlavor.PostgreSql && (normalized == "connectiontimeout" || normalized == "connecttimeout")))
+                    connectionParams.Remove(key);
+            }
+
+            connectionParams[connTimeoutKey] = Convert.ToInt32(Options.ConnectionTimeout.TotalSeconds);
+            _connectionString = connectionParams.ConnectionString;
         }
         /// <summary>
         /// Creates new connections to the database by replicating the example connection passed to it.
@@ -63,8 +62,16 @@ namespace SqlLinqer.Connections
         public override DbConnection CreateConnection()
         {
             DbConnection conn = (DbConnection)Activator.CreateInstance(_type);
-            conn.ConnectionString = _connectionString;
-            return conn;
+            try
+            {
+                conn.ConnectionString = _connectionString;
+                return conn;
+            }
+            catch
+            {
+                conn.Dispose();
+                throw;
+            }
         }
     }
 }

@@ -46,6 +46,12 @@ namespace SqlLinqer.Components.Render
                 .OrderByDescending(x => x.Placehodler);
             foreach (var param in @params)
             {
+                if (param.Value == null || param.Value == DBNull.Value || param.Value is SqlNull)
+                {
+                    newText = newText.Replace(param.Placehodler, "NULL");
+                    continue;
+                }
+
                 string valueStr;
                 switch (param.Value)
                 {
@@ -61,16 +67,10 @@ namespace SqlLinqer.Components.Render
                     case DateTimeOffset val:
                         valueStr = val.ToString("yyyy-MM-ddTHH:mm:ss.fffK");
                         break;
-                    case SqlNull.NULL:
-                        valueStr = null;
-                        break;
                     default:
-                        valueStr = param.Value?.ToString();
+                        valueStr = param.Value.ToString();
                         break;
                 }
-                
-                if (param.Value == DBNull.Value)
-                    valueStr = null;
 
                 switch (param.Value)
                 {
@@ -80,9 +80,6 @@ namespace SqlLinqer.Components.Render
                     case long val: break;
                     case double val: break;
                     case float val: break;
-                    case null:
-                        valueStr = "NULL";
-                        break;
                     default:
                         valueStr = $"'{valueStr.ToString().Replace("'", "''")}'";
                         break;

@@ -178,7 +178,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<List<TReturn>> Execute(DbTransaction transaction = null)
         {
-            return Execute(SqlLinqer.Default.Connector);
+            return Execute(SqlLinqer.Default.Connector, transaction);
         }
         /// <inheritdoc/>
         public SqlResponse<List<TReturn>> Execute(BaseConnector connector, DbTransaction transaction = null)

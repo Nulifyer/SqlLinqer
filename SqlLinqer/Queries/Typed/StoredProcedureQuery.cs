@@ -41,7 +41,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<List<T>> ExecuteJson(DbTransaction transaction = null)
         {
-            return ExecuteJson(SqlLinqer.Default.Connector);
+            return ExecuteJson(SqlLinqer.Default.Connector, transaction);
         }
         /// <inheritdoc/>
         public SqlResponse<List<T>> ExecuteJson(BaseConnector connector, DbTransaction transaction = null)
@@ -58,7 +58,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<System.Data.DataTable> ExecuteDataTable(DbTransaction transaction = null)
         {
-            return ExecuteDataTable(SqlLinqer.Default.Connector);
+            return ExecuteDataTable(SqlLinqer.Default.Connector, transaction);
         }
         /// <inheritdoc/>
         public SqlResponse<System.Data.DataTable> ExecuteDataTable(BaseConnector connector, DbTransaction transaction = null)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Text;
 using System.Data;
 using System.Data.Common;
@@ -32,7 +32,7 @@ namespace SqlLinqer.Connections
         protected BaseConnector(DbFlavor dbFlavor, ConnectorOptions options)
         {
             DbFlavor = dbFlavor;
-            Options = options;
+            Options = options ?? new ConnectorOptions();
         }
 
         /// <summary>
@@ -78,6 +78,58 @@ namespace SqlLinqer.Connections
             command.CommandTimeout = Convert.ToInt32(Options.CommandTimeout.TotalSeconds);
         }
 
+        private SqlResponse<T> ExecuteOnConnection<T>(RenderedQuery query, DbTransaction existingTransaction,
+            bool transactional, Func<DbCommand, T> action)
+        {
+            return ExecuteCommand(query, () =>
+            {
+                bool ownsConnection = existingTransaction == null;
+                var connection = ownsConnection
+                    ? CreateConnection()
+                    : existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
+                DbTransaction ownedTransaction = null;
+
+                try
+                {
+                    if (connection.State != ConnectionState.Open)
+                        connection.Open();
+
+                    using (var command = connection.CreateCommand())
+                    {
+                        ImportFromTempQueryData(command, query);
+                        PreProcessCommand(command);
+
+                        if (transactional && ownsConnection)
+                            ownedTransaction = connection.BeginTransaction(IsolationLevel.ReadCommitted);
+
+                        command.Transaction = existingTransaction ?? ownedTransaction;
+                        T result = action(command);
+                        ownedTransaction?.Commit();
+                        return new SqlResponse<T>(result);
+                    }
+                }
+                catch
+                {
+                    if (ownedTransaction != null)
+                    {
+                        // A failed rollback must not hide the original query error.
+                        try { ownedTransaction.Rollback(); }
+                        catch { }
+                    }
+                    throw;
+                }
+                finally
+                {
+                    try { ownedTransaction?.Dispose(); }
+                    finally
+                    {
+                        if (ownsConnection)
+                            connection.Dispose();
+                    }
+                }
+            });
+        }
+
         /// <summary>
         /// A wrapper function to run each command to the database. This can be overriden to control the execution context.
         /// </summary>
@@ -101,92 +153,37 @@ namespace SqlLinqer.Connections
         /// Executes a database query that returns JSON with a structure of the passed type.
         /// </summary>
         /// <param name="query">The rendered query to perform.</param>
-        /// <param name="row_by_row_json">If json results are returned row by row or in one bulk dump</param>
         /// <param name="existingTransaction">An existing database transaction with the connection property set.</param>
         /// <returns>A response containing a list of objects of type 'T' derserialized from the resulting JSON string output from the database.</returns>
         public SqlResponse<List<T>> ExecuteReaderJson<T>(RenderedQuery query, DbTransaction existingTransaction = null) where T : class
         {
-            return ExecuteCommand(query, () =>
+            return ExecuteOnConnection(query, existingTransaction, false, command =>
             {
-                var conn = existingTransaction?.Connection ?? CreateConnection();
-
-                if (conn.State != ConnectionState.Open)
-                    conn.Open();
-
-                DbCommand command = conn.CreateCommand();
-                ImportFromTempQueryData(command, query);
-                PreProcessCommand(command);
-
-                if (existingTransaction != null)
-                    command.Transaction = existingTransaction;
-
-                var response = new SqlResponse<List<T>>();
-                Exception queryError = null;
-
-                try
+                var settings = new JsonSerializerSettings
                 {
-                    bool row_by_row_json = JsonResultsRowByRow();
+                    MissingMemberHandling = MissingMemberHandling.Ignore,
+                    ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor,
+                    ContractResolver = new ModelConfigResolver(),
+                };
 
-                    var settings = new JsonSerializerSettings()
+                using (var reader = command.ExecuteReader())
+                {
+                    if (JsonResultsRowByRow())
                     {
-                        MissingMemberHandling = MissingMemberHandling.Ignore,
-                        ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor,
-                        ContractResolver = new ModelConfigResolver(),
-                    };
-
-                    using (DbDataReader reader = command.ExecuteReader())
-                    {
-                        if (row_by_row_json)
-                        {
-                            var rows = new List<T>();
-                            while (reader.Read())
-                            {
-                                string single_json = reader[0].ToString();
-                                var row = JsonConvert.DeserializeObject<T>(single_json, settings);
-                                rows.Add(row);
-                            }
-                            response.SetResult(rows);
-                        }
-                        else
-                        {
-                            var builder = new StringBuilder();
-                            while (reader.Read())
-                            {
-                                builder.Append(reader[0].ToString());
-                            }
-                            string json = builder.ToString();
-
-                            builder.Clear();
-                            builder = null;
-
-                            if (string.IsNullOrWhiteSpace(json))
-                            {
-                                response.SetResult(new List<T>());
-                            }
-                            else
-                            {
-                                var results = JsonConvert.DeserializeObject<List<T>>(json, settings);
-                                response.SetResult(results);
-                            }
-                        }
+                        var rows = new List<T>();
+                        while (reader.Read())
+                            rows.Add(JsonConvert.DeserializeObject<T>(reader[0].ToString(), settings));
+                        return rows;
                     }
-                }
-                catch (Exception error)
-                {
-                    existingTransaction?.Rollback();
-                    queryError = error;
-                }
 
-                if (queryError != null || existingTransaction == null)
-                {
-                    conn.Close();
-                    conn.Dispose();
+                    var builder = new StringBuilder();
+                    while (reader.Read())
+                        builder.Append(reader[0].ToString());
+                    string json = builder.ToString();
+                    return string.IsNullOrWhiteSpace(json)
+                        ? new List<T>()
+                        : JsonConvert.DeserializeObject<List<T>>(json, settings);
                 }
-
-                if (queryError != null)
-                    throw queryError;
-
-                return response;
             });
         }
 
@@ -198,53 +195,25 @@ namespace SqlLinqer.Connections
         /// <returns>A response containing the results in a <see cref="DataTable"/>.</returns>
         public SqlResponse<DataTable> ExecuteReaderDataTable(RenderedQuery query, DbTransaction existingTransaction = null)
         {
-            return ExecuteCommand(query, () =>
+            return ExecuteOnConnection(query, existingTransaction, false, command =>
             {
-                var conn = existingTransaction?.Connection ?? CreateConnection();
-
-                if (conn.State != ConnectionState.Open)
-                    conn.Open();
-
-                DbCommand command = conn.CreateCommand();
-                ImportFromTempQueryData(command, query);
-                PreProcessCommand(command);
-
-                if (existingTransaction != null)
-                    command.Transaction = existingTransaction;
-
-                var response = new SqlResponse<DataTable>();
-                Exception queryError = null;
-                DataTable dt = new DataTable();
-
+                var table = new DataTable();
                 try
                 {
-
-                    using (DataSet ds = new DataSet() { EnforceConstraints = false })
-                    using (DbDataReader reader = command.ExecuteReader())
+                    using (var dataSet = new DataSet { EnforceConstraints = false })
+                    using (var reader = command.ExecuteReader())
                     {
-                        ds.Tables.Add(dt);
-                        dt.Load(reader, LoadOption.OverwriteChanges);
-                        ds.Tables.Remove(dt);
+                        dataSet.Tables.Add(table);
+                        table.Load(reader, LoadOption.OverwriteChanges);
+                        dataSet.Tables.Remove(table);
                     }
-
-                    response.SetResult(dt);
+                    return table;
                 }
-                catch (Exception error)
+                catch
                 {
-                    existingTransaction?.Rollback();
-                    queryError = error;
+                    table.Dispose();
+                    throw;
                 }
-
-                if (queryError != null || existingTransaction == null)
-                {
-                    conn.Close();
-                    conn.Dispose();
-                }
-
-                if (queryError != null)
-                    throw queryError;
-
-                return response;
             });
         }
 
@@ -256,50 +225,10 @@ namespace SqlLinqer.Connections
         /// <returns>A response contianing the first row, first column value of the query converted to type 'T'.</returns>
         public SqlResponse<T> ExecuteScalar<T>(RenderedQuery query, DbTransaction existingTransaction = null)
         {
-            return ExecuteCommand(query, () =>
+            return ExecuteOnConnection(query, existingTransaction, true, command =>
             {
-                var conn = existingTransaction?.Connection ?? CreateConnection();
-
-                if (conn.State != ConnectionState.Open)
-                    conn.Open();
-
-                DbCommand command = conn.CreateCommand();
-                ImportFromTempQueryData(command, query);
-                PreProcessCommand(command);
-
-                DbTransaction transaction = existingTransaction ?? conn.BeginTransaction(IsolationLevel.ReadCommitted);
-                command.Transaction = transaction;
-
-                var response = new SqlResponse<T>();
-                Exception queryError = null;
-
-                try
-                {
-                    object scalarValue = command.ExecuteScalar();
-                    scalarValue = Convert.ChangeType(scalarValue, typeof(T));
-                    response.SetResult((T)scalarValue);
-                    if (existingTransaction == null)
-                    {
-                        transaction.Commit();
-                    }
-                }
-                catch (Exception error)
-                {
-                    transaction.Rollback();
-                    queryError = error;
-                }
-
-                if (queryError != null || existingTransaction == null)
-                {
-                    transaction.Dispose();
-                    conn.Close();
-                    conn.Dispose();
-                }
-
-                if (queryError != null)
-                    throw queryError;
-
-                return response;
+                object scalarValue = command.ExecuteScalar();
+                return (T)Convert.ChangeType(scalarValue, typeof(T));
             });
         }
 
@@ -311,49 +240,7 @@ namespace SqlLinqer.Connections
         /// <returns>A response containing the number of affected rows.</returns>
         public SqlResponse<int> ExecuteNonQuery(RenderedQuery query, DbTransaction existingTransaction = null)
         {
-            return ExecuteCommand(query, () =>
-            {
-                var conn = existingTransaction?.Connection ?? CreateConnection();
-
-                if (conn.State != ConnectionState.Open)
-                    conn.Open();
-
-                DbCommand command = conn.CreateCommand();
-                ImportFromTempQueryData(command, query);
-                PreProcessCommand(command);
-
-                DbTransaction transaction = existingTransaction ?? conn.BeginTransaction(IsolationLevel.ReadCommitted);
-                command.Transaction = transaction;
-
-                var response = new SqlResponse<int>();
-                Exception queryError = null;
-
-                try
-                {
-                    response.SetResult(command.ExecuteNonQuery());
-                    if (existingTransaction == null)
-                    {
-                        transaction.Commit();
-                    }
-                }
-                catch (Exception error)
-                {
-                    transaction.Rollback();
-                    queryError = error;
-                }
-
-                if (queryError != null || existingTransaction == null)
-                {
-                    transaction.Dispose();
-                    conn.Close();
-                    conn.Dispose();
-                }
-
-                if (queryError != null)
-                    throw queryError;
-
-                return response;
-            });
+            return ExecuteOnConnection(query, existingTransaction, true, command => command.ExecuteNonQuery());
         }
 
         /// <summary>
