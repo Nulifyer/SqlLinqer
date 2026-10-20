@@ -7,7 +7,6 @@ using SqlLinqer.Extensions.EnumExtensions;
 using System.Collections;
 using System.Collections.Generic;
 using System.Net;
-using Newtonsoft.Json.Linq;
 using System.Reflection;
 using System;
 

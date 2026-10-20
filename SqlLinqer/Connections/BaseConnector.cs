@@ -3,7 +3,7 @@ using System.Text;
 using System.Data;
 using System.Data.Common;
 using System.Collections.Generic;
-using Newtonsoft.Json;
+using System.Text.Json;
 using SqlLinqer.Components.Render;
 using SqlLinqer.Components.Json;
 using SqlLinqer.Exceptions;
@@ -15,6 +15,8 @@ namespace SqlLinqer.Connections
     /// </summary>
     public abstract class BaseConnector
     {
+        private static readonly JsonSerializerOptions JsonOptions = ModelConfigResolver.CreateOptions();
+
         /// <summary>
         /// The type of Sql database
         /// </summary>
@@ -159,20 +161,13 @@ namespace SqlLinqer.Connections
         {
             return ExecuteOnConnection(query, existingTransaction, false, command =>
             {
-                var settings = new JsonSerializerSettings
-                {
-                    MissingMemberHandling = MissingMemberHandling.Ignore,
-                    ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor,
-                    ContractResolver = new ModelConfigResolver(),
-                };
-
                 using (var reader = command.ExecuteReader())
                 {
                     if (JsonResultsRowByRow())
                     {
                         var rows = new List<T>();
                         while (reader.Read())
-                            rows.Add(JsonConvert.DeserializeObject<T>(reader[0].ToString(), settings));
+                            rows.Add(JsonSerializer.Deserialize<T>(reader[0].ToString(), JsonOptions));
                         return rows;
                     }
 
@@ -182,7 +177,7 @@ namespace SqlLinqer.Connections
                     string json = builder.ToString();
                     return string.IsNullOrWhiteSpace(json)
                         ? new List<T>()
-                        : JsonConvert.DeserializeObject<List<T>>(json, settings);
+                        : JsonSerializer.Deserialize<List<T>>(json, JsonOptions);
                 }
             });
         }

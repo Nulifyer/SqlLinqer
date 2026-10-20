@@ -356,6 +356,8 @@ foreach (object value in new object[] { null, DBNull.Value, SqlNull.NULL })
     });
 }
 
+JsonRegressionTests.Run(Test);
+
 SqlLinqer.Default.Connector = null;
 Console.WriteLine($"{passed} passed, {failed} failed");
 return failed == 0 ? 0 : 1;

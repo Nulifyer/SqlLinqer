@@ -12,6 +12,7 @@ internal sealed class FakeDatabase
     public bool FailRollback;
     public int Rows = 2;
     public long Total = 22;
+    public string[] JsonRows;
     public readonly List<FakeConnection> Connections = new();
     public readonly List<FakeCommand> Executed = new();
 
@@ -141,8 +142,16 @@ internal sealed class FakeCommand(FakeConnection connection) : DbCommand
         else
         {
             table.Columns.Add("json", typeof(string));
-            for (int i = 0; i < connection.DatabaseState.Rows; i++)
-                table.Rows.Add("{\"Id\":7,\"Name\":\"sample\"}");
+            if (connection.DatabaseState.JsonRows != null)
+            {
+                foreach (string json in connection.DatabaseState.JsonRows)
+                    table.Rows.Add(json);
+            }
+            else
+            {
+                for (int i = 0; i < connection.DatabaseState.Rows; i++)
+                    table.Rows.Add("{\"Id\":7,\"Name\":\"sample\"}");
+            }
         }
         return table.CreateDataReader();
     }

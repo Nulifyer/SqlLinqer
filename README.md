@@ -12,6 +12,8 @@ This is more of a personal preference. They way this library behaves is differen
 
 The Core demo targets .NET 10. The Framework demo targets .NET Framework 4.8 and uses Npgsql 4.1.14 for compatibility. The library continues to target .NET Standard 2.0.
 
+Query results use `System.Text.Json`. Use JSON attributes from `System.Text.Json.Serialization`, such as `JsonIgnore` and `JsonPropertyName`, when customizing model loading. The loader supports public fields, private setters and default constructors, getter-only auto-properties, and string enums. It also accepts numeric booleans and database date/time strings.
+
 ```sh
 dotnet build SQLTest/SQLTest.csproj
 dotnet build SQLTestFramework/SQLTestFramework.csproj
