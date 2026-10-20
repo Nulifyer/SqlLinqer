@@ -22,6 +22,7 @@ namespace SqlLinqer.Queries.Core
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
             flavor = SqlDialect.Resolve(flavor);
+            parameters.SetFlavor(flavor);
             var stashables = new IStashable[]
             {
                 this.RootWhere,
@@ -75,13 +76,26 @@ namespace SqlLinqer.Queries.Core
                         // MySQL puts joined tables before SET and has no OUTPUT/RETURNING clause.
                         Outputs.Render(flavor);
                         return string.Join(" ", with, $"UPDATE {joins.Substring(5)} SET {assignments}", where);
+                    case DbFlavor.DuckDb:
                     case DbFlavor.PostgreSql:
                         string targetAlias = Table.Alias;
                         string from = null;
                         if (Joins.HasJoinedTables(Table))
                         {
                             if (Table.PrimaryKey == null)
-                                throw new System.NotSupportedException("Joined PostgreSQL updates require a primary key on the target model.");
+                                throw new System.NotSupportedException(flavor == DbFlavor.DuckDb
+                                    ? "Joined DuckDB updates require a primary key on the target model."
+                                    : "Joined PostgreSQL updates require a primary key on the target model.");
+
+                            if (flavor == DbFlavor.DuckDb)
+                            {
+                                // Reject ambiguity inside the statement, before any write can
+                                // commit. Native UPDATE FROM otherwise picks an arbitrary match
+                                // and may return the same target key more than once.
+                                string duplicateKeys = $"SELECT {Table.PrimaryKey.Render(flavor)} {joins} {where} GROUP BY {Table.PrimaryKey.Render(flavor)} HAVING COUNT(*) > 1";
+                                string unique = $"CASE WHEN EXISTS ({duplicateKeys}) THEN error('Joined DuckDB updates require at most one source match per target primary key.') ELSE TRUE END";
+                                where = string.IsNullOrEmpty(where) ? $"WHERE {unique}" : $"{where} AND ({unique})";
+                            }
 
                             // Keep the source joins intact, including LEFT JOIN semantics.
                             targetAlias = "target_" + Table.UUID;

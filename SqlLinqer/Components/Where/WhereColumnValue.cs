@@ -38,7 +38,9 @@ namespace SqlLinqer.Components.Where
             return new WhereColumnValue(Column, Value, Operator.GetInvert(), SubQueryOp);
         }
 
-        public override IWhereComponent Finalize(WhereQuery query)
+        public override IWhereComponent Finalize(WhereQuery query) => FinalizeForDialect(query, null);
+
+        internal IWhereComponent FinalizeForDialect(WhereQuery query, DbFlavor? flavor)
         {
             if (Value is object[] items && items.Length == 0)
                 return new WhereConstant(SubQueryOp == SqlSubQueryOp.ALL);
@@ -107,17 +109,46 @@ namespace SqlLinqer.Components.Where
                         var groupORNULL = new WhereCollection(SqlWhereOp.OR);
                         groupORNULL.AddComponent(new WhereColumnValue(this.Column, null, SqlOp.EQ, SubQueryOp));
                         groupORNULL.AddComponent(new WhereColumnValue(this.Column, this.Value, newOp, SubQueryOp));
-                        return groupORNULL.FinalizeStatements(query);
+                        return groupORNULL.FinalizeStatements(query, flavor);
                     case SqlOp.LIKEWORD:
                     case SqlOp.NOTLIKEWORD:
-                        // Keep word operations intact until the dialect is known.
-                        return this;
+                        if (flavor == DbFlavor.DuckDb || flavor == DbFlavor.Sqlite)
+                            return this;
+                        var likeOp = Operator == SqlOp.LIKEWORD ? SqlOp.LIKE : SqlOp.NOTLIKE;
+                        var groupOp = Operator == SqlOp.LIKEWORD ? SqlWhereOp.OR : SqlWhereOp.AND;
+                        var group = new WhereCollection(groupOp);
+
+                        group.AddComponent(new WhereColumnValue(this.Column, this.Value, likeOp, SqlSubQueryOp.ANY));
+                        group.AddComponent(new WhereColumnValue(this.Column, $"{this.Value}[^0-9A-z]%", likeOp, SqlSubQueryOp.ANY));
+                        group.AddComponent(new WhereColumnValue(this.Column, $"%[^0-9A-z]{this.Value}", likeOp, SqlSubQueryOp.ANY));
+                        group.AddComponent(new WhereColumnValue(this.Column, $"%[^0-9A-z]{this.Value}[^0-9A-z]%", likeOp, SqlSubQueryOp.ANY));
+
+                        return group;
                     default:
                         return this;
                 }
             }
         }
         public override bool TryCombineInto(WhereCollection current_collection, IWhereComponent parent_component) => false;
+
+        private static string WordPattern(string value)
+        {
+            // Match the library's existing ASCII 0-9/A-z boundaries and LIKE wildcards.
+            var pattern = new StringBuilder("(^|[^0-9A-z])");
+            for (int i = 0; i < value.Length; i++)
+            {
+                char c = value[i];
+                if (c == '\\' && i + 1 < value.Length)
+                    pattern.Append(System.Text.RegularExpressions.Regex.Escape(value[++i].ToString()));
+                else if (c == '%')
+                    pattern.Append(".*");
+                else if (c == '_')
+                    pattern.Append('.');
+                else
+                    pattern.Append(System.Text.RegularExpressions.Regex.Escape(c.ToString()));
+            }
+            return pattern.Append("($|[^0-9A-z])").ToString();
+        }
 
         public override void Render(WhereQuery query, ParameterCollection parameters, DbFlavor flavor, StringBuilder builder)
         {
@@ -206,6 +237,15 @@ namespace SqlLinqer.Components.Where
                 }
             }
 
+            if (flavor == DbFlavor.DuckDb && (Operator == SqlOp.LIKEWORD || Operator == SqlOp.NOTLIKEWORD || Operator == SqlOp.NOTLIKEWORDORNULL))
+            {
+                string pattern = parameters.AddParameter(hanldedValue == null ? null : WordPattern(Convert.ToString(hanldedValue)));
+                string match = $"regexp_matches({columnTarget}, {pattern}, 's')";
+                builder.Append(Operator == SqlOp.LIKEWORD ? match : Operator == SqlOp.NOTLIKEWORD
+                    ? $"NOT {match}" : $"({columnTarget} IS NULL OR NOT {match})");
+                return;
+            }
+
             switch (Operator)
             {
                 case SqlOp.LIKEWORD:
@@ -238,7 +278,7 @@ namespace SqlLinqer.Components.Where
                 default:
                     string placeholder = parameters.AddParameter(hanldedValue);
                     builder.Append($"{Column.Render(flavor)} {Operator.GetDescription()} {placeholder}");
-                    if (flavor == DbFlavor.Sqlite && (Operator == SqlOp.LIKE || Operator == SqlOp.NOTLIKE))
+                    if ((flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb) && (Operator == SqlOp.LIKE || Operator == SqlOp.NOTLIKE))
                         builder.Append(" ESCAPE '\\'");
                     return;
             }

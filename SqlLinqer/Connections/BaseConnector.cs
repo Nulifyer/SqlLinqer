@@ -2,6 +2,7 @@ using System;
 using System.Text;
 using System.Data;
 using System.Data.Common;
+using System.IO;
 using System.Collections.Generic;
 using System.Text.Json;
 using SqlLinqer.Components.Render;
@@ -57,7 +58,9 @@ namespace SqlLinqer.Connections
             foreach (var param in queryData.Parameters.GetAll())
             {
                 DbParameter dbParam = command.CreateParameter();
-                dbParam.ParameterName = param.Placehodler;
+                dbParam.ParameterName = DbFlavor == DbFlavor.DuckDb ? param.Placehodler.TrimStart('$') : param.Placehodler;
+                if (DbFlavor == DbFlavor.DuckDb && param is TvpParameter)
+                    throw new NotSupportedException("DuckDB does not support table-valued parameters.");
 
                 switch (param.Value)
                 {
@@ -65,7 +68,9 @@ namespace SqlLinqer.Connections
                         dbParam.Value = DBNull.Value;
                         break;
                     default:
-                        dbParam.Value = param.Value;
+                        dbParam.Value = DbFlavor == DbFlavor.DuckDb && param.Value is Enum
+                            ? Convert.ChangeType(param.Value, Enum.GetUnderlyingType(param.Value.GetType()))
+                            : param.Value;
                         break;
                 }
 
@@ -117,10 +122,18 @@ namespace SqlLinqer.Connections
 
                         if (transactional && ownsConnection)
                             ownedTransaction = connection.BeginTransaction(DbFlavor == DbFlavor.Sqlite
-                                ? IsolationLevel.Serializable : IsolationLevel.ReadCommitted);
+                                ? IsolationLevel.Serializable : DbFlavor == DbFlavor.DuckDb
+                                ? IsolationLevel.Snapshot : IsolationLevel.ReadCommitted);
 
                         command.Transaction = existingTransaction ?? ownedTransaction;
-                        T result = action(command);
+                        T result;
+                        if (DbFlavor == DbFlavor.DuckDb)
+                        {
+                            using (var deadline = new CommandDeadline(command, Options.CommandTimeout))
+                                result = deadline.Execute(() => action(command));
+                        }
+                        else
+                            result = action(command);
                         ownedTransaction?.Commit();
                         return new SqlResponse<T>(result);
                     }
@@ -211,6 +224,13 @@ namespace SqlLinqer.Connections
                 var table = new DataTable();
                 try
                 {
+                    if (DbFlavor == DbFlavor.DuckDb)
+                    {
+                        using (var reader = command.ExecuteReader())
+                            LoadDuckDbTable(table, reader);
+                        return table;
+                    }
+
                     using (var dataSet = new DataSet { EnforceConstraints = false })
                     using (var reader = command.ExecuteReader())
                     {
@@ -228,6 +248,43 @@ namespace SqlLinqer.Connections
             });
         }
 
+        private static void LoadDuckDbTable(DataTable table, DbDataReader reader)
+        {
+            // DuckDB returns BLOB values as streams over native result memory.
+            // DataTable.Load closes the reader before callers can copy those streams.
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                string originalName = reader.GetName(i);
+                if (string.IsNullOrEmpty(originalName))
+                    originalName = $"Column{i + 1}";
+                string name = originalName;
+                int suffix = 1;
+                while (table.Columns.Contains(name))
+                    name = originalName + suffix++;
+                var type = reader.GetFieldType(i);
+                table.Columns.Add(name, typeof(Stream).IsAssignableFrom(type) ? typeof(byte[]) : type);
+            }
+
+            while (reader.Read())
+            {
+                var values = new object[reader.FieldCount];
+                reader.GetValues(values);
+                for (int i = 0; i < values.Length; i++)
+                {
+                    if (values[i] is Stream stream)
+                    {
+                        using (stream)
+                        using (var buffer = new MemoryStream())
+                        {
+                            stream.CopyTo(buffer);
+                            values[i] = buffer.ToArray();
+                        }
+                    }
+                }
+                table.Rows.Add(values);
+            }
+        }
+
         /// <summary>
         /// Executes a database query and returns the first row, first column value of the query.
         /// </summary>
@@ -238,8 +295,25 @@ namespace SqlLinqer.Connections
         {
             return ExecuteOnConnection(query, existingTransaction, true, command =>
             {
+                if (DbFlavor == DbFlavor.DuckDb && (typeof(T) == typeof(byte[]) || typeof(T) == typeof(object)))
+                {
+                    using (var reader = command.ExecuteReader())
+                    {
+                        object value = reader.Read() ? reader.GetValue(0) : null;
+                        if (value is Stream stream)
+                        {
+                            using (stream)
+                            using (var buffer = new MemoryStream())
+                            {
+                                stream.CopyTo(buffer);
+                                value = buffer.ToArray();
+                            }
+                        }
+                        return DbValueConversion.ConvertTo<T>(value);
+                    }
+                }
                 object scalarValue = command.ExecuteScalar();
-                return (T)Convert.ChangeType(scalarValue, typeof(T));
+                return DbFlavor == DbFlavor.DuckDb ? DbValueConversion.ConvertTo<T>(scalarValue) : (T)Convert.ChangeType(scalarValue, typeof(T));
             });
         }
 
@@ -269,6 +343,7 @@ namespace SqlLinqer.Connections
         {
             switch (SqlDialect.Resolve(DbFlavor))
             {
+                case DbFlavor.DuckDb:
                 case DbFlavor.PostgreSql:
                 case DbFlavor.MySql:
                 case DbFlavor.Sqlite:

@@ -49,6 +49,10 @@ namespace SqlLinqer.Components.Select
                 query.Joins.AddTable(column.Table);
                 returnValue = column.Render(flavor);
             }
+            else if (ReturnValue is SelectStatement statement)
+            {
+                returnValue = statement.Render(query, parameters, flavor, false, false);
+            }
             else
             {
                 returnValue = parameters.AddParameter(ReturnValue);

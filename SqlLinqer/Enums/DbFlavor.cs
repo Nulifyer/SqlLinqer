@@ -17,11 +17,11 @@ namespace SqlLinqer
         /// PostgreSql
         /// </summary>
         PostgreSql = 2,
-        /// <summary>
-        /// Azure SQL Database, using the SQL Server dialect
-        /// </summary>
-        AzureSql = 5,
         /// <summary>SQLite 3.38 or newer with JSON support.</summary>
         Sqlite = 3,
+        /// <summary>DuckDB embedded database.</summary>
+        DuckDb = 4,
+        /// <summary>Azure SQL Database, using the SQL Server dialect.</summary>
+        AzureSql = 5,
     }
 }

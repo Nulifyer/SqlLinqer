@@ -35,8 +35,9 @@ namespace SqlLinqer.Components.Select
         {
             flavor = SqlDialect.Resolve(flavor);
             var args_processed = new List<object>();
-            foreach (var arg in Args)
+            for (int argumentIndex = 0; argumentIndex < Args.Length; argumentIndex++)
             {
+                var arg = Args[argumentIndex];
                 switch (arg)
                 {
                     case Column column:
@@ -51,11 +52,13 @@ namespace SqlLinqer.Components.Select
                         }
                         break;
                     case SelectStatement sub_statement:
-                        string rendered_sub_stm = sub_statement.Render(query, parameters, flavor, flavor == DbFlavor.Sqlite ? false : forJson, false);
+                        string rendered_sub_stm = sub_statement.Render(query, parameters, flavor, (flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb) ? false : forJson, false);
                         args_processed.Add($"({rendered_sub_stm})");
                         break;
                     default:
-                        string placeholder = parameters.AddParameter(arg);
+                        string placeholder = flavor == DbFlavor.DuckDb
+                            ? parameters.AddExpressionParameter(this, argumentIndex, arg)
+                            : parameters.AddParameter(arg);
                         args_processed.Add(placeholder);
                         break;
                 }
@@ -66,6 +69,22 @@ namespace SqlLinqer.Components.Select
             {
                 case DbFlavor.Sqlite:
                     val = RenderSqliteFunction(args_processed);
+                    break;
+                case DbFlavor.DuckDb:
+                    string function;
+                    switch (Func)
+                    {
+                        case SqlFunc.COUNT_BIG: function = "COUNT"; break;
+                        case SqlFunc.STDEV: function = "STDDEV_SAMP"; break;
+                        case SqlFunc.STDEVP: function = "STDDEV_POP"; break;
+                        case SqlFunc.VAR: function = "VAR_SAMP"; break;
+                        case SqlFunc.VARP: function = "VAR_POP"; break;
+                        case SqlFunc.CHECKSUM_AGG:
+                        case SqlFunc.SOUNDDEX:
+                            throw new NotSupportedException($"DuckDB does not support {Func}.");
+                        default: function = Func.GetDescription(); break;
+                    }
+                    val = $"{function}({ArgPrefix}{string.Join(",", args_processed)})";
                     break;
                 case DbFlavor.PostgreSql:
                     switch (Func)
@@ -85,11 +104,15 @@ namespace SqlLinqer.Components.Select
                     break;
             }
 
+            if (flavor == DbFlavor.DuckDb)
+                parameters.RememberExpression(this, val);
+
             if (forJson)
             {
                 switch (flavor)
                 {
                     case DbFlavor.Sqlite:
+                    case DbFlavor.DuckDb:
                     case DbFlavor.PostgreSql:
                     case DbFlavor.MySql:
                         return $"{Alias.DbWrapString(flavor)}, {val}";
@@ -171,7 +194,9 @@ namespace SqlLinqer.Components.Select
                 return null;
 
             if (Func.GroupByOutput())
-                return new[] { Render(query, parameters, flavor, false, false) };
+                return new[] { flavor == DbFlavor.DuckDb
+                    ? parameters.FindExpression(this) ?? Render(query, parameters, flavor, false, false)
+                    : Render(query, parameters, flavor, false, false) };
 
             var cols = GetTargetColumns();
             return cols.Select(c => c.Render(flavor)).ToArray();

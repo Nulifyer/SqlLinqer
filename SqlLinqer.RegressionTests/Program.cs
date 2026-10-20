@@ -168,6 +168,27 @@ foreach (string operation in new[] { "select", "delete", "aggregate", "exists", 
     });
 }
 
+foreach (string operation in new[] { "insert", "update", "delete" })
+    foreach (bool fail in new[] { false, true })
+        Test($"DuckDB {operation} outputs complete an owned transaction, failure={fail}", () =>
+        {
+            var database = new FakeDatabase { FailAt = fail ? "execute" : null };
+            var connector = new FakeConnector(database, DbFlavor.DuckDb);
+            ISqlResponse result = operation switch
+            {
+                "insert" => new InsertQuery<Item>().InsertAuto(new Item()).Output(x => x.Id).ExecuteWithOutput(connector),
+                "update" => new UpdateQuery<Item>().Update(x => x.Name, "output").Output(x => x.Id).ExecuteWithOutput(connector),
+                _ => new DeleteQuery<Item>().Where(x => x.Id, 7, SqlOp.EQ).Output(x => x.Id).ExecuteWithOutput(connector),
+            };
+            Expect(result.State == (fail ? ResponseState.Error : ResponseState.Valid), result.Error?.ToString());
+            var connection = database.Connections.Single();
+            var transaction = connection.Transactions.Single();
+            Expect(transaction.IsolationLevel == IsolationLevel.Snapshot, "Output write did not use DuckDB isolation");
+            Expect(database.Executed.All(x => x.UsedTransaction == transaction), "Output command was outside its owned transaction");
+            Expect(transaction.Commits == (fail ? 0 : 1) && transaction.Rollbacks == (fail ? 1 : 0), "Output write completed the transaction incorrectly");
+            Expect(transaction.IsDisposed && connection.IsDisposed, "Output write leaked owned resources");
+        });
+
 var executionMethods = new Dictionary<string, Func<BaseConnector, RenderedQuery, DbTransaction, ISqlResponse>>
 {
     ["nonquery"] = (c, q, t) => c.ExecuteNonQuery(q, t),

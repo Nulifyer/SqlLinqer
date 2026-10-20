@@ -20,6 +20,7 @@ namespace SqlLinqer.Queries.Core
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
             flavor = SqlDialect.Resolve(flavor);
+            parameters.SetFlavor(flavor);
             var stashables = new IStashable[]
             {
                 this.RootWhere,
@@ -54,6 +55,18 @@ namespace SqlLinqer.Queries.Core
                     case DbFlavor.MySql:
                         Outputs.Render(flavor);
                         return string.Join(" ", with, $"DELETE {Table.Alias.DbWrap(flavor)}", joins, where);
+                    case DbFlavor.DuckDb:
+                        string deleteAlias = Table.Alias;
+                        if (Joins.HasJoinedTables(Table))
+                        {
+                            if (Table.PrimaryKey == null)
+                                throw new System.NotSupportedException("Joined DuckDB deletes require a primary key on the target model.");
+                            deleteAlias = "target_" + Table.UUID;
+                            // Native DELETE USING can attempt to remove an indexed row twice
+                            // for duplicate source matches. Select each target key only once.
+                            where = $"WHERE {deleteAlias.DbWrap(flavor)}.{Table.PrimaryKey.ColumnName.DbWrap(flavor)} IN (SELECT DISTINCT {Table.PrimaryKey.Render(flavor)} {joins} {where})";
+                        }
+                        return string.Join(" ", with, $"DELETE FROM {Table.RenderFullName(flavor)} AS {deleteAlias.DbWrap(flavor)}", where, Outputs.Render(flavor, deleteAlias));
                     case DbFlavor.PostgreSql:
                         string targetAlias = Table.Alias;
                         string usingClause = null;

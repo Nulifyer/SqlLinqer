@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Data.Common;
 
@@ -31,11 +31,10 @@ namespace SqlLinqer.Connections
             _type = connection.GetType();
             var connectionParams = new DbConnectionStringBuilder { ConnectionString = connection.ConnectionString };
 
-            // SQLite has no connection timeout. Preserve provider Default Timeout;
-            // CommandTimeout controls lock waits when each command executes.
-            if (DbFlavor == DbFlavor.Sqlite)
+            // Embedded providers accept no server connection timeout setting.
+            if (DbFlavor == DbFlavor.Sqlite || DbFlavor == DbFlavor.DuckDb)
             {
-                _connectionString = connectionParams.ConnectionString;
+                _connectionString = connection.ConnectionString;
                 return;
             }
 

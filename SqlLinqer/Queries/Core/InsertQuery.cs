@@ -37,6 +37,7 @@ namespace SqlLinqer.Queries.Core
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
             flavor = SqlDialect.Resolve(flavor);
+            parameters.SetFlavor(flavor);
             var stashables = new IStashable[]
             {
                 this.Outputs,
@@ -55,6 +56,17 @@ namespace SqlLinqer.Queries.Core
                         throw new System.NotSupportedException("SQLite DEFAULT VALUES inserts support one row per query.");
                     return $"INSERT INTO {Table.RenderFullName(flavor)} DEFAULT VALUES {Outputs.Render(flavor)}";
                 }
+                if (flavor == DbFlavor.DuckDb && !Inserts.HasColumns)
+                {
+                    if (Inserts.Count == 0)
+                        throw new System.InvalidOperationException("An insert query must contain at least one row.");
+                    // DuckDB accepts multiple DEFAULT tuples when the target columns are explicit.
+                    var defaults = System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Select(Table.Columns.GetAll(), x => x.ColumnName.DbWrap(flavor)));
+                    if (defaults.Length == 0)
+                        throw new System.NotSupportedException("DuckDB default-only inserts require at least one mapped column.");
+                    string tuple = "(" + string.Join(",", System.Linq.Enumerable.Repeat("DEFAULT", defaults.Length)) + ")";
+                    return $"INSERT INTO {Table.RenderFullName(flavor)} ({string.Join(",", defaults)}) VALUES {string.Join(",", System.Linq.Enumerable.Repeat(tuple, Inserts.Count))} {Outputs.Render(flavor)}";
+                }
                 string inserts = this.Inserts.RenderAsRows(parameters, flavor);
                 string columns = this.Inserts.RenderColumns(flavor);
                 string outputs = this.Outputs.Render(flavor);
@@ -66,7 +78,7 @@ namespace SqlLinqer.Queries.Core
                     flavor == DbFlavor.SqlServer ? outputs : null,
                     "VALUES",
                     inserts,
-                    (flavor == DbFlavor.PostgreSql || flavor == DbFlavor.Sqlite) ? outputs : null,
+                    (flavor == DbFlavor.PostgreSql || flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb) ? outputs : null,
                 });
             }
             finally

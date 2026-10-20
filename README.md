@@ -19,6 +19,8 @@ dotnet build SQLTest/SQLTest.csproj
 dotnet build SQLTestFramework/SQLTestFramework.csproj
 dotnet run --project SqlLinqer.RegressionTests/SqlLinqer.RegressionTests.csproj
 dotnet run --project SqlLinqer.SqliteTests/SqlLinqer.SqliteTests.csproj
+dotnet run --project SqlLinqer.DuckDbTests/SqlLinqer.DuckDbTests.csproj
+dotnet run --project SqlLinqer.AzureSqlTests/SqlLinqer.AzureSqlTests.csproj
 ```
 
 The regression checks use fake database connections and do not require a running database. The demos require the employee database described in their connection settings.
@@ -37,11 +39,23 @@ bash TestDBs/test-containers.sh --engine docker --containerized
 
 The runner needs .NET 10 and access to Docker or Podman. It creates disposable databases on automatically assigned localhost ports. With `--containerized`, it runs the built tests in a .NET 10 runtime container sharing the databases' isolated network, without publishing ports. It removes its containers and anonymous volumes after the checks. Only container commands use sudo. Test results are saved to a temporary log whose path is printed by the runner. These checks cover PostgreSQL and MySQL; SQL Server is not included.
 
-Returned rows and primary keys are supported for SQL Server, PostgreSQL, and SQLite. MySQL queries that request output columns throw `NotSupportedException` before execution. For MySQL writes without returned rows, use `Queries.Typed.InsertQuery<T>`, `UpdateQuery<T>`, or `DeleteQuery<T>` without output columns. Joined PostgreSQL updates and deletes require a primary key on the target model. Table-valued parameters are supported only for SQL Server.
+Returned rows and primary keys are supported for SQL Server, Azure SQL, PostgreSQL, SQLite, and DuckDB. MySQL queries that request output columns throw `NotSupportedException` before execution. For MySQL writes without returned rows, use `Queries.Typed.InsertQuery<T>`, `UpdateQuery<T>`, or `DeleteQuery<T>` without output columns. Joined PostgreSQL, SQLite, and DuckDB writes require a primary key on the target model. DuckDB rejects ambiguous joined updates. Table-valued parameters are supported only for SQL Server and Azure SQL.
 
 SQLite 3.38 or newer with JSON is supported through `DbFlavor.Sqlite = 3`. The [SQLite setup and integration guide](SqlLinqer.SqliteTests/README.md) covers provider installation, schemas, shared memory, transaction ownership, types, and rejected operations. Its executable tests use actual file and shared-memory databases. The guide also includes a pinned SQLite 3.38.0 validation script.
 
+Azure SQL Database uses `DbFlavor.AzureSql = 5` and the SQL Server renderer. The [Azure SQL connection and verification guide](SqlLinqer.AzureSqlTests/README.md) covers authentication, the connection factory, and scoped live tests. Its executable runs local provider/parser checks and explicitly skips live execution when no endpoint is configured. Use `--require-live` when live execution must be required.
+
 When passing a transaction, the caller owns its commit, rollback, and disposal, including after a query fails. The connector disposes its commands and connections it creates itself.
+
+## DuckDB
+
+Use `DbFlavor.DuckDb` with `DuckDB.NET.Data.Full`. The provider package belongs in your application; the core library remains provider independent and targets .NET Standard 2.0. See [DuckDB setup, behavior, and limits](docs/DUCKDB.md).
+
+```sh
+dotnet run --project SqlLinqer.DuckDbTests/SqlLinqer.DuckDbTests.csproj
+```
+
+This executable uses the native DuckDB engine with temporary local database files. It verifies joined writes, native command cancellation, JSON, paging, aggregate totals, returned keys and transactions. It requires no server.
 
 ## How to build a data model:
 

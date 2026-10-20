@@ -32,6 +32,7 @@ namespace SqlLinqer.Components.Outputs
                     return $"{PseudoTable.DbWrap(flavor)}.{Column.ColumnName.DbWrap(flavor)}";
                 case DbFlavor.Sqlite:
                     return Column.ColumnName.DbWrap(flavor);
+                case DbFlavor.DuckDb:
                 case DbFlavor.PostgreSql:
                     return targetAlias == null
                         ? Column.ColumnName.DbWrap(flavor)

@@ -17,7 +17,7 @@ namespace SqlLinqer.Components.Update
 
         internal string RenderTarget(DbFlavor flavor)
         {
-            return (flavor == DbFlavor.PostgreSql || flavor == DbFlavor.Sqlite) ? UpdateColumn.ColumnName.DbWrap(flavor) : UpdateColumn.Render(flavor);
+            return (flavor == DbFlavor.PostgreSql || flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb) ? UpdateColumn.ColumnName.DbWrap(flavor) : UpdateColumn.Render(flavor);
         }
 
         /// <summary>

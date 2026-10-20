@@ -290,6 +290,7 @@ namespace SqlLinqer.Queries.Core
         public string Render(ParameterCollection parameters, DbFlavor flavor, bool forJson)
         {
             flavor = SqlDialect.Resolve(flavor);
+            parameters.SetFlavor(flavor);
             var stashables = new IStashable[]
             {
                 this.RootWhere,
@@ -304,10 +305,11 @@ namespace SqlLinqer.Queries.Core
 
             try
             {
-                // COUNT(1) and constant projections still operate on the root table.
+                // Constant and aggregate projections still operate on the root table.
                 Joins.AddRootTable(Table);
                 if (this.PagingControls.Limit > 0 && this.OrderBys.Count == 0
-                    && !(flavor == DbFlavor.Sqlite && Selects.GetAll().Any(x => !x.DoGroupBy())))
+                    && !(flavor == DbFlavor.Sqlite && Selects.GetAll().Any(x => !x.DoGroupBy()))
+                    && !(flavor == DbFlavor.DuckDb && (Distinct || Selects.GetAll().Any(x => !x.DoGroupBy()))))
                 {
                     var column = Table.PrimaryKey ?? Table.Columns.GetAll().First();
                     OrderBy(column, SqlDir.ASC, true, flavor != DbFlavor.Sqlite);
@@ -341,6 +343,12 @@ namespace SqlLinqer.Queries.Core
                 if (forJson && flavor == DbFlavor.Sqlite && IsSubQuery
                     && Table.ParentRelationship?.Type != RelationshipType.OneToOne)
                     return $"SELECT json_group_array(json(\"__sqlite_json\")) FROM ({rendered})";
+                if (flavor == DbFlavor.DuckDb && forJson && IsSubQuery
+                    && Table.ParentRelationship?.Type != RelationshipType.OneToOne)
+                {
+                    // Apply ordering, grouping and pagination to rows before collecting JSON.
+                    return $"SELECT COALESCE(json_group_array(\"__sqlinqer_json\"), '[]'::JSON) FROM ({rendered}) AS \"__sqlinqer_rows\"";
+                }
                 return rendered;
             }
             finally
@@ -360,6 +368,7 @@ namespace SqlLinqer.Queries.Core
         public string RenderForCount(ParameterCollection parameters, DbFlavor flavor)
         {
             flavor = SqlDialect.Resolve(flavor);
+            parameters.SetFlavor(flavor);
             var stashables = new IStashable[]
             {
                 this.RootWhere,
@@ -401,7 +410,16 @@ namespace SqlLinqer.Queries.Core
                     return $"SELECT count(*) FROM ({Render(parameters, flavor, true)})";
                 }
 
-                // render to setup joins
+                if (flavor == DbFlavor.DuckDb)
+                {
+                    // Count result groups/distinct projections, excluding pagination and ordering.
+                    PagingControls.Reset();
+                    OrderBys.Clear();
+                    string rows = Render(parameters, flavor, true);
+                    return $"SELECT COUNT(*) FROM ({rows}) AS \"__sqlinqer_count\"";
+                }
+
+                // Render to discover joins for the existing dialect count path.
                 this.RootWhere.Render(this, parameters, flavor);
                 this.Selects.Render(this, parameters, flavor, false);
 

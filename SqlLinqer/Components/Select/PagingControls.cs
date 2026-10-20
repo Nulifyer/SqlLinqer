@@ -51,6 +51,7 @@ namespace SqlLinqer.Components.Select
             switch (flavor)
             {
                 case DbFlavor.Sqlite:
+                case DbFlavor.DuckDb:
                 case DbFlavor.PostgreSql:
                 case DbFlavor.MySql:
                     if (Top > 0)
@@ -71,6 +72,7 @@ namespace SqlLinqer.Components.Select
                 switch (flavor)
                 {
                     case DbFlavor.Sqlite:
+                    case DbFlavor.DuckDb:
                     case DbFlavor.PostgreSql:
                     case DbFlavor.MySql:
                         return $" LIMIT {limit} OFFSET {offset} ";

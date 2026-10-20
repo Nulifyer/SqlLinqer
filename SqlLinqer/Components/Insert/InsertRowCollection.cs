@@ -28,6 +28,9 @@ namespace SqlLinqer.Components.Insert
         /// </summary>
         public int Count { get => Rows.Count; }
 
+        internal bool HasColumns => Columns.Count > 0;
+
+
         /// <summary>
         /// A collection of rows to be inserted into a table
         /// </summary>

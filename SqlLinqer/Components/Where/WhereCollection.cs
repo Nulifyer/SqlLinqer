@@ -85,7 +85,7 @@ namespace SqlLinqer.Components.Where
 
             return newCollection;
         }
-        internal WhereCollection FinalizeStatements(WhereQuery query)
+        internal WhereCollection FinalizeStatements(WhereQuery query, DbFlavor? flavor = null)
         {
             var newCollection = new WhereCollection(WhereOp);
 
@@ -94,12 +94,15 @@ namespace SqlLinqer.Components.Where
                 switch (com)
                 {
                     case WhereCollection sub_group:
-                        var new_group = sub_group.FinalizeStatements(query);
+                        var new_group = sub_group.FinalizeStatements(query, flavor);
                         if (new_group.Count > 0)
                             newCollection.AddComponent(new_group);
                         break;
                     case WhereStatement statement:
-                        var new_stm = statement.Finalize(query);
+                        // Keep user-defined Finalize overrides on the public statement type.
+                        var new_stm = (flavor == DbFlavor.DuckDb || flavor == DbFlavor.Sqlite) && statement.GetType() == typeof(WhereColumnValue)
+                            ? ((WhereColumnValue)statement).FinalizeForDialect(query, flavor)
+                            : statement.Finalize(query);
                         if (new_stm != null)
                             newCollection.AddComponent(new_stm);
                         break;
@@ -135,11 +138,11 @@ namespace SqlLinqer.Components.Where
             return invertedCollection;
         }
 
-        internal WhereCollection Finalize(WhereQuery query)
+        internal WhereCollection Finalize(WhereQuery query, DbFlavor? flavor = null)
         {
             var finalized = this
                 .Simplify()
-                .FinalizeStatements(query)
+                .FinalizeStatements(query, flavor)
                 .Simplify();
 
             finalized.Components = finalized.GetAll()
@@ -167,7 +170,7 @@ namespace SqlLinqer.Components.Where
                 return null;
 
             var builder = new StringBuilder();
-            var finalized = Finalize(query);
+            var finalized = Finalize(query, flavor);
 
             if (finalized.Count == 0)
                 return null;

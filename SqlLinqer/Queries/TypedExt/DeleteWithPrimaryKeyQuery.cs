@@ -124,7 +124,8 @@ namespace SqlLinqer.Queries.TypedExt
             {
                 case ResponseState.Valid:
                     response.SetResult(baseRes.Result, primaryKeys.Select(x => connector.DbFlavor == DbFlavor.Sqlite
-                        ? Components.Render.SqliteValue.ConvertTo<TPk>(x) : (TPk)x).ToList());
+                        ? Components.Render.SqliteValue.ConvertTo<TPk>(x) : connector.DbFlavor == DbFlavor.DuckDb
+                        ? DbValueConversion.ConvertTo<TPk>(x) : (TPk)x).ToList());
                     break;
                 case ResponseState.Error:
                     response.SetError(baseRes.Error);

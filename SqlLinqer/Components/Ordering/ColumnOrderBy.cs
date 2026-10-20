@@ -34,10 +34,13 @@ namespace SqlLinqer.Components.Ordering
                     }
                     query.Joins.AddTable(Column.Table);
                     return $"{Column.Render(flavor)} {Dir.GetDescription()}";
+                case DbFlavor.DuckDb:
                 case DbFlavor.PostgreSql:
                 case DbFlavor.MySql:
                     var selectStatement = query.Selects.TryGet(Column.Alias);
-                    string staement = selectStatement.Render(query, parameters, flavor, false, false);
+                    string staement = flavor == DbFlavor.DuckDb
+                        ? parameters.FindExpression(selectStatement) ?? selectStatement.Render(query, parameters, flavor, false, false)
+                        : selectStatement.Render(query, parameters, flavor, false, false);
                     return $"{staement} {Dir.GetDescription()}";
                 case DbFlavor.SqlServer:
                     return $"{Column.Alias.DbWrap(flavor)} {Dir.GetDescription()}";

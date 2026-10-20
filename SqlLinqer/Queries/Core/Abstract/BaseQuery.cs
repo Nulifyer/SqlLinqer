@@ -18,7 +18,7 @@ namespace SqlLinqer.Queries.Core.Abstract
         public RenderedQuery Render(DbFlavor flavor)
         {
             var tempQuery = new RenderedQuery();
-            tempQuery.Transactional = flavor == DbFlavor.Sqlite
+            tempQuery.Transactional = (flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb)
                 && (this is InsertQuery || this is UpdateQuery || this is DeleteQuery);
             tempQuery.Text = Render(tempQuery.Parameters, flavor);
             return tempQuery;

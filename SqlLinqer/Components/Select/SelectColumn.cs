@@ -43,9 +43,13 @@ namespace SqlLinqer.Components.Select
                 switch (flavor)
                 {
                     case DbFlavor.Sqlite:
+                    case DbFlavor.DuckDb:
                     case DbFlavor.PostgreSql:
                     case DbFlavor.MySql:
-                        return $"{Alias.DbWrapString(flavor)}, {Column.Render(flavor)}";
+                        string value = Column.Render(flavor);
+                        if (flavor == DbFlavor.DuckDb && Column is ReflectedColumn reflected && reflected.ValueType == typeof(byte[]))
+                            value = $"to_base64({value})";
+                        return $"{Alias.DbWrapString(flavor)}, {value}";
                     case DbFlavor.SqlServer:
                         string alias = include_alias ? $" AS {Alias.DbWrap(flavor)}" : null;
                         return Column.Render(flavor) + alias;

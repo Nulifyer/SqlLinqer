@@ -37,12 +37,15 @@ namespace SqlLinqer.Components.Select
             }
             builder.Append(" end");
             string caseStr = builder.ToString();
+            if (flavor == DbFlavor.DuckDb)
+                parameters.RememberExpression(this, $"({caseStr})");
 
-            if (for_json && (!query.IsSubQuery || flavor == DbFlavor.Sqlite))
+            if (for_json && (!query.IsSubQuery || flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb))
             {
                 switch (flavor)
                 {
                     case DbFlavor.Sqlite:
+                    case DbFlavor.DuckDb:
                     case DbFlavor.PostgreSql:                        
                     case DbFlavor.MySql:
                         return $"{Alias.DbWrapString(flavor)}, ({caseStr})";
@@ -66,6 +69,8 @@ namespace SqlLinqer.Components.Select
         {
             if (flavor == DbFlavor.Sqlite)
                 return new[] { Render(query, parameters, flavor, false, false) };
+            if (flavor == DbFlavor.DuckDb)
+                return new[] { parameters.FindExpression(this) ?? Render(query, parameters, flavor, false, false) };
 
             var cols = Conditions
                 .SelectMany(x => x.Condition?.GetColumnReferences() ?? Array.Empty<Column>())

@@ -110,3 +110,7 @@ Create the schema before querying. A model schema names `main`, `temp`, or an at
 Typed SELECTs support root and aggregate JSON, nested objects and arrays, and LIMIT/OFFSET pagination. Writes support outputs and primary keys through RETURNING. Joined writes require a primary key; updates support target and joined-source column assignments. Caller transactions remain caller-owned. Owned writes use serializable transactions. CommandTimeout sets command lock waits; ConnectionTimeout is ignored and the provider's Default Timeout is preserved.
 
 Store exact decimals as TEXT. DateTime.Kind does not round-trip. Direct byte[] projections use hex JSON and a SQLite-only converter. Joined updates support source-column assignments with SQLite's native arbitrary-source policy for duplicate matches. Word-boundary LIKE supports escaped patterns and the library's ASCII boundaries. Stored procedures, TVPs, TruncateQuery, and extension-only functions are unsupported. The repository's SqlLinqer.SqliteTests executable and README provide setup, coverage, and the full limitations.
+
+## DuckDB
+
+Use `DbFlavor.DuckDb = 4` with `DuckDB.NET.Data.Full` in the application. Typed JSON, nested relationships, paging, aggregates, returned rows and keys, joined writes, and command cancellation are supported. Joined updates reject multiple source matches for a target key. Native cancellation aborts a supplied transaction, which its caller must roll back. See the [DuckDB guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/DUCKDB.md) for setup and provider limitations.

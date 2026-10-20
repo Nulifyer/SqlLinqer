@@ -26,6 +26,9 @@ namespace SqlLinqer.Queries.Core
             flavor = SqlDialect.Resolve(flavor);
             if (flavor == DbFlavor.Sqlite)
                 throw new NotSupportedException("SQLite does not support stored procedures.");
+            if (flavor == DbFlavor.DuckDb)
+                throw new NotSupportedException("DuckDB does not support stored procedure queries. Execute macros or table functions with explicit SQL instead.");
+
             var valueKeys = new List<string>();
             foreach (var parameter in Parameters.GetAll())
             {

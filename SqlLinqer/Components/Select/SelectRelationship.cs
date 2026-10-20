@@ -51,6 +51,7 @@ namespace SqlLinqer.Components.Select
                 {
                     case DbFlavor.Sqlite:
                         return $"{Alias.DbWrapString(flavor)}, json({rendered_query})";
+                    case DbFlavor.DuckDb:
                     case DbFlavor.PostgreSql:
                     case DbFlavor.MySql:
                         return $"{Alias.DbWrapString(flavor)}, {rendered_query}";
