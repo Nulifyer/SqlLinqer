@@ -115,8 +115,8 @@ Run from the repository root:
 ```sh
 dotnet run --project SqlLinqer.Tests -- --suite duckdb
 dotnet run --project SqlLinqer.Tests -- --suite regression
-dotnet build SQLTest/SQLTest.csproj
-dotnet build SQLTestFramework/SQLTestFramework.csproj
+dotnet build SqlLinqer.Tests.Net10/SqlLinqer.Tests.Net10.csproj
+dotnet build SqlLinqer.Tests.NetFramework48/SqlLinqer.Tests.NetFramework48.csproj
 ```
 
 The DuckDB suite loads the package's native engine and creates temporary file and in-memory databases. It verifies typed and nested JSON, nested ordering and paging, scalar types, generated keys, affected counts, returned rows, parameter import, direct and repeated rendering, transactions and rollback, grouped and distinct totals, subqueries, joined writes, duplicate-match policy, default-only inserts, numeric conversion, CASE/function grouping, native cancellation, provider DataTable loading, persistence, and unsupported-operation guards. Native execution was checked on Linux x64. Other runtime assets are supplied by the package but were not executed here.

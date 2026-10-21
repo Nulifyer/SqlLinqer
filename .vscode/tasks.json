@@ -14,24 +14,24 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "build-demo",
+            "label": "build-net10",
             "command": "dotnet",
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/SQLTest/SQLTest.csproj",
+                "${workspaceFolder}/SqlLinqer.Tests.Net10/SqlLinqer.Tests.Net10.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "build-framework",
+            "label": "build-netframework48",
             "command": "dotnet",
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/SQLTestFramework/SQLTestFramework.csproj",
+                "${workspaceFolder}/SqlLinqer.Tests.NetFramework48/SqlLinqer.Tests.NetFramework48.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -43,7 +43,7 @@
             "type": "process",
             "args": [
                 "publish",
-                "${workspaceFolder}/SQLTest/SQLTest.csproj",
+                "${workspaceFolder}/SqlLinqer.Tests.Net10/SqlLinqer.Tests.Net10.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -57,7 +57,7 @@
                 "watch",
                 "run",
                 "--project",
-                "${workspaceFolder}/SQLTest/SQLTest.csproj"
+                "${workspaceFolder}/SqlLinqer.Tests.Net10/SqlLinqer.Tests.Net10.csproj"
             ],
             "problemMatcher": "$msCompile"
         }

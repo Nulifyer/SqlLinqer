@@ -8,12 +8,12 @@ This opt-in mode lets one class use SqlLinqer attributes for database mappings a
 
 ## Build and check
 
-The Core demo targets .NET 10. The Framework demo targets .NET Framework 4.8 and uses Npgsql 4.1.14 for compatibility.
+`SqlLinqer.Tests.Net10` tests .NET 10 compatibility. `SqlLinqer.Tests.NetFramework48` tests .NET Framework 4.8 compatibility and uses Npgsql 4.1.14.
 The library targets .NET Standard 2.0.
 
 ```sh
-dotnet build SQLTest/SQLTest.csproj
-dotnet build SQLTestFramework/SQLTestFramework.csproj
+dotnet build SqlLinqer.Tests.Net10/SqlLinqer.Tests.Net10.csproj
+dotnet build SqlLinqer.Tests.NetFramework48/SqlLinqer.Tests.NetFramework48.csproj
 dotnet run --project SqlLinqer.Tests
 ```
 
@@ -33,7 +33,7 @@ Direct Azure SQL testing is optional and uses the same shared server fixtures.
 
 `dotnet run --project SqlLinqer.Tests` runs local regression, SQLite, DuckDB, and offline provider checks without server connections.
 Use `-- --suite regression`, `sqlite`, `duckdb`, `sql-server`, or `integration` for focused checks.
-The demos require the employee database described in their connection settings.
+The two compatibility test programs require the employee database described in their connection settings.
 
 ## Guides
 

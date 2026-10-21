@@ -5,7 +5,7 @@ using MySql.Data.MySqlClient;
 using SqlTest.Models;
 using System.Linq;
 
-namespace SqlTestFramework
+namespace SqlLinqer.Tests.NetFramework48
 {
     class Program
     {

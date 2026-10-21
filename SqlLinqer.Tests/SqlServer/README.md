@@ -11,8 +11,8 @@ Run from the repository root:
 ```bash
 dotnet run --project SqlLinqer.Tests -- --suite regression
 dotnet run --project SqlLinqer.Tests -- --suite sql-server
-dotnet build SQLTest/SQLTest.csproj
-dotnet build SQLTestFramework/SQLTestFramework.csproj
+dotnet build SqlLinqer.Tests.Net10/SqlLinqer.Tests.Net10.csproj
+dotnet build SqlLinqer.Tests.NetFramework48/SqlLinqer.Tests.NetFramework48.csproj
 ```
 
 The regression suite checks SQL Server/Azure rendering, SQL shape, parameter metadata, transaction ownership, resource disposal and chunked JSON. The shared server suite always runs offline checks against real SqlClient connections and parameters plus Microsoft's ScriptDom parser in Azure mode. These checks never open a connection or acquire a token. ScriptDom validates syntax only. It does not bind database objects or execute queries.
