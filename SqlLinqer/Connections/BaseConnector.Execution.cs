@@ -27,6 +27,8 @@ namespace SqlLinqer.Connections
                     ? CreateConnection()
                     : existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
                 DbTransaction ownedTransaction = null;
+                T materialized = default;
+                bool hasResult = false;
 
                 try
                 {
@@ -52,12 +54,20 @@ namespace SqlLinqer.Connections
                         }
                         else
                             result = action(command);
+                        materialized = result;
+                        hasResult = true;
                         ownedTransaction?.Commit();
                         return new SqlResponse<T>(result);
                     }
                 }
                 catch
                 {
+                    if (hasResult)
+                    {
+                        hasResult = false;
+                        try { (materialized as IDisposable)?.Dispose(); }
+                        catch { }
+                    }
                     if (ownedTransaction != null)
                     {
                         // A failed rollback must not hide the original query error.
@@ -68,11 +78,19 @@ namespace SqlLinqer.Connections
                 }
                 finally
                 {
-                    try { ownedTransaction?.Dispose(); }
-                    finally
+                    try
                     {
-                        if (ownsConnection)
-                            connection.Dispose();
+                        try { ownedTransaction?.Dispose(); }
+                        finally { if (ownsConnection) connection.Dispose(); }
+                    }
+                    catch
+                    {
+                        if (hasResult)
+                        {
+                            try { (materialized as IDisposable)?.Dispose(); }
+                            catch { }
+                        }
+                        throw;
                     }
                 }
             });

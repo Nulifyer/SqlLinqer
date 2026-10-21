@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Data.Common;
 using System.IO;
 using System.Text;
@@ -13,22 +14,27 @@ namespace SqlLinqer.Components.Json
     internal sealed class JsonFragmentStream : Stream
     {
         private readonly DbDataReader reader;
-        private readonly char[] chars = new char[4096];
-        private readonly byte[] bytes = new byte[Encoding.UTF8.GetMaxByteCount(4096)];
+        private readonly char[] chars;
+        private readonly byte[] bytes;
         private readonly Encoder encoder = new UTF8Encoding(false, true).GetEncoder();
         private TextReader fragment;
         private int position, length;
         private bool finished;
+        private bool disposed;
 
         // The mapper has already advanced to the first transport row.
         internal JsonFragmentStream(DbDataReader reader)
         {
             this.reader = reader;
             fragment = reader.GetTextReader(0);
+            chars = ArrayPool<char>.Shared.Rent(4096);
+            try { bytes = ArrayPool<byte>.Shared.Rent(Encoding.UTF8.GetMaxByteCount(chars.Length)); }
+            catch { ArrayPool<char>.Shared.Return(chars, true); fragment.Dispose(); throw; }
         }
 
         public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
+            if (disposed) throw new ObjectDisposedException(nameof(JsonFragmentStream));
             if (count == 0) return 0;
             cancellationToken.ThrowIfCancellationRequested();
             if (position == length)
@@ -62,7 +68,17 @@ namespace SqlLinqer.Components.Json
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing) { fragment?.Dispose(); fragment = null; }
+            if (disposing && !disposed)
+            {
+                disposed = true;
+                try { fragment?.Dispose(); }
+                finally
+                {
+                    fragment = null;
+                    ArrayPool<char>.Shared.Return(chars, true);
+                    ArrayPool<byte>.Shared.Return(bytes, true);
+                }
+            }
             base.Dispose(disposing);
         }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using SqlLinqer.Components.Joins;
 using SqlLinqer.Components.Where;
 
@@ -42,10 +42,10 @@ namespace SqlLinqer.Modeling
         /// <inheritdoc/>
         protected internal override void AddToJoin(Relationship relationship, Join join)
         {
-            var left = join.Parent.Columns.TryGet(LeftProperty);            
+            var left = join.Parent.Columns.TryGet(LeftProperty);
             if (left == null)
                 throw new FormatException($"Cannot find column '{this.LeftProperty}' on table '{join.Parent.Name}'.");
-            
+
             var right = join.Child.Columns.TryGet(RightProperty);
             if (right == null)
                 throw new FormatException($"Cannot find column '{this.RightProperty}' on table '{join.Child.Name}'.");

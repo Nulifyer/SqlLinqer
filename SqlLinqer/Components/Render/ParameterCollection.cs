@@ -24,7 +24,7 @@ namespace SqlLinqer.Components.Render
         }
 
         private DbFlavor _flavor;
-        private readonly Dictionary<Tuple<object, int>, string> _expressionParameters = new Dictionary<Tuple<object, int>, string>();
+        private readonly Dictionary<(object Expression, int Argument), string> _expressionParameters = new Dictionary<(object Expression, int Argument), string>();
 
         private readonly Dictionary<object, string> _renderedExpressions = new Dictionary<object, string>();
 
@@ -35,7 +35,7 @@ namespace SqlLinqer.Components.Render
         {
             // DuckDB requires the same placeholder identity when a function is repeated
             // in SELECT, GROUP BY or ORDER BY, even if the argument values are equal.
-            var key = Tuple.Create(expression, argument);
+            var key = (expression, argument);
             if (_expressionParameters.TryGetValue(key, out var id) && HasKey(id))
                 return id;
             id = AddParameter(value);

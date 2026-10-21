@@ -21,6 +21,28 @@ internal static class TvpChecks
         int RowCount() => Scalar(connection, rowCountSql);
         InsertQuery<ScopedRow> Insert(decimal amount) => new InsertQuery<ScopedRow>(schema).InsertAuto(new ScopedRow { Name = "async TVP 雪", Amount = amount });
 
+        foreach (bool asynchronous in new[] { false, true })
+        {
+            live($"TVP decimal scale, range, nulls, and type cleanup, async={asynchronous}", () =>
+            {
+                int types = TypeCount();
+                NonQuery(connection, $"CREATE TABLE [{schema}].[PrecisionRows] (Amount DECIMAL(38,28) NULL); CREATE TABLE [{schema}].[RangeRows] (Amount DECIMAL(38,0) NULL)");
+                try
+                {
+                    decimal tiny = 0.1234567890123456789012345678m;
+                    var precise = new InsertQuery<PrecisionRow>(schema).InsertAuto(new[] { new PrecisionRow { Amount = tiny }, new PrecisionRow { Amount = null } });
+                    Require(Valid(asynchronous ? precise.ExecuteTvpAsync(connector).GetAwaiter().GetResult() : precise.ExecuteTvp(connector)) == 2, "Precision insert count differs");
+                    var range = new InsertQuery<RangeRow>(schema).InsertAuto(new[] { new RangeRow { Amount = decimal.MaxValue }, new RangeRow { Amount = -decimal.MaxValue }, new RangeRow { Amount = 0.0000000000000000000000000000m } });
+                    Require(Valid(asynchronous ? range.ExecuteTvpAsync(connector).GetAwaiter().GetResult() : range.ExecuteTvp(connector)) == 3, "Range insert count differs");
+                    var precisionRows = Valid(new SelectQuery<PrecisionRow>(schema).SelectRootColumns().Execute(connector));
+                    var rangeRows = Valid(new SelectQuery<RangeRow>(schema).SelectRootColumns().Execute(connector));
+                    Require(precisionRows.Count == 2 && precisionRows.Any(x => x.Amount == tiny) && precisionRows.Any(x => x.Amount == null), "TVP rounded fractional digits or changed nulls");
+                    Require(rangeRows.Select(x => x.Amount).Order().SequenceEqual(new decimal?[] { -decimal.MaxValue, 0m, decimal.MaxValue }), "TVP lost integer range");
+                    Require(TypeCount() == types, "Decimal TVP leaked a generated type");
+                }
+                finally { NonQuery(connection, $"DROP TABLE [{schema}].[RangeRows]; DROP TABLE [{schema}].[PrecisionRows]"); }
+            });
+        }
         live("async TVP identity keys output values and committed type cleanup", () =>
         {
             int types = TypeCount(), rows = RowCount();
@@ -117,6 +139,11 @@ internal static class TvpChecks
             });
         }
     }
+
+    [SqlLinqer.Modeling.SqlTable("PrecisionRows")]
+    private sealed class PrecisionRow { public decimal? Amount { get; set; } }
+    [SqlLinqer.Modeling.SqlTable("RangeRows")]
+    private sealed class RangeRow { public decimal? Amount { get; set; } }
 
     private sealed class CancelAfterCreateConnector(string connectionString, string schema, DbFlavor flavor,
         CancellationTokenSource cancellation)

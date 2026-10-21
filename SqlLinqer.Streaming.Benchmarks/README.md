@@ -68,3 +68,18 @@ Large sorts and provider-native buffers can affect process memory even when the 
 Do not compare `first` throughput with modes that consume all rows.
 
 The [experiment report](../docs/experiments/result-streaming.md) describes measured results and the initial implementation that exposed hidden DuckDB buffering.
+
+## Isolated mapping allocations
+
+Run the SQL model and 4 KiB SQLite binary conversion benchmarks separately:
+
+```sh
+DOTNET_TieredCompilation=0 dotnet run -c Release --project SqlLinqer.Streaming.Benchmarks -- mapping
+```
+
+The command warms the actual library converters, checks results, then reports three samples as JSON.
+These measurements exclude database and network work. Compare allocated bytes per operation first. Timing is diagnostic and has no pass threshold.
+The mapper uses UTF-8 property-name matching, and SQLite binary decoding uses spans for contiguous unescaped tokens.
+Regression checks cover case-insensitive and escaped names, escaped and segmented hex tokens, invalid hex, and independent result ownership.
+
+[Recorded review-fix samples](../docs/experiments/review-fix-mapping-results.json) show model allocations decreasing from 232 to 136 bytes per row and 4 KiB hex decoding from 151,600 to 4,120 bytes per operation on .NET 10.0.13.

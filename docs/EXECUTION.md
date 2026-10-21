@@ -108,6 +108,7 @@ They preserve native values, including `DateTime.Kind`, without a temporary `Dat
 DuckDB binary streams become independent byte arrays before the database reader closes.
 
 Mapping uses public fields and properties, matches names without regard to case, and honors `SqlColumn` and `SqlIgnore`.
+A member accepts its mapped SQL name or its CLR projection alias. Distinct columns matching both names, duplicate names ignoring case, and overlapping member mappings are rejected as ambiguous.
 API JSON attributes do not affect these mappings. Each mapped member requires a result column; extra columns are ignored.
 Models can use a parameterless constructor or one public constructor that matches mapped member names and types.
 SQL NULL maps to nullable members. Compatible numeric, GUID, and enum values are converted.

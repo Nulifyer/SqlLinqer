@@ -169,8 +169,11 @@ internal static class StreamingRegressionTests
             Check(json.Contains("😀"), "Fixture does not contain a raw surrogate pair");
             foreach (int fragmentSize in new[] { 1, 7, 4095, 17000 })
             {
-                var db = new FakeDatabase { JsonRows = Enumerable.Range(0, (json.Length + fragmentSize - 1) / fragmentSize)
-                    .Select(i => json.Substring(i * fragmentSize, Math.Min(fragmentSize, json.Length - i * fragmentSize))).ToArray() };
+                var db = new FakeDatabase
+                {
+                    JsonRows = Enumerable.Range(0, (json.Length + fragmentSize - 1) / fragmentSize)
+                    .Select(i => json.Substring(i * fragmentSize, Math.Min(fragmentSize, json.Length - i * fragmentSize))).ToArray()
+                };
                 var rows = await Collect(new FakeConnector(db, DbFlavor.SqlServer).ExecuteReaderJsonAsyncStream<Row>(new("fragments")));
                 Check(rows.Count == 2 && rows[0].Name == name && rows[1].Name == "tail", "Fragment boundary corrupted JSON");
                 Disposed(db);
@@ -179,8 +182,11 @@ internal static class StreamingRegressionTests
 
         Async("SQL Server yields before reading the complete document", async () =>
         {
-            var db = new FakeDatabase { JsonRows = Enumerable.Range(1, 2000)
-                .Select(i => (i == 1 ? "[" : ",") + "{\"Id\":" + i + ",\"Name\":\"" + new string('x', 128) + "\"}" + (i == 2000 ? "]" : "")).ToArray() };
+            var db = new FakeDatabase
+            {
+                JsonRows = Enumerable.Range(1, 2000)
+                .Select(i => (i == 1 ? "[" : ",") + "{\"Id\":" + i + ",\"Name\":\"" + new string('x', 128) + "\"}" + (i == 2000 ? "]" : "")).ToArray()
+            };
             await foreach (var row in new FakeConnector(db, DbFlavor.SqlServer).ExecuteReaderJsonAsyncStream<Row>(new("early-document"))) break;
             Check(db.AsyncReads < db.JsonRows.Length / 2, "First object required reading most of the document");
             Disposed(db);

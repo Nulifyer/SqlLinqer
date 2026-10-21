@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Reflection;
 using SqlLinqer.Components.Joins;
@@ -32,7 +32,7 @@ namespace SqlLinqer.Modeling
         {
             LocalForeignKey = localForeignKey;
         }
-        
+
         /// <summary>
         /// Maps a single related object through a local foreign key. A selected relationship loads null when no related row matches.
         /// </summary>

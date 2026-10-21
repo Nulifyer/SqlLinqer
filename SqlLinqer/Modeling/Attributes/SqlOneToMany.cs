@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Reflection;
 using SqlLinqer.Components.Joins;
 using SqlLinqer.Components.Modeling;
@@ -18,7 +18,7 @@ namespace SqlLinqer.Modeling
         /// The name of the base class's property/field that behaves as the primary key
         /// </summary>
         public readonly string LocalPrimaryKey;
-        
+
         /// <summary>
         /// The name of joined class's property/field where the current class's primary key is the foreign key
         /// </summary>

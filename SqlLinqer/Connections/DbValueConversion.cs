@@ -23,6 +23,15 @@ namespace SqlLinqer.Connections
             "yyyy-MM-dd HH:mm:ss'Z'", "yyyy-MM-dd HH:mm:ss.FFFFFFF'Z'"
         };
 
+        internal static bool IsScalarType(Type type)
+        {
+            type = Nullable.GetUnderlyingType(type) ?? type;
+            return type.IsPrimitive || type.IsEnum || type == typeof(string) || type == typeof(decimal)
+                || type == typeof(Guid) || type == typeof(DateTime) || type == typeof(DateTimeOffset)
+                || type == typeof(TimeSpan) || type == typeof(byte[]) || type == typeof(object)
+                || type.FullName == "System.DateOnly" || type.FullName == "System.TimeOnly";
+        }
+
         internal static T ConvertTo<T>(object value) => (T)ConvertTo(value, typeof(T));
 
         internal static object NormalizeProviderValue(object value, DbDataReader reader, int ordinal, DbFlavor flavor)
@@ -142,8 +151,14 @@ namespace SqlLinqer.Connections
         {
             switch (Type.GetTypeCode(type))
             {
-                case TypeCode.SByte: case TypeCode.Byte: case TypeCode.Int16: case TypeCode.UInt16:
-                case TypeCode.Int32: case TypeCode.UInt32: case TypeCode.Int64: case TypeCode.UInt64: return true;
+                case TypeCode.SByte:
+                case TypeCode.Byte:
+                case TypeCode.Int16:
+                case TypeCode.UInt16:
+                case TypeCode.Int32:
+                case TypeCode.UInt32:
+                case TypeCode.Int64:
+                case TypeCode.UInt64: return true;
                 default: return false;
             }
         }

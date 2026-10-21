@@ -11,13 +11,30 @@ namespace SqlLinqer.Components.Json
     {
         public override byte[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            string hex = reader.GetString();
-            if (hex.Length % 2 != 0)
-                throw new JsonException("Expected an even-length SQLite hex string.");
+            if (reader.TokenType != JsonTokenType.String) throw new JsonException("Expected a SQLite hex string.");
+            if (reader.HasValueSequence || reader.ValueIsEscaped)
+            {
+                string text = reader.GetString();
+                if (text.Length % 2 != 0) throw new JsonException("Expected an even-length SQLite hex string.");
+                var decoded = new byte[text.Length / 2];
+                for (int i = 0; i < decoded.Length; i++)
+                    decoded[i] = (byte)((HexDigit(text[2 * i]) << 4) | HexDigit(text[2 * i + 1]));
+                return decoded;
+            }
+            ReadOnlySpan<byte> hex = reader.ValueSpan;
+            if (hex.Length % 2 != 0) throw new JsonException("Expected an even-length SQLite hex string.");
             var bytes = new byte[hex.Length / 2];
             for (int i = 0; i < bytes.Length; i++)
-                bytes[i] = byte.Parse(hex.Substring(i * 2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+                bytes[i] = (byte)((HexDigit(hex[2 * i]) << 4) | HexDigit(hex[2 * i + 1]));
             return bytes;
+        }
+
+        private static int HexDigit(int value)
+        {
+            if (value >= '0' && value <= '9') return value - '0';
+            if (value >= 'A' && value <= 'F') return value - 'A' + 10;
+            if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+            throw new JsonException("Expected a SQLite hex digit.");
         }
 
         public override void Write(Utf8JsonWriter writer, byte[] value, JsonSerializerOptions options)

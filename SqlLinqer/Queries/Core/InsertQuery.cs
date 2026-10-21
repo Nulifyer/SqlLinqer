@@ -56,24 +56,13 @@ namespace SqlLinqer.Queries.Core
 
             try
             {
-                if (flavor == DbFlavor.Sqlite && Inserts.Count == 0)
-                    throw new System.InvalidOperationException("An insert query must contain at least one row.");
-                if (flavor == DbFlavor.Sqlite && string.IsNullOrWhiteSpace(Inserts.RenderColumns(flavor)))
-                {
-                    if (Inserts.Count != 1)
-                        throw new System.NotSupportedException("SQLite DEFAULT VALUES inserts support one row per query.");
-                    return $"INSERT INTO {Table.RenderFullName(flavor)} DEFAULT VALUES {Outputs.Render(flavor)}";
-                }
-                if (flavor == DbFlavor.DuckDb && !Inserts.HasColumns)
+                if ((flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb) && !Inserts.HasColumns)
                 {
                     if (Inserts.Count == 0)
                         throw new System.InvalidOperationException("An insert query must contain at least one row.");
-                    // DuckDB accepts multiple DEFAULT tuples when the target columns are explicit.
-                    var defaults = System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Select(Table.Columns.GetAll(), x => x.ColumnName.DbWrap(flavor)));
-                    if (defaults.Length == 0)
-                        throw new System.NotSupportedException("DuckDB default-only inserts require at least one mapped column.");
-                    string tuple = "(" + string.Join(",", System.Linq.Enumerable.Repeat("DEFAULT", defaults.Length)) + ")";
-                    return $"INSERT INTO {Table.RenderFullName(flavor)} ({string.Join(",", defaults)}) VALUES {string.Join(",", System.Linq.Enumerable.Repeat(tuple, Inserts.Count))} {Outputs.Render(flavor)}";
+                    if (Inserts.Count != 1)
+                        throw new System.NotSupportedException("DEFAULT VALUES rendering supports one row per command. Use execution batching for multiple rows.");
+                    return $"INSERT INTO {Table.RenderFullName(flavor)} DEFAULT VALUES {Outputs.Render(flavor)}";
                 }
                 string inserts = this.Inserts.RenderAsRows(parameters, flavor);
                 string columns = this.Inserts.RenderColumns(flavor);

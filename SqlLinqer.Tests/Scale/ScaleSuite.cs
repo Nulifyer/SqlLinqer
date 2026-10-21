@@ -102,18 +102,20 @@ internal static class ScaleSuite
 
                 Test(provider, "full typed JSON preserves every key and payload", () =>
                     MeasureResult(provider, "typed-json-all", rows,
-                        () => Result(new SelectQuery<ScaleRow>().SelectRootColumns().OrderBy(x => x.Id, SqlDir.ASC).Execute(connector)), actual => {
-                        Check(actual.Count == rows, "JSON row count changed");
-                        for (int i = 0; i < actual.Count; i++) CheckRow(actual[i], i + 1);
-                    }));
+                        () => Result(new SelectQuery<ScaleRow>().SelectRootColumns().OrderBy(x => x.Id, SqlDir.ASC).Execute(connector)), actual =>
+                        {
+                            Check(actual.Count == rows, "JSON row count changed");
+                            for (int i = 0; i < actual.Count; i++) CheckRow(actual[i], i + 1);
+                        }));
 
                 Test(provider, "ExecuteAsync full typed JSON preserves every key and payload", () =>
                     MeasureResult(provider, "typed-json-all-async", rows,
                         () => Result(new SelectQuery<ScaleRow>().SelectRootColumns().OrderBy(x => x.Id, SqlDir.ASC)
-                            .ExecuteAsync(connector).GetAwaiter().GetResult()), actual => {
-                        Check(actual.Count == rows, "Async JSON row count changed");
-                        for (int i = 0; i < actual.Count; i++) CheckRow(actual[i], i + 1);
-                    }));
+                            .ExecuteAsync(connector).GetAwaiter().GetResult()), actual =>
+                            {
+                                Check(actual.Count == rows, "Async JSON row count changed");
+                                for (int i = 0; i < actual.Count; i++) CheckRow(actual[i], i + 1);
+                            }));
 
                 Test(provider, "ExecuteAsyncStream validates every row without retaining the result set", () =>
                 {
@@ -135,17 +137,18 @@ internal static class ScaleSuite
 
                 Test(provider, "flat DataTable preserves count and Int64 checksum", () =>
                     MeasureResult(provider, "datatable-all", rows,
-                        () => Result(connector.ExecuteReaderDataTable(new RenderedQuery("SELECT Id, Score FROM scale_rows ORDER BY Id"))), table => {
-                        using var actual = table;
-                        Check(actual.Rows.Count == rows, "DataTable lost rows");
-                        long sum = 0;
-                        for (int i = 0; i < actual.Rows.Count; i++)
+                        () => Result(connector.ExecuteReaderDataTable(new RenderedQuery("SELECT Id, Score FROM scale_rows ORDER BY Id"))), table =>
                         {
-                            Check(Convert.ToInt32(actual.Rows[i][0]) == i + 1, "DataTable key order changed");
-                            sum += Convert.ToInt64(actual.Rows[i][1]);
-                        }
-                        Check(sum == ScoreSum(rows), "DataTable Int64 checksum changed");
-                    }));
+                            using var actual = table;
+                            Check(actual.Rows.Count == rows, "DataTable lost rows");
+                            long sum = 0;
+                            for (int i = 0; i < actual.Rows.Count; i++)
+                            {
+                                Check(Convert.ToInt32(actual.Rows[i][0]) == i + 1, "DataTable key order changed");
+                                sum += Convert.ToInt64(actual.Rows[i][1]);
+                            }
+                            Check(sum == ScoreSum(rows), "DataTable Int64 checksum changed");
+                        }));
 
                 Test(provider, "deep and empty pages retain total and query state", () =>
                     Measure(provider, "deep-page-with-count", Math.Min(257, rows), () =>
@@ -164,18 +167,22 @@ internal static class ScaleSuite
 
                 Test(provider, "grouped aggregates match independently calculated counts and sums", () =>
                     MeasureResult(provider, "grouped-aggregate", rows,
-                        () => Result(new SelectQueryInitializer<ScaleRow>().BuildQuery(q => new {
-                            Bucket = q.Select(x => x.Bucket), Count = q.CountBig(), Sum = (long)q.Sum(x => x.Score)
-                        }).Execute(connector)), actual => {
-                        Check(actual.Count == Buckets, "Group count changed");
-                        foreach (var group in actual)
+                        () => Result(new SelectQueryInitializer<ScaleRow>().BuildQuery(q => new
                         {
-                            int count = 0; long sum = 0;
-                            for (int id = group.Bucket == 0 ? Buckets : group.Bucket; id <= rows; id += Buckets)
-                            { count++; sum += (long)id * 1000003; }
-                            Check(group.Count == count && group.Sum == sum, $"Aggregate changed for bucket {group.Bucket}");
-                        }
-                    }));
+                            Bucket = q.Select(x => x.Bucket),
+                            Count = q.CountBig(),
+                            Sum = (long)q.Sum(x => x.Score)
+                        }).Execute(connector)), actual =>
+                        {
+                            Check(actual.Count == Buckets, "Group count changed");
+                            foreach (var group in actual)
+                            {
+                                int count = 0; long sum = 0;
+                                for (int id = group.Bucket == 0 ? Buckets : group.Bucket; id <= rows; id += Buckets)
+                                { count++; sum += (long)id * 1000003; }
+                                Check(group.Count == count && group.Sum == sum, $"Aggregate changed for bucket {group.Bucket}");
+                            }
+                        }));
 
                 Test(provider, "async nested paging preserves payloads and the full count", () =>
                 {
@@ -221,24 +228,26 @@ internal static class ScaleSuite
                 Test(provider, "nested objects at scale retain each parent value", () =>
                     MeasureResult(provider, "nested-page", 512,
                         () => Result(new SelectQuery<ScaleRow>().SelectRootColumns().Select(x => x.Group)
-                            .OrderBy(x => x.Id, SqlDir.ASC).Limit(512, rows - 512).Execute(connector)), actual => {
-                        Check(actual.Count == 512, "Nested page lost rows");
-                        foreach (var row in actual)
-                            Check(row.Group.Id == row.Bucket && row.Group.Name == $"group-{row.Bucket}", "Related object crossed parent keys");
-                    }));
+                            .OrderBy(x => x.Id, SqlDir.ASC).Limit(512, rows - 512).Execute(connector)), actual =>
+                            {
+                                Check(actual.Count == 512, "Nested page lost rows");
+                                foreach (var row in actual)
+                                    Check(row.Group.Id == row.Bucket && row.Group.Name == $"group-{row.Bucket}", "Related object crossed parent keys");
+                            }));
 
                 Test(provider, "large nested array preserves every correlated child", () =>
                     MeasureResult(provider, "nested-array", rows / Buckets,
                         () => Result(new SelectQuery<ScaleTree>().SelectRootColumns().Select(x => x.Members)
-                            .Where(x => x.Id, 0, SqlOp.EQ).Execute(connector)), actual => {
-                        var parent = actual.Single();
-                        Check(parent.Id == 0 && parent.Name == "group-0", "Nested parent changed");
-                        Check(parent.Members.Count == rows / Buckets, "Nested array lost children");
-                        var members = parent.Members.OrderBy(x => x.Id).ToArray();
-                        for (int i = 0; i < members.Length; i++)
-                            Check(members[i].Id == (i + 1) * Buckets && members[i].Bucket == 0 &&
-                                members[i].Score == (long)members[i].Id * 1000003, "Nested child crossed parent keys or changed value");
-                    }));
+                            .Where(x => x.Id, 0, SqlOp.EQ).Execute(connector)), actual =>
+                            {
+                                var parent = actual.Single();
+                                Check(parent.Id == 0 && parent.Name == "group-0", "Nested parent changed");
+                                Check(parent.Members.Count == rows / Buckets, "Nested array lost children");
+                                var members = parent.Members.OrderBy(x => x.Id).ToArray();
+                                for (int i = 0; i < members.Length; i++)
+                                    Check(members[i].Id == (i + 1) * Buckets && members[i].Bucket == 0 &&
+                                        members[i].Score == (long)members[i].Id * 1000003, "Nested child crossed parent keys or changed value");
+                            }));
 
                 Test(provider, "large update and delete remain in caller transaction", () =>
                 {
@@ -288,7 +297,8 @@ internal static class ScaleSuite
                 {
                     var query = new SelectQuery<ScaleRow>().Select(x => x.Id);
                     for (int i = 0; i < predicates; i++) query.Where(x => x.Id, i, SqlOp.GT);
-                    MeasureResult(flavor.ToString(), $"render-{predicates}", 1, () => query.Render(flavor), actual => {
+                    MeasureResult(flavor.ToString(), $"render-{predicates}", 1, () => query.Render(flavor), actual =>
+                    {
                         Check(actual.Parameters.GetAll().Select(x => x.Value).SequenceEqual(Enumerable.Range(0, predicates).Cast<object>()),
                             "Rendered predicate bindings changed");
                     });
@@ -300,14 +310,24 @@ internal static class ScaleSuite
         {
             string path = Path.GetFullPath(resultsPath);
             Directory.CreateDirectory(Path.GetDirectoryName(path));
-            File.WriteAllText(path, JsonSerializer.Serialize(new {
-                SchemaVersion = 1, StartedUtc = started, FinishedUtc = DateTimeOffset.UtcNow, Rows = rows, Iterations = iterations,
-                Configuration = release ? "Release" : "Debug", Runtime = RuntimeInformation.FrameworkDescription,
-                OS = RuntimeInformation.OSDescription, Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
-                LogicalProcessors = Environment.ProcessorCount, Providers = providers,
+            File.WriteAllText(path, JsonSerializer.Serialize(new
+            {
+                SchemaVersion = 1,
+                StartedUtc = started,
+                FinishedUtc = DateTimeOffset.UtcNow,
+                Rows = rows,
+                Iterations = iterations,
+                Configuration = release ? "Release" : "Debug",
+                Runtime = RuntimeInformation.FrameworkDescription,
+                OS = RuntimeInformation.OSDescription,
+                Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
+                LogicalProcessors = Environment.ProcessorCount,
+                Providers = providers,
                 PeakWorkingSetBytes = Process.GetCurrentProcess().PeakWorkingSet64,
                 MeasurementNotes = "Wall time includes query construction, connection creation, execution and materialization. Buffered full JSON, DataTable, grouped aggregate, nested objects/arrays and rendering validate outside timing/allocation samples. Async-stream full JSON validates each row during consumption without retaining results. Insert includes fixture generation and per-batch assertions; deep-page includes empty-page/state assertions. Managed bytes cover only the calling thread, excluding native/provider worker allocations; async work can switch threads. Peak working set covers the entire process, not individual workloads. Insert is one cold sample; other operations have one warmup. DataTable projects two columns; typed JSON projects six. These are different workloads, not an overhead comparison. No timing thresholds.",
-                Checks = checks, Measurements = measurements, Passed = failed == 0
+                Checks = checks,
+                Measurements = measurements,
+                Passed = failed == 0
             }, new JsonSerializerOptions { WriteIndented = true }) + Environment.NewLine);
             Console.WriteLine($"Scale results: {path}");
         }
@@ -317,9 +337,13 @@ internal static class ScaleSuite
     private static T Result<T>(SqlResponse<T> response) => response.State == ResponseState.Valid ? response.Result : throw response.Error;
     private static void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
     private static long ScoreSum(int rows) => (long)rows * (rows + 1) / 2 * 1000003;
-    private static ScaleRow Row(int id) => new() {
-        Id = id, Bucket = id % Buckets, Name = id % 13 == 0 ? null : $"row-{id}: 'quotes' \"json\" \\ %_\n雪🙂",
-        Note = id % 7 == 0 ? null : id % 7 == 1 ? "" : $"note-{id}", Score = (long)id * 1000003,
+    private static ScaleRow Row(int id) => new()
+    {
+        Id = id,
+        Bucket = id % Buckets,
+        Name = id % 13 == 0 ? null : $"row-{id}: 'quotes' \"json\" \\ %_\n雪🙂",
+        Note = id % 7 == 0 ? null : id % 7 == 1 ? "" : $"note-{id}",
+        Score = (long)id * 1000003,
         Payload = id % 11 == 0 ? null : id % 11 == 1 ? [] : Enumerable.Range(0, 32).Select(i => (byte)((id + i) % 256)).ToArray()
     };
     private static void CheckRow(ScaleRow actual, int id)

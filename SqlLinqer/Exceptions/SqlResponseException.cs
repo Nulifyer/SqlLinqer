@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using SqlLinqer.Components.Render;
 
 namespace SqlLinqer.Exceptions

@@ -87,12 +87,21 @@ internal static class LiveSuite
         """;
     internal static AzureTypes SampleTypes() => new()
     {
-        Tiny = 255, Small = short.MinValue, Big = 9007199254740993L, Amount = 1234567890123456.123456789012m,
-        Real = 1.25f, Double = -12345.125, Token = Guid.Parse("32f85ce3-e3e6-4aa8-b96f-4536a921c09f"),
-        Flag = true, Optional = null, Stamp = new DateTime(2024, 2, 29, 13, 14, 15).AddTicks(1234567),
+        Tiny = 255,
+        Small = short.MinValue,
+        Big = 9007199254740993L,
+        Amount = 1234567890123456.123456789012m,
+        Real = 1.25f,
+        Double = -12345.125,
+        Token = Guid.Parse("32f85ce3-e3e6-4aa8-b96f-4536a921c09f"),
+        Flag = true,
+        Optional = null,
+        Stamp = new DateTime(2024, 2, 29, 13, 14, 15).AddTicks(1234567),
         OffsetStamp = new DateTimeOffset(2024, 2, 29, 13, 14, 15, TimeSpan.FromHours(5.5)).AddTicks(7654321),
         Clock = new TimeSpan(0, 2, 3, 4).Add(TimeSpan.FromTicks(1234567)),
-        Bytes = new byte[] { 0, 1, 127, 128, 255 }, Text = "雪 \"quoted\" \\ \n", Letter = '雪',
+        Bytes = new byte[] { 0, 1, 127, 128, 255 },
+        Text = "雪 \"quoted\" \\ \n",
+        Letter = '雪',
     };
 
     private static void TemporarySuite(SqlConnection connection, BaseConnector connector, Action<string, Action> live)

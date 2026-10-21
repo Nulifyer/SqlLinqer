@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Reflection;
 using SqlLinqer.Components.Joins;
@@ -39,7 +39,7 @@ namespace SqlLinqer.Modeling
         public SqlManyToMany(Type joiningType, string leftJoiningKey, string rightJoiningKey) : base(RelationshipType.ManyToMany)
         {
             directTargets = false;
-            
+
             JoiningType = joiningType;
             LeftJoiningKey = leftJoiningKey;
             RightJoiningKey = rightJoiningKey;

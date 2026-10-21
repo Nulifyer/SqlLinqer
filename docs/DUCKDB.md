@@ -46,7 +46,7 @@ The selected provider package `DuckDB.NET.Data.Full` 1.5.6.1 supplies managed ta
 - Nested selects apply ordering and pagination before `json_group_array`. The current typed API has no public nested paging method. The integration test configures the core query collections to verify this renderer path.
 - `Top`, `Page`, `Limit`, parameterized `IN` subqueries, related-row filters, and related-row ordering work. Count queries wrap the unpaged projection, so grouped and distinct totals count result rows. DuckDB paging does not add hidden key columns to grouped or distinct projections. Specify `OrderBy` when page ordering matters.
 - Inserts, updates, and deletes support affected-row counts and returned rows through `ExecuteWithOutput`. The primary-key query classes capture keys through `RETURNING`. Empty returned result sets have zero rows.
-- Generated keys require a database default, such as a sequence or `uuid()`. A primary-key model attribute alone does not create a database sequence or default. Models with no insertable columns support default-only inserts, including batches and returned keys.
+- Generated keys require a database default, such as a sequence or `uuid()`. A primary-key model attribute alone does not create a database sequence or default. Models with no insertable columns support default-only inserts, including batches and returned keys. Default-only execution uses one `DEFAULT VALUES` command per row within the batch transaction, so generated columns stay excluded. Explicit rendering supports one default-only row.
 
 ```sql
 CREATE SEQUENCE person_ids START 100;

@@ -228,6 +228,7 @@ internal sealed class FakeCommand(FakeConnection connection) : DbCommand
     {
         IsDisposed = true;
         base.Dispose(disposing);
+        if (disposing) connection.DatabaseState.ThrowIf("dispose-command");
     }
 }
 

@@ -395,12 +395,15 @@ internal static class ValueConversionRegressionTests
             test($"conversion tabular preserves mixed DateTime kinds, async={asynchronous}", () =>
             {
                 DateTime[] values = [Clock, DateTime.SpecifyKind(Clock, DateTimeKind.Utc), DateTime.SpecifyKind(Clock, DateTimeKind.Local)];
-                var db = new FakeDatabase { ReaderFactory = _ =>
+                var db = new FakeDatabase
+                {
+                    ReaderFactory = _ =>
                 {
                     var table = new DataTable(); table.Columns.Add("Value", typeof(object));
                     foreach (var value in values) table.Rows.Add(value);
                     return table.CreateDataReader();
-                } };
+                }
+                };
                 var connector = new FakeConnector(db);
                 var query = new RenderedQuery("SELECT Value");
                 var response = asynchronous ? connector.ExecuteReaderListAsync<ValueRow<DateTime>>(query).GetAwaiter().GetResult()

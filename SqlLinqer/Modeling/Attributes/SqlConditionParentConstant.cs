@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using SqlLinqer.Components.Joins;
 using SqlLinqer.Components.Where;
 
@@ -40,7 +40,7 @@ namespace SqlLinqer.Modeling
         /// <inheritdoc/>
         protected internal override void AddToJoin(Relationship relationship, Join join)
         {
-            var column = join.Parent.Columns.TryGet(ParentProperty);            
+            var column = join.Parent.Columns.TryGet(ParentProperty);
             if (column == null)
                 throw new FormatException($"Cannot find column '{this.ParentProperty}' on table '{join.Parent.Name}'.");
 

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 
 namespace SqlLinqer
 {
@@ -18,19 +18,19 @@ namespace SqlLinqer
         /// </summary>
         [Description("-")]
         SUB,
-        
+
         /// <summary>
         /// Multiplication
         /// </summary>
         [Description("*")]
         MULT,
-        
+
         /// <summary>
         /// Division
         /// </summary>
         [Description("/")]
         DIV,
-        
+
         /// <summary>
         /// Modulous
         /// </summary>

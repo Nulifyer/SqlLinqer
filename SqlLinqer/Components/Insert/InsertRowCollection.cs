@@ -117,11 +117,31 @@ namespace SqlLinqer.Components.Insert
         public (string Create, string Drop) RenderTempType(DbFlavor flavor, string typeName)
         {
             var typedCols = Columns.Values
-                .Select(x => $"{Environment.NewLine}\t{x.ColumnName.DbWrap(flavor)} {x.ValueType.CSharpTypeToSql(flavor)} NULL");
+                .Select(x => $"{Environment.NewLine}\t{x.ColumnName.DbWrap(flavor)} {RenderColumnType(x, flavor)} NULL");
             string createStr = $"CREATE TYPE {typeName.DbWrap(flavor)} AS TABLE ({string.Join(",", typedCols)})";
             string dropStr = $"DROP TYPE {typeName.DbWrap(flavor)}";
             return (createStr, dropStr);
         }
+        private string RenderColumnType(ReflectedColumn column, DbFlavor flavor)
+        {
+            if (column.ValueType != typeof(decimal)) return column.ValueType.CSharpTypeToSql(flavor);
+            int scale = 0, integerDigits = 0;
+            foreach (var row in Rows)
+            {
+                if (!(ReadValue(row, column) is decimal value)) continue;
+                // Ignore insignificant trailing zeroes. Their stored decimal scale
+                // must not make an otherwise representable batch fail validation.
+                string text = Math.Abs(value).ToString("0.############################", System.Globalization.CultureInfo.InvariantCulture);
+                int point = text.IndexOf('.');
+                scale = Math.Max(scale, point < 0 ? 0 : text.Length - point - 1);
+                int digits = text[0] == '0' ? 0 : point < 0 ? text.Length : point;
+                integerDigits = Math.Max(integerDigits, digits);
+            }
+            if (integerDigits + scale > 38)
+                throw new InvalidOperationException($"The decimal values in '{column.ColumnName}' cannot share a lossless SQL decimal type. Split the batch or use an explicitly defined TVP type.");
+            return $"DECIMAL(38,{scale})";
+        }
+
         /// <summary>
         /// Returns the column string for the inserted rows
         /// </summary>
@@ -139,8 +159,9 @@ namespace SqlLinqer.Components.Insert
         /// <param name="flavor">The type of Sql database being used</param>
         public string RenderAsRows(ParameterCollection parameters, DbFlavor flavor)
         {
-            var insertRows = Rows.Select(obj => {
-                var row = new InsertRow();                
+            var insertRows = Rows.Select(obj =>
+            {
+                var row = new InsertRow();
                 foreach (var column in Columns.Values)
                 {
                     var value = new InsertRowValue(column.ColumnName, ReadValue(obj, column), column.DbType);

@@ -118,7 +118,8 @@ namespace SqlLinqer.Queries.Typed
             var column = Table.FindColumnFromPath(path);
             if (column == null)
                 throw new SqlLinqer.Exceptions.SqlPathNotFoundException(Table, path);
-            else if (column.Table.UUID != Table.UUID) {
+            else if (column.Table.UUID != Table.UUID)
+            {
                 throw new FormatException($"Colunn is not a root column from {Table}");
             }
 
@@ -180,10 +181,10 @@ namespace SqlLinqer.Queries.Typed
                 if (primaryKeyData.State == ResponseState.Valid)
                 {
                     using (var table = primaryKeyData.Result)
-                    foreach (System.Data.DataRow row in table.Rows)
-                    {
-                        primaryKeys.Add(row[0]);
-                    }
+                        foreach (System.Data.DataRow row in table.Rows)
+                        {
+                            primaryKeys.Add(row[0]);
+                        }
                     response.SetResult(primaryKeys.Count);
                 }
                 executedRes = primaryKeyData;

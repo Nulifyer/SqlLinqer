@@ -179,12 +179,13 @@ namespace SqlLinqer.Connections
                 {
                     while (reader.FieldCount == 0)
                         if (!reader.NextResult()) return new List<T>();
-                    var rowType = new TabularRowType(typeof(T));
+                    var rowType = TabularRowType.GetCached(typeof(T));
                     var ordinals = rowType.GetOrdinals(reader);
                     var rows = new List<T>();
+                    var values = new object[reader.FieldCount];
+                    var mapped = rowType.CreateBuffer();
                     while (reader.Read())
                     {
-                        var values = new object[reader.FieldCount];
                         reader.GetValues(values);
                         for (int i = 0; i < values.Length; i++)
                         {
@@ -194,7 +195,7 @@ namespace SqlLinqer.Connections
                                 using (var buffer = new MemoryStream())
                                 { stream.CopyTo(buffer); values[i] = buffer.ToArray(); }
                         }
-                        rows.Add((T)rowType.Read(reader, ordinals, values));
+                        rows.Add((T)rowType.Read(reader, ordinals, values, mapped));
                     }
                     return rows;
                 }
@@ -223,13 +224,14 @@ namespace SqlLinqer.Connections
                         cancellationToken.ThrowIfCancellationRequested();
                         if (!await reader.NextResultAsync(cancellationToken).ConfigureAwait(false)) return new List<T>();
                     }
-                    var rowType = new TabularRowType(typeof(T));
+                    var rowType = TabularRowType.GetCached(typeof(T));
                     var ordinals = rowType.GetOrdinals(reader);
                     var rows = new List<T>();
+                    var values = new object[reader.FieldCount];
+                    var mapped = rowType.CreateBuffer();
                     while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-                        var values = new object[reader.FieldCount];
                         reader.GetValues(values);
                         for (int i = 0; i < values.Length; i++)
                         {
@@ -242,7 +244,7 @@ namespace SqlLinqer.Connections
                                     values[i] = buffer.ToArray();
                                 }
                         }
-                        rows.Add((T)rowType.Read(reader, ordinals, values));
+                        rows.Add((T)rowType.Read(reader, ordinals, values, mapped));
                     }
                     cancellationToken.ThrowIfCancellationRequested();
                     return rows;

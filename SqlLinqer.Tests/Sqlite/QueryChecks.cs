@@ -95,11 +95,18 @@ internal static class QueryChecks
         {
             var totals = Result(new SelectQueryInitializer<Item>().BuildQuery(q => new { Count = q.Count(), Big = q.CountBig(), Sum = q.Sum(x => x.Id), Average = (double)q.Avg(x => x.Id) }).Execute(connector)).Single();
             Expect(totals.Count == 3 && totals.Big == 3 && totals.Sum == 6 && totals.Average == 2);
-            var values = Result(new SelectQueryInitializer<Item>().BuildQuery(q => new {
-                Id = q.Select(x => x.Id), Year = q.YEAR(x => x.Created), Month = q.MONTH(x => x.Created), Day = q.DAY(x => x.Created),
-                Upper = q.UPPER(x => x.OtherName), Right = q.RIGHT(x => x.OtherName, 2), Sub = q.SUBSTRING(x => x.OtherName, 2, 2),
+            var values = Result(new SelectQueryInitializer<Item>().BuildQuery(q => new
+            {
+                Id = q.Select(x => x.Id),
+                Year = q.YEAR(x => x.Created),
+                Month = q.MONTH(x => x.Created),
+                Day = q.DAY(x => x.Created),
+                Upper = q.UPPER(x => x.OtherName),
+                Right = q.RIGHT(x => x.OtherName, 2),
+                Sub = q.SUBSTRING(x => x.OtherName, 2, 2),
                 Left = q.LEFT(x => x.OtherName, 2),
-                Concat = q.Concat(x => x.OtherName, x => x.Name), Joined = q.ConcatWS("|", x => x.OtherName, x => x.Name)
+                Concat = q.Concat(x => x.OtherName, x => x.Name),
+                Joined = q.ConcatWS("|", x => x.OtherName, x => x.Name)
             }).Where(x => x.Id, 1, SqlOp.EQ).Execute(connector)).Single();
             Expect(values.Year == 2026 && values.Month == 10 && values.Day == 20);
             Expect(values.Upper == "OLD" && values.Right == "ld" && values.Sub == "ld");
@@ -125,7 +132,8 @@ internal static class QueryChecks
         });
         Test($"{label}: CASE and nested functions keep scalar SQL expressions", () =>
         {
-            var query = new SelectQueryInitializer<Item>().BuildQuery(q => new {
+            var query = new SelectQueryInitializer<Item>().BuildQuery(q => new
+            {
                 Value = q.Case<string>(c => c.AddCaseValue("yes", w => w.Where(x => x.Enabled, true, SqlOp.EQ)).AddElseValue("no")),
                 Upper = q.Concat(x => q.UPPER(x => x.OtherName), x => x.Name),
                 Empty = q.RIGHT(x => x.Name, 0)
@@ -135,7 +143,8 @@ internal static class QueryChecks
         });
         Test($"{label}: typed nested CASE and functions handle null and column branches", () =>
         {
-            var rows = Result(new SelectQueryInitializer<Item>().BuildQuery(q => new {
+            var rows = Result(new SelectQueryInitializer<Item>().BuildQuery(q => new
+            {
                 Id = q.Select(x => x.Id),
                 Value = q.UPPER(x => q.Case<string>(c => c
                     .AddCaseColumn(x => x.Category.Name, w => w.Where(x => x.CategoryId, 1, SqlOp.EQ))
@@ -148,7 +157,8 @@ internal static class QueryChecks
         });
         Test($"{label}: CASE aggregates group by the resulting value and count result groups", () =>
         {
-            var query = new SelectQueryInitializer<Item>().BuildQuery(q => new {
+            var query = new SelectQueryInitializer<Item>().BuildQuery(q => new
+            {
                 Bucket = q.Case<string>(c => c.AddCaseValue("all", w => w.Where(x => x.Id, 0, SqlOp.GT)).AddElseValue("none")),
                 Count = q.Count()
             }).Page(1, 1);
@@ -160,8 +170,10 @@ internal static class QueryChecks
         });
         Test($"{label}: anonymous grouped ordering uses aggregate expressions before pagination", () =>
         {
-            var query = new SelectQueryInitializer<Item>().BuildQuery(q => new {
-                Category = q.Select(x => x.CategoryId), Count = q.Count()
+            var query = new SelectQueryInitializer<Item>().BuildQuery(q => new
+            {
+                Category = q.Select(x => x.CategoryId),
+                Count = q.Count()
             }).OrderBy(x => x.Count, SqlDir.DESC).Page(1, 1);
             var response = query.ExecuteWithTotalCount(connector);
             var row = Result(response).Single();
@@ -169,9 +181,12 @@ internal static class QueryChecks
         });
         Test($"{label}: DISTINCT aggregate counts ignore nulls and preserve empty results", () =>
         {
-            var query = new SelectQueryInitializer<Item>().BuildQuery(q => new {
-                Count = q.Count(x => x.CategoryId, true), Big = q.CountBig(x => x.CategoryId, true),
-                Sum = (long?)q.Sum(x => x.Id), Average = (decimal?)q.Avg(x => x.Id)
+            var query = new SelectQueryInitializer<Item>().BuildQuery(q => new
+            {
+                Count = q.Count(x => x.CategoryId, true),
+                Big = q.CountBig(x => x.CategoryId, true),
+                Sum = (long?)q.Sum(x => x.Id),
+                Average = (decimal?)q.Avg(x => x.Id)
             });
             var row = Result(query.Execute(connector)).Single();
             Expect(row.Count == 1 && row.Big == 1 && row.Sum == 6 && row.Average == 2);

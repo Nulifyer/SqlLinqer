@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Concurrent;
 using System.Data.Common;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using SqlLinqer.Extensions.MemberInfoExtensions;
 
@@ -9,19 +11,22 @@ namespace SqlLinqer.Components.Modeling
     // Shared SQL row contract for callable result sets and connector model lists.
     internal sealed class TabularRowType
     {
+        private static readonly ConcurrentDictionary<Type, TabularRowType> Types = new ConcurrentDictionary<Type, TabularRowType>();
+        internal static TabularRowType GetCached(Type type) => Types.GetOrAdd(type, t => new TabularRowType(t));
+
         internal readonly Type Type;
         private readonly bool _scalar;
         private readonly UnprocessedColumnMember[] _members;
         private readonly ConstructorInfo _constructor;
         private readonly int[] _constructorMembers;
+        private readonly bool[] _fromConstructor;
+        private readonly Type[] _memberTypes;
+        private readonly Func<object[], object> _create;
 
         internal TabularRowType(Type type)
         {
             Type = type;
-            var raw = Nullable.GetUnderlyingType(type) ?? type;
-            _scalar = raw.IsPrimitive || raw.IsEnum || raw == typeof(string) || raw == typeof(decimal)
-                || raw == typeof(Guid) || raw == typeof(DateTime) || raw == typeof(DateTimeOffset)
-                || raw == typeof(TimeSpan) || raw == typeof(byte[]) || raw == typeof(object);
+            _scalar = SqlLinqer.Connections.DbValueConversion.IsScalarType(type);
             if (_scalar) return;
             if (type.IsAbstract || type.IsInterface)
                 throw new InvalidOperationException($"Result row type '{type}' must be concrete.");
@@ -29,6 +34,7 @@ namespace SqlLinqer.Components.Modeling
             if (_members.Length == 0)
                 throw new InvalidOperationException($"Result row type '{type}' has no mapped members.");
             foreach (var member in _members) member.Member.RequireReadable();
+            _memberTypes = _members.Select(x => x.Member.GetFieldOrPropValueType()).ToArray();
             var names = _members.Select(x => x.ColumnInfo?.Name ?? x.Member.Name).ToArray();
             if (names.Distinct(StringComparer.OrdinalIgnoreCase).Count() != names.Length)
                 throw new InvalidOperationException($"Result row type '{type}' maps multiple members to the same column.");
@@ -45,8 +51,15 @@ namespace SqlLinqer.Components.Modeling
             }
             _constructorMembers = (_constructor?.GetParameters() ?? Array.Empty<ParameterInfo>()).Select(p =>
                 Array.FindIndex(_members, m => string.Equals(m.Member.Name, p.Name, StringComparison.OrdinalIgnoreCase))).ToArray();
+            var arguments = Expression.Parameter(typeof(object[]), "values");
+            Expression create = _constructor == null ? (Expression)Expression.Default(type)
+                : Expression.New(_constructor, _constructorMembers.Select(i =>
+                    Expression.Convert(Expression.ArrayIndex(arguments, Expression.Constant(i)), _memberTypes[i])));
+            _create = Expression.Lambda<Func<object[], object>>(Expression.Convert(create, typeof(object)), arguments).Compile();
+            _fromConstructor = new bool[_members.Length];
+            foreach (int member in _constructorMembers) _fromConstructor[member] = true;
             for (int i = 0; i < _members.Length; i++)
-                if (!_constructorMembers.Contains(i)) _members[i].Member.RequireWritable();
+                if (!_fromConstructor[i]) _members[i].Member.RequireWritable();
         }
 
         internal int[] GetOrdinals(DbDataReader reader)
@@ -56,31 +69,46 @@ namespace SqlLinqer.Components.Modeling
                 if (reader.FieldCount != 1) throw new InvalidOperationException($"Scalar row type '{Type}' requires exactly one column.");
                 return new[] { 0 };
             }
-            return _members.Select(m =>
+            var names = new System.Collections.Generic.Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < reader.FieldCount; i++)
             {
-                string name = m.ColumnInfo?.Name ?? m.Member.Name;
-                var matches = Enumerable.Range(0, reader.FieldCount)
-                    .Where(i => string.Equals(reader.GetName(i), name, StringComparison.OrdinalIgnoreCase)).ToArray();
-                if (matches.Length != 1)
-                    throw new InvalidOperationException($"Result row '{Type}' requires exactly one column named '{name}'.");
-                return matches[0];
-            }).ToArray();
+                string name = reader.GetName(i);
+                names[name] = names.ContainsKey(name) ? -1 : i;
+            }
+            var ordinals = new int[_members.Length];
+            var used = new System.Collections.Generic.HashSet<int>();
+            for (int i = 0; i < _members.Length; i++)
+            {
+                var member = _members[i];
+                string sqlName = member.ColumnInfo?.Name ?? member.Member.Name;
+                bool sql = names.TryGetValue(sqlName, out int sqlOrdinal);
+                bool clr = names.TryGetValue(member.Member.Name, out int clrOrdinal);
+                if ((!sql && !clr) || (sql && sqlOrdinal < 0) || (clr && clrOrdinal < 0)
+                    || (sql && clr && sqlOrdinal != clrOrdinal))
+                    throw new InvalidOperationException($"Result row '{Type}' requires exactly one unambiguous column named '{sqlName}' or '{member.Member.Name}'.");
+                int ordinal = sql ? sqlOrdinal : clrOrdinal;
+                if (!used.Add(ordinal))
+                    throw new InvalidOperationException($"Result row '{Type}' maps multiple members to column '{reader.GetName(ordinal)}'.");
+                ordinals[i] = ordinal;
+            }
+            return ordinals;
         }
 
-        internal object Read(DbDataReader reader, int[] ordinals, object[] rowValues = null)
+        internal object[] CreateBuffer() => _scalar ? null : new object[_members.Length];
+
+        internal object Read(DbDataReader reader, int[] ordinals, object[] rowValues = null, object[] mappedValues = null)
         {
             if (_scalar) return TabularValue.Convert(rowValues == null ? reader.GetValue(0) : rowValues[0], Type);
-            var values = new object[_members.Length];
+            var values = mappedValues ?? CreateBuffer();
             for (int i = 0; i < values.Length; i++)
             {
-                try { values[i] = TabularValue.Convert(rowValues == null ? reader.GetValue(ordinals[i]) : rowValues[ordinals[i]], _members[i].Member.GetFieldOrPropValueType()); }
+                try { values[i] = TabularValue.Convert(rowValues == null ? reader.GetValue(ordinals[i]) : rowValues[ordinals[i]], _memberTypes[i]); }
                 catch (Exception error) when (error is InvalidCastException || error is FormatException || error is OverflowException)
                 { throw new InvalidCastException($"Cannot load column '{reader.GetName(ordinals[i])}' into '{Type}.{_members[i].Member.Name}'.", error); }
             }
-            var instance = _constructor == null ? Activator.CreateInstance(Type)
-                : _constructor.Invoke(_constructorMembers.Select(i => values[i]).ToArray());
+            var instance = _create(values);
             for (int i = 0; i < values.Length; i++)
-                if (!_constructorMembers.Contains(i)) _members[i].Member.SetFieldOrPropValue(instance, values[i]);
+                if (!_fromConstructor[i]) _members[i].Member.SetFieldOrPropValue(instance, values[i]);
             return instance;
         }
     }

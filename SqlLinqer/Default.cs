@@ -1,4 +1,4 @@
-﻿using SqlLinqer.Connections;
+using SqlLinqer.Connections;
 
 namespace SqlLinqer
 {

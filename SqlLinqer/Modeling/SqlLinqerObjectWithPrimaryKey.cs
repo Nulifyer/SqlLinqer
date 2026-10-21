@@ -24,7 +24,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A mutable insert query. Add rows with InsertAuto before executing.</returns>
         public static new InsertWithPrimaryKeyQuery<TObj, TPrimaryKey> BeginInsert(BaseConnector connector = null)
         {
-            var query = new InsertWithPrimaryKeyQuery<TObj, TPrimaryKey>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
+            var query = new InsertWithPrimaryKeyQuery<TObj, TPrimaryKey>((connector ?? SqlLinqer.Default.Connector)?.Options.DefaultSchema) { BoundConnector = connector };
             return query;
         }
         /// <summary>
@@ -78,7 +78,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A mutable update query filtered by the instance or supplied primary key.</returns>
         public static UpdateWithPrimaryKeyQuery<TObj, TPrimaryKey> BeginUpdate(TPrimaryKey primaryKeyValue, BaseConnector connector = null)
         {
-            var query = new UpdateWithPrimaryKeyQuery<TObj, TPrimaryKey>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
+            var query = new UpdateWithPrimaryKeyQuery<TObj, TPrimaryKey>((connector ?? SqlLinqer.Default.Connector)?.Options.DefaultSchema) { BoundConnector = connector };
             query.RootWhere.AddComponent(new WhereColumnValue(query.Table.PrimaryKey, primaryKeyValue, SqlOp.EQ, SqlSubQueryOp.ANY));
             return query;
         }
@@ -116,7 +116,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A mutable delete query that captures deleted primary keys.</returns>
         public static new DeleteWithPrimaryKeyQuery<TObj, TPrimaryKey> BeginDelete(BaseConnector connector = null)
         {
-            var query = new DeleteWithPrimaryKeyQuery<TObj, TPrimaryKey>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
+            var query = new DeleteWithPrimaryKeyQuery<TObj, TPrimaryKey>((connector ?? SqlLinqer.Default.Connector)?.Options.DefaultSchema) { BoundConnector = connector };
             return query;
         }
         /// <summary>
@@ -153,7 +153,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A query returning true for a matching key or false when no row matches.</returns>
         public static SelectPrimaryKeyExistsQuery<TObj, TPrimaryKey> BeginPrimaryKeyExists(TPrimaryKey primaryKeyValue, BaseConnector connector = null)
         {
-            var query = new SelectPrimaryKeyExistsQuery<TObj, TPrimaryKey>(primaryKeyValue, connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
+            var query = new SelectPrimaryKeyExistsQuery<TObj, TPrimaryKey>(primaryKeyValue, (connector ?? SqlLinqer.Default.Connector)?.Options.DefaultSchema) { BoundConnector = connector };
             return query;
         }
         #endregion

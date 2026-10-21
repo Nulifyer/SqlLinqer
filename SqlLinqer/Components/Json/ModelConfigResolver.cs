@@ -22,6 +22,7 @@ namespace SqlLinqer.Components.Json
                 TypeInfoResolver = new ModelConfigResolver(),
                 Converters =
                 {
+                    new DatabaseReadOnlyCollectionConverterFactory(),
                     new DatabaseModelConverterFactory(),
                     new DatabaseEnumConverterFactory(),
                     new DatabaseFloatingPointConverterFactory(),
@@ -38,7 +39,9 @@ namespace SqlLinqer.Components.Json
             // Their element/value contracts still resolve through this SQL-only resolver.
             if (typeof(IEnumerable).IsAssignableFrom(type)
                 && (type.Assembly == typeof(List<>).Assembly
-                    || type.Assembly == typeof(HashSet<>).Assembly))
+                    || type.Assembly == typeof(HashSet<>).Assembly
+                    || (type.Namespace == "System.Collections.Immutable"
+                        && type.Assembly.GetName().Name == "System.Collections.Immutable")))
                 return _frameworkResolver.GetTypeInfo(type, options);
 
             // This factory skips JsonConverter attributes. Model converters also

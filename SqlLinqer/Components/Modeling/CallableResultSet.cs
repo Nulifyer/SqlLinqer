@@ -28,14 +28,15 @@ namespace SqlLinqer.Components.Modeling
             if (item == null || !(_array || type.IsAssignableFrom(typeof(List<>).MakeGenericType(item))))
                 throw new InvalidOperationException($"Result set '{member.Name}' must accept a List<T> or be a one-dimensional array.");
             _listType = typeof(List<>).MakeGenericType(item);
-            _row = new TabularRowType(item);
+            _row = TabularRowType.GetCached(item);
         }
 
         internal object Read(DbDataReader reader)
         {
             var rows = (IList)Activator.CreateInstance(_listType);
             var ordinals = _row.GetOrdinals(reader);
-            while (reader.Read()) rows.Add(_row.Read(reader, ordinals));
+            var mapped = _row.CreateBuffer();
+            while (reader.Read()) rows.Add(_row.Read(reader, ordinals, mappedValues: mapped));
             if (!_array) return rows;
             var array = Array.CreateInstance(_row.Type, rows.Count);
             rows.CopyTo(array, 0);
@@ -45,10 +46,11 @@ namespace SqlLinqer.Components.Modeling
         {
             var rows = (IList)Activator.CreateInstance(_listType);
             var ordinals = _row.GetOrdinals(reader);
+            var mapped = _row.CreateBuffer();
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                rows.Add(_row.Read(reader, ordinals));
+                rows.Add(_row.Read(reader, ordinals, mappedValues: mapped));
             }
             if (!_array) return rows;
             var array = Array.CreateInstance(_row.Type, rows.Count);

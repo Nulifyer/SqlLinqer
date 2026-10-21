@@ -36,10 +36,15 @@ internal static class SqlServerSuite
             {
                 var original = new SqlConnectionStringBuilder
                 {
-                    DataSource = "tcp:example.database.windows.net,1433", InitialCatalog = "example",
+                    DataSource = "tcp:example.database.windows.net,1433",
+                    InitialCatalog = "example",
                     Authentication = Enum.Parse<SqlAuthenticationMethod>(authentication.Replace(" ", "")),
-                    Encrypt = SqlConnectionEncryptOption.Mandatory, TrustServerCertificate = false,
-                    ApplicationName = "SqlLinqer Azure tests", ConnectRetryCount = 0, ConnectTimeout = 91, CommandTimeout = 99,
+                    Encrypt = SqlConnectionEncryptOption.Mandatory,
+                    TrustServerCertificate = false,
+                    ApplicationName = "SqlLinqer Azure tests",
+                    ConnectRetryCount = 0,
+                    ConnectTimeout = 91,
+                    CommandTimeout = 99,
                 };
                 if (authentication == "Sql Password")
                 {

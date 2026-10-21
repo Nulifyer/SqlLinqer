@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using SqlLinqer.Components.Joins;
 using SqlLinqer.Components.Where;
 

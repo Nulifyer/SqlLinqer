@@ -411,6 +411,7 @@ internal static class RegressionSuite
         CallableRegressionTests.RunAsync(Test);
         CallableRegressionTests.Run(Test);
         JsonRegressionTests.Run(Test);
+        ReviewRegressionTests.Run(Test);
         CompatibleQueryRegressionTests.Run(Test);
         if (benchmark) CompatibleQueryRegressionTests.MeasureRendering();
 

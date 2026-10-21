@@ -72,6 +72,24 @@ namespace SqlLinqer.Queries.Typed
             });
         }
 
+        private RenderedQuery PrepareTvp(BaseConnector connector, out string createType, out string dropType)
+        {
+            var result = new RenderedQuery();
+            try
+            {
+                var (query, typeId) = RenderTVP(result.Parameters, connector.DbFlavor, Table.Schema);
+                result.Text = query;
+                (createType, dropType) = RenderTempType(connector.DbFlavor, typeId);
+                return result;
+            }
+            catch
+            {
+                foreach (var parameter in result.Parameters.GetAll().OfType<TvpParameter>())
+                    (parameter.Value as DataTable)?.Dispose();
+                throw;
+            }
+        }
+
         private SqlResponse<TResult> ExecuteTvpCore<TResult>(BaseConnector connector, DbTransaction existingTransaction,
             Func<RenderedQuery, DbTransaction, SqlResponse<TResult>> execute)
         {
@@ -81,10 +99,7 @@ namespace SqlLinqer.Queries.Typed
             if (!IsCompilationCopy)
                 return SqlLinqer.Compilation.SnapshotGraph.Capture(this).ExecuteTvpCore(connector,
                     existingTransaction, execute);
-            var tempQuery = new RenderedQuery();
-            var (query, tempTypeId) = RenderTVP(tempQuery.Parameters, connector.DbFlavor, Table.Schema);
-            tempQuery.Text = query;
-            var (createType, dropType) = RenderTempType(connector.DbFlavor, tempTypeId);
+            var tempQuery = PrepareTvp(connector, out string createType, out string dropType);
             var response = new SqlResponse<TResult>();
             DbConnection conn = null;
             DbTransaction transaction = null;
@@ -223,10 +238,7 @@ namespace SqlLinqer.Queries.Typed
             if (!IsCompilationCopy)
                 return await SqlLinqer.Compilation.SnapshotGraph.Capture(this).ExecuteTvpCoreAsync(connector,
                     existingTransaction, execute, cancellationToken).ConfigureAwait(false);
-            var tempQuery = new RenderedQuery();
-            var (query, tempTypeId) = RenderTVP(tempQuery.Parameters, connector.DbFlavor, Table.Schema);
-            tempQuery.Text = query;
-            var (createType, dropType) = RenderTempType(connector.DbFlavor, tempTypeId);
+            var tempQuery = PrepareTvp(connector, out string createType, out string dropType);
             var response = new SqlResponse<TResult>();
             DbConnection conn = null;
             DbTransaction transaction = null;

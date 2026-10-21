@@ -27,8 +27,11 @@ internal static class LocalChecks
                 throw new InvalidOperationException("Local tests must never acquire tokens");
             var settings = new SqlConnectionStringBuilder
             {
-                DataSource = "example.database.windows.net", InitialCatalog = "example", ConnectTimeout = 19,
-                Encrypt = SqlConnectionEncryptOption.Mandatory, TrustServerCertificate = false,
+                DataSource = "example.database.windows.net",
+                InitialCatalog = "example",
+                ConnectTimeout = 19,
+                Encrypt = SqlConnectionEncryptOption.Mandatory,
+                TrustServerCertificate = false,
             };
             int calls = 0;
             var connector = new ConnectionFactoryConnector(() =>
@@ -81,7 +84,7 @@ internal static class LocalChecks
             var tvp = insert.RenderTVP(parameters, DbFlavor.AzureSql, "probe");
             var type = insert.RenderTempType(DbFlavor.AzureSql, tvp.TempTypeId);
             Parse(type.Create); Parse(tvp.Query); Parse(type.Drop);
-            require(type.Create.Contains("DECIMAL(38,18)") && type.Create.Contains("DATETIME2(7)")
+            require(type.Create.Contains("DECIMAL(38,12)") && type.Create.Contains("DATETIME2(7)")
                 && type.Create.Contains("NCHAR(1)"), "TVP generates invalid or lossy native types");
             using var values = (DataTable)((TvpParameter)parameters.GetAll().Single()).Value;
             require(values.Rows[0]["Optional"] == DBNull.Value && values.Columns["OffsetStamp"].DataType == typeof(DateTimeOffset), "TVP nullable/type data differs");

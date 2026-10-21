@@ -91,7 +91,7 @@ namespace SqlLinqer.Queries.Typed
             catch (Exception error) { return new SqlResponse<TResult>(error); }
             if (connector.DbFlavor == DbFlavor.SqlServer || connector.DbFlavor == DbFlavor.AzureSql)
                 batchSize = Math.Min(batchSize, 1000);
-            if (connector.DbFlavor == DbFlavor.Sqlite && !Inserts.HasColumns)
+            if ((connector.DbFlavor == DbFlavor.Sqlite || connector.DbFlavor == DbFlavor.DuckDb) && !Inserts.HasColumns)
                 batchSize = 1;
 
             // Preserve validation before opening a connection and existing Render overrides.
@@ -264,7 +264,7 @@ namespace SqlLinqer.Queries.Typed
             catch (Exception error) { return new SqlResponse<TResult>(error); }
             if (connector.DbFlavor == DbFlavor.SqlServer || connector.DbFlavor == DbFlavor.AzureSql)
                 batchSize = Math.Min(batchSize, 1000);
-            if (connector.DbFlavor == DbFlavor.Sqlite && !Inserts.HasColumns)
+            if ((connector.DbFlavor == DbFlavor.Sqlite || connector.DbFlavor == DbFlavor.DuckDb) && !Inserts.HasColumns)
                 batchSize = 1;
 
             // Preserve validation before opening a connection and existing Render overrides.

@@ -25,6 +25,16 @@ internal static class CompatibleDatabaseTests
             "INSERT INTO compat_orders VALUES (1,1,2),(2,2,1),(3,1,2); " +
             "INSERT INTO compat_lines VALUES (1,1,'first'),(2,1,'second'),(3,2,'other');");
 
+        foreach (bool asynchronous in new[] { false, true })
+            test($"compatible: native compiled aliases and independent row storage, async={asynchronous}", () =>
+            {
+                var parameters = new ParameterCollection(connector.DbFlavor);
+                var query = new SelectQuery<NativeAddress>().SelectRootColumns().OrderBy(x => x.Key, SqlDir.ASC);
+                var rendered = new RenderedQuery { Text = query.Render(parameters, connector.DbFlavor, false), Parameters = parameters };
+                var rows = Result(asynchronous ? connector.ExecuteReaderListAsync<NativeAddress>(rendered).GetAwaiter().GetResult()
+                    : connector.ExecuteReaderList<NativeAddress>(rendered));
+                Check(rows.Count == 2 && rows[0].Key == 1 && rows[1].Key == 2 && rows[0].Label == "billing" && rows[1].Label == "shipping", "Native mapping changed earlier rows while reusing scratch storage");
+            });
         test("compatible: two relationships to the same table return independent values", () =>
         {
             using var rows = Result(connector.ExecuteReaderDataTable(new FlatQuery().Render(connector)));
@@ -77,14 +87,14 @@ internal static class CompatibleDatabaseTests
                 }
             });
         foreach (bool asynchronous in new[] { false, true })
-        test($"compatible: SQL loading ignores API attributes and preserves API serialization, async={asynchronous}", () =>
-        {
-            var query = new SelectQuery<ApiAddress>().SelectRootColumns().Where(x => x.Id, 1, SqlOp.EQ);
-            var model = Result(asynchronous ? query.ExecuteAsync(connector).GetAwaiter().GetResult() : query.Execute(connector)).Single();
-            Check(model.Id == 1 && model.Name == "billing", "SQL-isolated loading lost mapped values");
-            using var api = JsonDocument.Parse(JsonSerializer.Serialize(model));
-            Check(!api.RootElement.TryGetProperty("Id", out _) && api.RootElement.GetProperty("displayName").GetString() == "billing", "API behavior changed");
-        });
+            test($"compatible: SQL loading ignores API attributes and preserves API serialization, async={asynchronous}", () =>
+            {
+                var query = new SelectQuery<ApiAddress>().SelectRootColumns().Where(x => x.Id, 1, SqlOp.EQ);
+                var model = Result(asynchronous ? query.ExecuteAsync(connector).GetAwaiter().GetResult() : query.Execute(connector)).Single();
+                Check(model.Id == 1 && model.Name == "billing", "SQL-isolated loading lost mapped values");
+                using var api = JsonDocument.Parse(JsonSerializer.Serialize(model));
+                Check(!api.RootElement.TryGetProperty("Id", out _) && api.RootElement.GetProperty("displayName").GetString() == "billing", "API behavior changed");
+            });
         BaseConnector Budget() => new ConnectionFactoryConnector(connector.CreateConnection, connector.DbFlavor,
             new ConnectorOptions { ParameterLimit = 2 });
         foreach (int count in new[] { 1, 2, 3, 5, 33 })
@@ -155,6 +165,13 @@ internal static class CompatibleDatabaseTests
 
     private static T Result<T>(SqlResponse<T> response) => response.State == ResponseState.Valid ? response.Result : throw response.Error;
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
+    [SqlTable("compat_addresses")]
+    private sealed class NativeAddress
+    {
+        [SqlPrimaryKey, SqlColumn("Id")] public int Key { get; set; }
+        [SqlColumn("Name")] public string Label { get; set; }
+    }
+
     private sealed class FlatQuery : SqlLinqer.Queries.Core.SelectQuery
     {
         internal FlatQuery() : base(Table.GetCached<Order>())

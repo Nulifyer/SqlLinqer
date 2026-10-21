@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace SqlLinqer
@@ -63,7 +63,7 @@ namespace SqlLinqer
             Result = default;
             Error = error;
         }
- 
+
         /// <summary>
         /// An override-able function that creates a dictionary from the response object
         /// </summary>

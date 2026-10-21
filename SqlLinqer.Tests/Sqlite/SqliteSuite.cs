@@ -53,9 +53,19 @@ internal static class SqliteSuite
                 var token = Guid.NewGuid();
                 var date = new DateTime(2026, 10, 20, 12, 34, 56).AddTicks(1234567);
                 var offset = new DateTimeOffset(date, TimeSpan.FromHours(-4));
-                var item = new Item { Name = "a_%\\'\"", OtherName = "old", Enabled = true, Status = State.Active,
-                    CategoryId = 1, Token = token, Created = date, OffsetDate = offset, Amount = 1234567890.123456789m,
-                    Bytes = [0, 1, 127, 255] };
+                var item = new Item
+                {
+                    Name = "a_%\\'\"",
+                    OtherName = "old",
+                    Enabled = true,
+                    Status = State.Active,
+                    CategoryId = 1,
+                    Token = token,
+                    Created = date,
+                    OffsetDate = offset,
+                    Amount = 1234567890.123456789m,
+                    Bytes = [0, 1, 127, 255]
+                };
                 Test($"{label}: connector preserves provider timeout and connection string", () =>
                 {
                     using var copy = (SqliteConnection)connector.CreateConnection();

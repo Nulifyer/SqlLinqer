@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using SqlLinqer.Extensions.EnumExtensions;
 
 namespace SqlLinqer
@@ -102,11 +102,11 @@ namespace SqlLinqer
                     return SqlOp.LTE;
                 case SqlOp.LT:
                     return SqlOp.GTE;
-                case  SqlOp.GTE:
+                case SqlOp.GTE:
                     return SqlOp.LT;
-                case  SqlOp.LTE:
+                case SqlOp.LTE:
                     return SqlOp.GT;
-                case  SqlOp.NOT:
+                case SqlOp.NOT:
                     return SqlOp.EQ;
                 case SqlOp.LIKE:
                     return SqlOp.NOTLIKE;

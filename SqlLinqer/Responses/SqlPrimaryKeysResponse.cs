@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace SqlLinqer
@@ -22,7 +22,7 @@ namespace SqlLinqer
             base.SetResult(result);
             TouchedPrimaryKeys = new List<TPrimaryKey>();
         }
-       
+
         /// <summary>
         /// Stores a successful write result and its affected key list, clearing the previous error.
         /// </summary>

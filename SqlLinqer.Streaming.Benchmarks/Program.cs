@@ -11,6 +11,8 @@ using SqlLinqer.Connections;
 using SqlLinqer.Modeling;
 using SqlLinqer.Queries.Typed;
 
+if (args.Length == 1 && args[0] == "mapping") return MappingBenchmarks.Run();
+
 // Setup runs in a different process from every measurement. The Python runner
 // interleaves modes and preserves every raw sample, including first-row latency.
 if (args.Length < 4 || args[0] is not ("setup" or "measure"))
@@ -159,14 +161,29 @@ long retainedManaged = GC.GetTotalMemory(true) - baselineManaged;
 process.Refresh();
 var measurement = new
 {
-    provider, mode, rows = rowCount, rowsConsumed = consumed, width = actualWidth, batchSize = mode == "batch" ? batchSize : 0,
-    elapsedMs = clock.Elapsed.TotalMilliseconds, firstRowMs, rowsPerSecond = consumed / clock.Elapsed.TotalSeconds,
-    allocatedBytes = allocated, allocatedBytesPerRow = (double)allocated / consumed,
-    baselineManagedBytes = baselineManaged, peakManagedBytes = peakManaged, retainedManagedDeltaBytes = retainedManaged,
-    baselineWorkingSetBytes = baselineWorkingSet, peakWorkingSetBytes = process.PeakWorkingSet64,
-    collectionDelta, checksum, characters, engineVersion,
+    provider,
+    mode,
+    rows = rowCount,
+    rowsConsumed = consumed,
+    width = actualWidth,
+    batchSize = mode == "batch" ? batchSize : 0,
+    elapsedMs = clock.Elapsed.TotalMilliseconds,
+    firstRowMs,
+    rowsPerSecond = consumed / clock.Elapsed.TotalSeconds,
+    allocatedBytes = allocated,
+    allocatedBytesPerRow = (double)allocated / consumed,
+    baselineManagedBytes = baselineManaged,
+    peakManagedBytes = peakManaged,
+    retainedManagedDeltaBytes = retainedManaged,
+    baselineWorkingSetBytes = baselineWorkingSet,
+    peakWorkingSetBytes = process.PeakWorkingSet64,
+    collectionDelta,
+    checksum,
+    characters,
+    engineVersion,
     providerVersion = keeper.GetType().Assembly.GetName().Version.ToString(),
-    dotnet = Environment.Version.ToString(), os = RuntimeInformation.OSDescription,
+    dotnet = Environment.Version.ToString(),
+    os = RuntimeInformation.OSDescription,
     architecture = RuntimeInformation.ProcessArchitecture.ToString(),
     configuration = typeof(BenchRow).Assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration
 };

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using SqlLinqer.Components.Modeling;
@@ -33,6 +34,7 @@ namespace SqlLinqer.Components.Json
         private sealed class DatabaseModelConverter<T> : JsonConverter<T>
         {
             private readonly Dictionary<string, MemberInfo> _members;
+            private readonly KeyValuePair<byte[], MemberInfo>[] _utf8Members;
             private readonly ConstructorInfo _constructor;
             private readonly ParameterInfo[] _parameters;
             private readonly Dictionary<string, int> _parameterPositions;
@@ -47,6 +49,8 @@ namespace SqlLinqer.Components.Json
                 _members = new Dictionary<string, MemberInfo>(StringComparer.OrdinalIgnoreCase);
                 foreach (var member in model.ColumnMembers.Concat(model.RelationshipMembers.Select(x => x.UnprocessedMember)))
                     _members[member.Member.Name] = member.Member;
+
+                _utf8Members = _members.Select(x => new KeyValuePair<byte[], MemberInfo>(Encoding.UTF8.GetBytes(x.Key), x.Value)).ToArray();
 
                 // Constructor selection follows SQL model shape, never JsonConstructor.
                 _constructor = type.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
@@ -88,6 +92,7 @@ namespace SqlLinqer.Components.Json
                     pending = new List<KeyValuePair<MemberInfo, object>>();
                 }
 
+                int expectedMember = 0;
                 while (reader.Read())
                 {
                     if (reader.TokenType == JsonTokenType.EndObject)
@@ -103,10 +108,23 @@ namespace SqlLinqer.Components.Json
                     if (reader.TokenType != JsonTokenType.PropertyName)
                         throw new JsonException("Expected an SQL JSON member name.");
 
-                    string name = reader.GetString();
-                    if (!reader.Read())
-                        throw new JsonException("Expected an SQL JSON member value.");
-                    if (!_members.TryGetValue(name, out var member))
+                    MemberInfo member = null;
+                    if (expectedMember < _utf8Members.Length && reader.ValueTextEquals(_utf8Members[expectedMember].Key))
+                        member = _utf8Members[expectedMember++].Value;
+                    else
+                    {
+                        for (int i = 0; i < _utf8Members.Length; i++)
+                        {
+                            if (!reader.ValueTextEquals(_utf8Members[i].Key)) continue;
+                            member = _utf8Members[i].Value;
+                            expectedMember = i + 1;
+                            break;
+                        }
+                    }
+                    // Preserve case-insensitive matching for manually supplied JSON.
+                    if (member == null) _members.TryGetValue(reader.GetString(), out member);
+                    if (!reader.Read()) throw new JsonException("Expected an SQL JSON member value.");
+                    if (member == null)
                     {
                         reader.Skip();
                         continue;
@@ -115,7 +133,7 @@ namespace SqlLinqer.Components.Json
                     object value = JsonSerializer.Deserialize(ref reader, member.GetFieldOrPropValueType(), options);
                     if (arguments == null)
                         member.SetFieldOrPropValue(instance, value);
-                    else if (_parameterPositions.TryGetValue(name, out int position))
+                    else if (_parameterPositions.TryGetValue(member.Name, out int position))
                         arguments[position] = value;
                     else
                         pending.Add(new KeyValuePair<MemberInfo, object>(member, value));
