@@ -47,7 +47,7 @@ using var template = new SqlConnection(connectionString);
 var connector = new ReplicatorConnector(template, DbFlavor.SqlServer);
 ```
 
-The connector creates and disposes connections for queries. Pass it explicitly when starting and executing each query.
+The connector creates and disposes connections for queries. Pass it when starting a query. The query retains it for `Execute()`.
 If you supply a transaction to `Execute`, you own its commit, rollback, and disposal.
 
 ## Insert rows
@@ -61,7 +61,7 @@ var newUsers = new[]
 
 var insertResponse = User.BeginInsert(connector)
     .InsertAuto(newUsers)
-    .Execute(connector);
+    .Execute();
 ```
 
 `BeginInsert` captures primary keys. If the response is valid, `TouchedPrimaryKeys` contains the inserted IDs and `Result` contains the affected-row count.
@@ -72,7 +72,7 @@ var insertResponse = User.BeginInsert(connector)
 var selectResponse = User.BeginSelect(connector)
     .SelectRootColumns()
     .OrderBy(x => x.Username, SqlDir.ASC)
-    .Execute(connector);
+    .Execute();
 
 if (selectResponse.State == ResponseState.Valid)
 {
@@ -89,7 +89,7 @@ if (selectResponse.State == ResponseState.Valid)
 var updateResponse = User.BeginUpdate(connector)
     .Update(x => x.Email, "noreply@company.com")
     .Where(x => x.Email, "%@company.com", SqlOp.LIKE)
-    .Execute(connector);
+    .Execute();
 ```
 
 ## Delete rows
@@ -97,7 +97,7 @@ var updateResponse = User.BeginUpdate(connector)
 ```csharp
 var deleteResponse = User.BeginDelete(connector)
     .Where(x => x.Email, "%@company.com", SqlOp.LIKE)
-    .Execute(connector);
+    .Execute();
 ```
 
 Filter updates and deletes before executing them. Without a filter, they affect every row in the table.
@@ -113,3 +113,7 @@ The [connector guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/SET
 
 See [transactions](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/TRANSACTIONS.md) to commit several writes together,
 and [relationship updates](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/QUERY_RELATIONSHIPS.md) to assign managers or change permissions.
+
+
+- [Sync and async execution](../docs/EXECUTION.md)
+- [Query snapshots and compilation](../docs/QUERY_COMPILATION.md)

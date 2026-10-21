@@ -10,10 +10,11 @@ namespace SqlLinqer.Queries.Typed
     /// A TRUNCATE query. Based around a type.
     /// </summary>
     /// <typeparam name="T">The type serving as the root data model</typeparam>
-    public class TruncateQuery<T> 
+    public partial class TruncateQuery<T>
         : Core.TruncateQuery
         , IQueryTyped
         , IQueryExecutable<int>
+        , IAsyncQueryExecutable<int>
         where T : class
     {
         
@@ -30,7 +31,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<int> Execute(DbTransaction existingTransaction = null)
         {
-            return this.Execute(SqlLinqer.Default.Connector, existingTransaction);
+            return this.Execute(ExecutionConnector, existingTransaction);
         }
         /// <inheritdoc/>
         public SqlResponse<int> Execute(BaseConnector connector, DbTransaction existingTransaction = null)

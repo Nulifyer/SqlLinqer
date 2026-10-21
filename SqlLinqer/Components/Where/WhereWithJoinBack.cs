@@ -44,6 +44,7 @@ namespace SqlLinqer.Components.Where
         }
         private void Setup()
         {
+            SubQuery.IsCompilationCopy = ParentQuery.IsCompilationCopy;
             SubQuery.DisableWiths();
             SubQuery.AddTableAsRoot();
 
@@ -80,6 +81,7 @@ namespace SqlLinqer.Components.Where
             ParentQuery = source.ParentQuery;
             ReturnColumn = source.ReturnColumn;
             SubQuery = new SelectQuery(source.SubQuery.Table, ParentQuery.Withs);
+            SubQuery.IsCompilationCopy = ParentQuery.IsCompilationCopy;
             SubQuery.DisableWiths();
             SubQuery.AddTableAsRoot();
             SubQuery.Distinct = source.SubQuery.Distinct;

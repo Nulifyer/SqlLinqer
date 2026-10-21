@@ -13,6 +13,12 @@ namespace SqlLinqer.Queries.Core
 
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
+            var working = IsCompilationCopy ? this : SqlLinqer.Compilation.SnapshotGraph.Capture(this);
+            return working.RenderCore(parameters, flavor);
+        }
+
+        private string RenderCore(ParameterCollection parameters, DbFlavor flavor)
+        {
             if (flavor == DbFlavor.Sqlite)
                 throw new System.NotSupportedException("SQLite does not support TruncateQuery. Use DeleteQuery instead.");
             return $"TRUNCATE TABLE {Table.RenderFullName(flavor)}";

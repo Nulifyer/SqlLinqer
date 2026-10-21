@@ -17,14 +17,17 @@ namespace SqlLinqer.Queries.Typed
     /// A INSERT query. Based around a type.
     /// </summary>
     /// <typeparam name="T">The type serving as the root data model</typeparam>
-    public class InsertQuery<T>
+    public partial class InsertQuery<T>
         : Core.InsertQuery
         , IQueryTyped
         , IQueryTypedInsert<InsertQuery<T>, T>
         , IQueryTypedOutput<InsertQuery<T>, T>
         , IQueryExecutable<int>
+        , IAsyncQueryExecutable<int>
         , IQueryExecutableTvp<int>
+        , IAsyncQueryExecutableTvp<int>
         , IQueryExecutableWithOutput
+        , IAsyncQueryExecutableWithOutput
         where T : class
     {
         /// <summary>
@@ -84,7 +87,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<int> Execute(DbTransaction transaction = null)
         {
-            return Execute(SqlLinqer.Default.Connector, transaction);
+            return Execute(ExecutionConnector, transaction);
         }
         /// <inheritdoc/>
         public SqlResponse<int> Execute(BaseConnector connector, DbTransaction transaction = null)
@@ -95,7 +98,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<int> ExecuteTvp(DbTransaction existingTransaction = null)
         {
-            return ExecuteTvp(SqlLinqer.Default.Connector, existingTransaction);
+            return ExecuteTvp(ExecutionConnector, existingTransaction);
         }
         /// <inheritdoc/>
         public SqlResponse<int> ExecuteTvp(BaseConnector connector, DbTransaction existingTransaction = null)
@@ -106,7 +109,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<DataTable> ExecuteWithOutput(DbTransaction transaction = null)
         {
-            return ExecuteWithOutput(SqlLinqer.Default.Connector, transaction);
+            return ExecuteWithOutput(ExecutionConnector, transaction);
         }
         /// <inheritdoc/>
         public SqlResponse<DataTable> ExecuteWithOutput(BaseConnector connector, DbTransaction transaction = null)
@@ -126,7 +129,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc cref="ExecuteTvp(DbTransaction)"/>
         public SqlResponse<DataTable> ExecuteTvpWithOutput(DbTransaction transaction = null)
         {
-            return ExecuteTvpWithOutput(SqlLinqer.Default.Connector, transaction);
+            return ExecuteTvpWithOutput(ExecutionConnector, transaction);
         }
         /// <inheritdoc cref="ExecuteTvp(BaseConnector, DbTransaction)"/>
         public SqlResponse<DataTable> ExecuteTvpWithOutput(BaseConnector connector, DbTransaction transaction = null)
@@ -171,6 +174,9 @@ namespace SqlLinqer.Queries.Typed
             Func<RenderedQuery, DbTransaction, SqlResponse<TResult>> execute,
             Func<TResult, TResult, TResult> merge, Action<TResult> discard = null)
         {
+            if (!IsCompilationCopy)
+                return SqlLinqer.Compilation.SnapshotGraph.Capture(this).ExecuteBatches(connector,
+                    existingTransaction, execute, merge, discard);
             int parameterLimit = connector.Options.ParameterLimit;
             if (connector.DbFlavor == DbFlavor.SqlServer || connector.DbFlavor == DbFlavor.AzureSql)
                 parameterLimit = parameterLimit > 0 ? Math.Min(parameterLimit, 2100) : 2100;
@@ -293,6 +299,9 @@ namespace SqlLinqer.Queries.Typed
             if (connector == null)
                 throw new ArgumentNullException(nameof(connector));
 
+            if (!IsCompilationCopy)
+                return SqlLinqer.Compilation.SnapshotGraph.Capture(this).ExecuteTvpCore(connector,
+                    existingTransaction, execute);
             var tempQuery = new RenderedQuery();
             var (query, tempTypeId) = RenderTVP(tempQuery.Parameters, connector.DbFlavor, Table.Schema);
             tempQuery.Text = query;

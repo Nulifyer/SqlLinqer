@@ -18,13 +18,14 @@ namespace SqlLinqer.Queries.TypedExt
     /// </summary>
     /// <typeparam name="T">The type serving as the root data model</typeparam>
     /// <typeparam name="TPk">The type of the primary key</typeparam>
-    public class UpdateWithPrimaryKeyQuery<T, TPk>
+    public partial class UpdateWithPrimaryKeyQuery<T, TPk>
         : UpdateQuery<T>
         , IQueryTyped
         , ITypedWhereCollection<UpdateWithPrimaryKeyQuery<T, TPk>, T>
         , IQueryTypedOutput<UpdateWithPrimaryKeyQuery<T, TPk>, T>
         , IQueryTypedUpdate<UpdateWithPrimaryKeyQuery<T, TPk>, T>
         , IQueryExecutableWithPrimaryKeys<int, TPk>
+        , IAsyncQueryExecutableWithPrimaryKeys<int, TPk>
         where T : class
     {
         /// <summary>
@@ -144,7 +145,7 @@ namespace SqlLinqer.Queries.TypedExt
         /// <inheritdoc/>
         public new SqlPrimaryKeysResponse<int, TPk> Execute(DbTransaction transaction = null)
         {
-            return Execute(SqlLinqer.Default.Connector, transaction);
+            return Execute(ExecutionConnector, transaction);
         }
         /// <inheritdoc/>
         public new SqlPrimaryKeysResponse<int, TPk> Execute(BaseConnector connector, DbTransaction transaction = null)

@@ -398,6 +398,10 @@ internal static class RegressionSuite
         }
 
         AzureSqlRegressionTests.Run(Test);
+        ConnectorBindingRegressionTests.Run(Test);
+        CompilationRegressionTests.Run(Test);
+        AsyncRegressionTests.Run(Test);
+        CallableRegressionTests.RunAsync(Test);
         CallableRegressionTests.Run(Test);
         JsonRegressionTests.Run(Test);
         CompatibleQueryRegressionTests.Run(Test);

@@ -16,7 +16,7 @@ namespace SqlLinqer.Queries.Typed
     /// A SELECT query. Based around a type.
     /// </summary>
     /// <typeparam name="T">The type serving as the root data model</typeparam>
-    public class SelectQuery<T>
+    public partial class SelectQuery<T>
         : Core.SelectQuery
         , IQueryTyped
         , IQueryTypedPaged<SelectQuery<T>>
@@ -26,7 +26,9 @@ namespace SqlLinqer.Queries.Typed
         , IQueryTypedOrder<SelectQuery<T>, T>
         , ITypedWhereCollection<SelectQuery<T>, T>
         , IQueryExecutable<List<T>>
+        , IAsyncQueryExecutable<List<T>>
         , IQueryExecutableTotalCount<T>
+        , IAsyncQueryExecutableTotalCount<T>
         where T : class
     {
         /// <summary>
@@ -224,7 +226,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<List<T>> Execute(DbTransaction transaction = null)
         {
-            return Execute(SqlLinqer.Default.Connector, transaction);
+            return Execute(ExecutionConnector, transaction);
         }
         /// <inheritdoc/>
         public SqlResponse<List<T>> Execute(BaseConnector connector, DbTransaction transaction = null)
@@ -241,24 +243,26 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlSelectResponse<T> ExecuteWithTotalCount(DbTransaction transaction = null)
         {
-            return ExecuteWithTotalCount(SqlLinqer.Default.Connector, transaction);
+            return ExecuteWithTotalCount(ExecutionConnector, transaction);
         }
         /// <inheritdoc/>
         public SqlSelectResponse<T> ExecuteWithTotalCount(BaseConnector connector, DbTransaction transaction = null)
         {
+            if (connector == null) throw new ArgumentNullException(nameof(connector));
+            var snapshot = Capture();
+            bool needsCount = PagingControls.Top > 0 || PagingControls.Limit > 0 || PagingControls.Offset > 0;
             var selectRes = new SqlSelectResponse<T>();
 
-            var dataRes = Execute(connector, transaction);
+            var dataRes = connector.ExecuteReaderJson<T>(snapshot.Render(connector), transaction);
             if (dataRes.State == ResponseState.Error)
             {
                 selectRes.SetError(dataRes.Error);
                 return selectRes;
             }
 
-            if (PagingControls.Top > 0 || PagingControls.Limit > 0 || PagingControls.Offset > 0)
+            if (needsCount)
             {
-                var count_query = new SqlLinqer.Components.Render.RenderedQuery();
-                count_query.Text = RenderForCount(count_query.Parameters, connector.DbFlavor);
+                var count_query = snapshot.RenderForCount(connector.DbFlavor);
                 var countRes = connector.ExecuteScalar<long>(count_query, transaction);
                 if (countRes.State == ResponseState.Error)
                 {

@@ -38,6 +38,7 @@ namespace SqlLinqer.Components.Ordering
             }
             // build sub query
             var sub_query = new SelectQuery(Relationship.ChildTable, query.Withs);
+            sub_query.IsCompilationCopy = query.IsCompilationCopy;
             sub_query.AddTableAsRoot();
             // setup joins
             var joins = Relationship.GetReversedJoins()

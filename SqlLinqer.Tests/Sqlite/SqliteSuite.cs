@@ -487,6 +487,7 @@ internal static class SqliteSuite
             }
         }
         finally { SqliteConnection.ClearAllPools(); File.Delete(file); }
+        SqlLinqer.Tests.Regression.AsyncProviderChecks.Run(DbFlavor.Sqlite, Test);
         Console.WriteLine($"{passed} passed, {failed} failed");
         return failed == 0 ? 0 : 1;
 

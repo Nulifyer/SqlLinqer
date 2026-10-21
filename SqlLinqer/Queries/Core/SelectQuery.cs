@@ -1,3 +1,4 @@
+using SqlLinqer.Compilation;
 using System;
 using System.Linq;
 using SqlLinqer.Components.Render;
@@ -289,80 +290,7 @@ namespace SqlLinqer.Queries.Core
         /// <param name="forJson">Include the FOR JSON statement at the end</param>
         public string Render(ParameterCollection parameters, DbFlavor flavor, bool forJson)
         {
-            parameters.SetFlavor(flavor);
-            var stashables = new IStashable[]
-            {
-                this.RootWhere,
-                this.Joins,
-                this.Selects,
-                this.OrderBys,
-                this.PagingControls,
-            };
-
-            var stashed = stashables.Where(item => item?.Stash() == true).ToArray();
-            bool withStashed = !IsSubQuery && this.Withs?.Stash() == true;
-
-            try
-            {
-                // Constant and aggregate projections still operate on the root table.
-                Joins.AddRootTable(Table);
-                if (this.PagingControls.Limit > 0 && this.OrderBys.Count == 0)
-                {
-                    bool preserveProjection = Distinct || Selects.GetAll().Any(x => !x.DoGroupBy());
-                    if (!preserveProjection)
-                    {
-                        var column = Table.PrimaryKey ?? Table.Columns.GetAll().First();
-                        OrderBy(column, SqlDir.ASC, true, flavor != DbFlavor.Sqlite);
-                    }
-                    else if ((flavor == DbFlavor.SqlServer || flavor == DbFlavor.AzureSql) && Selects.Count > 0)
-                    {
-                        OrderBys.AddStatement(new ProjectionOrderBy(Selects.GetAll().First().Alias));
-                    }
-                }
-
-                string where = this.RootWhere.Render(this, parameters, flavor);
-                string select = this.Selects.Render(this, parameters, flavor, forJson);
-                // Ordering can reference a related column or an anonymous selected expression.
-                // Discover its joins before rendering SQLite FROM and WITH clauses.
-                string sqliteOrderBy = flavor == DbFlavor.Sqlite ? this.OrderBys.Render(this, parameters, flavor) : null;
-                string with = !IsSubQuery
-                    ? this.Withs?.Render(this, parameters, flavor)
-                    : null;
-                string groupBy = this.Selects.RenderGroupBy(this, parameters, flavor);
-                string joins = this.Joins.Render(this, parameters, flavor);
-                string order_by = flavor == DbFlavor.Sqlite ? sqliteOrderBy : this.OrderBys.Render(this, parameters, flavor);
-                string paging_controls = this.PagingControls.Render(flavor);
-
-                string rendered = string.Join(" ", new[]
-                {
-                    with,
-                    $"SELECT{(Distinct ? " DISTINCT" : null)}{((flavor == DbFlavor.SqlServer || flavor == DbFlavor.AzureSql) && PagingControls.Top > 0 ? $" TOP {PagingControls.Top}" : null)}",
-                    select + (forJson && flavor == DbFlavor.Sqlite ? " AS \"__sqlite_json\"" : null),
-                    joins,
-                    where,
-                    groupBy,
-                    order_by,
-                    paging_controls,
-                    (forJson && (flavor == DbFlavor.SqlServer || flavor == DbFlavor.AzureSql) ? "FOR JSON AUTO, INCLUDE_NULL_VALUES" : null),
-                });
-                if (forJson && flavor == DbFlavor.Sqlite && IsSubQuery
-                    && Table.ParentRelationship?.Type != RelationshipType.OneToOne)
-                    return $"SELECT json_group_array(json(\"__sqlite_json\")) FROM ({rendered})";
-                if (flavor == DbFlavor.DuckDb && forJson && IsSubQuery
-                    && Table.ParentRelationship?.Type != RelationshipType.OneToOne)
-                {
-                    // Apply ordering, grouping and pagination to rows before collecting JSON.
-                    return $"SELECT COALESCE(json_group_array(\"__sqlinqer_json\"), '[]'::JSON) FROM ({rendered}) AS \"__sqlinqer_rows\"";
-                }
-                return rendered;
-            }
-            finally
-            {
-                foreach (var item in stashed)
-                    item.Unstash();
-                if (withStashed)
-                    this.Withs.Unstash();
-            }
+            return QuerySnapshot.RenderSelect(this, parameters, flavor, forJson, false);
         }
 
         /// <summary>
@@ -372,70 +300,7 @@ namespace SqlLinqer.Queries.Core
         /// <param name="flavor">The type of Sql database being used</param>
         public string RenderForCount(ParameterCollection parameters, DbFlavor flavor)
         {
-            parameters.SetFlavor(flavor);
-            var stashables = new IStashable[]
-            {
-                this.RootWhere,
-                this.Joins,
-                this.Selects,
-                this.OrderBys,
-                this.PagingControls,
-            };
-
-            var stashed = stashables.Where(item => item?.Stash() == true).ToArray();
-            bool withStashed = !IsSubQuery && this.Withs?.Stash() == true;
-
-            try
-            {
-                // A total for a DISTINCT or aggregate projection counts projected rows,
-                // including the single row produced by an ungrouped aggregate.
-                if (flavor == DbFlavor.SqlServer || flavor == DbFlavor.AzureSql)
-                {
-                    PagingControls.Reset();
-                    OrderBys.Clear();
-                    bool subQuery = IsSubQuery;
-                    try
-                    {
-                        // SQL Server requires WITH before the outer SELECT, never inside its derived table.
-                        IsSubQuery = true;
-                        string projection = Render(parameters, flavor, false);
-                        // Relationship predicates discover their CTEs while rendering the projection.
-                        // Hoist the complete collection only after those predicates have rendered.
-                        string with = !subQuery ? Withs?.Render(this, parameters, flavor) : null;
-                        return $"{with} SELECT COUNT(*) FROM ({projection}) AS [SqlLinqerCount]";
-                    }
-                    finally { IsSubQuery = subQuery; }
-                }
-                if (flavor == DbFlavor.Sqlite)
-                {
-                    PagingControls.Reset();
-                    OrderBys.Clear();
-                    // Count the result rows, preserving grouping and DISTINCT.
-                    return $"SELECT count(*) FROM ({Render(parameters, flavor, true)})";
-                }
-
-                if (flavor == DbFlavor.DuckDb)
-                {
-                    // Count result groups/distinct projections, excluding pagination and ordering.
-                    PagingControls.Reset();
-                    OrderBys.Clear();
-                    string rows = Render(parameters, flavor, true);
-                    return $"SELECT COUNT(*) FROM ({rows}) AS \"__sqlinqer_count\"";
-                }
-
-                // Count the same JSON projection used for PostgreSQL/MySQL loading.
-                // This preserves DISTINCT semantics even for nested JSON-valued columns.
-                PagingControls.Reset();
-                OrderBys.Clear();
-                return $"SELECT COUNT(*) FROM ({Render(parameters, flavor, true)}) AS {"SqlLinqerCount".DbWrap(flavor)}";
-            }
-            finally
-            {
-                foreach (var item in stashed)
-                    item.Unstash();
-                if (withStashed)
-                    this.Withs.Unstash();
-            }
+            return QuerySnapshot.RenderSelect(this, parameters, flavor, true, true);
         }
     }
 }

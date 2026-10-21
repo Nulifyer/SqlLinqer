@@ -501,6 +501,7 @@ internal static class DuckDbSuite
             }
         }
         finally { File.Delete(path); File.Delete(path+".wal"); }
+        SqlLinqer.Tests.Regression.AsyncProviderChecks.Run(DbFlavor.DuckDb, Test);
         Console.WriteLine($"{passed} passed, {failed} failed");
         return failed == 0 ? 0 : 1;
 

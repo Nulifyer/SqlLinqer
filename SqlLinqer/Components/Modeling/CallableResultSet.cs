@@ -1,3 +1,5 @@
+using System.Threading;
+using System.Threading.Tasks;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -41,6 +43,21 @@ namespace SqlLinqer.Components.Modeling
             rows.CopyTo(array, 0);
             return array;
         }
+        internal async Task<object> ReadAsync(DbDataReader reader, CancellationToken cancellationToken)
+        {
+            var rows = (IList)Activator.CreateInstance(_listType);
+            var ordinals = _row.GetOrdinals(reader);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                rows.Add(_row.Read(reader, ordinals));
+            }
+            if (!_array) return rows;
+            var array = Array.CreateInstance(_row.Type, rows.Count);
+            rows.CopyTo(array, 0);
+            return array;
+        }
+
     }
 
     internal sealed class CallableRowType

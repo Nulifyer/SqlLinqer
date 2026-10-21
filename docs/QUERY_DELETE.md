@@ -36,7 +36,7 @@ var domainQuery = User.BeginDelete(connector)
 ## Execute a delete
 
 ```csharp
-var response = query.Execute(connector);
+var response = query.Execute();
 ```
 
 If `response.State` is `ResponseState.Valid`, `response.Result` contains the affected-row count.

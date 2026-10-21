@@ -11,7 +11,7 @@ namespace SqlLinqer.Queries.Interfaces
     {
         /// <summary>
         /// Executes the query. Returning the results and capturing any errors.
-        /// Using the default connector. <see cref="SqlLinqer.Default.Connector"/>
+        /// Uses the connector supplied at query creation, or <see cref="SqlLinqer.Default.Connector"/> if none was supplied.
         /// </summary>
         /// <param name="transaction">An existing database transactiong with the connection property set to the open connection.</param>
         /// <returns>The retult of the query in a state based wrapper.</returns>
@@ -20,7 +20,7 @@ namespace SqlLinqer.Queries.Interfaces
         /// <summary>
         /// Executes the query. Returning the results and capturing any errors.
         /// </summary>
-        /// <param name="connector">The connector used to execute the query.</param>
+        /// <param name="connector">The connector used to render and execute this call, without changing the query's retained connector.</param>
         /// <param name="transaction">An existing database transactiong with the connection property set to the open connection.</param>
         /// <returns>The retult of the query in a state based wrapper.</returns>
         SqlSelectResponse<T> ExecuteWithTotalCount(BaseConnector connector, DbTransaction transaction = null);

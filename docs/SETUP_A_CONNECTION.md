@@ -30,9 +30,30 @@ var connector = new ReplicatorConnector(template, DbFlavor.SqlServer, options);
 
 Replace the placeholders with your connection settings. Reuse `connector` across queries.
 
+## Retain a connector on a query
+
+Pass the connector when creating a query. The query retains it for execution, including aggregate builders and writes:
+
+```csharp
+var query = User.BeginSelect(connector).SelectRootColumns();
+var response = query.Execute();
+```
+
+Pass another connector to override the retained connector for one call:
+
+```csharp
+var otherResponse = query.Execute(otherConnector);
+var originalResponse = query.Execute();
+```
+
+The override controls the SQL dialect, connection, and execution options. It does not replace the retained connector.
+The query keeps its model mappings and schema selected during construction. The target database must support those mappings.
+`Render(otherConnector)` also uses the supplied connector's SQL dialect without changing the retained connector.
+
 ## Set a default connector
 
-Set the default once during application startup to use parameterless `Execute()` calls:
+Queries created without an explicit connector use the current default at execution time.
+Set the default once during application startup:
 
 ```csharp
 SqlLinqer.Default.Connector = connector;
@@ -80,7 +101,7 @@ public class UserRepository
     {
         var response = User.BeginSelect(connector)
             .SelectRootColumns()
-            .Execute(connector);
+            .Execute();
 
         if (response.State != ResponseState.Valid)
             throw response.Error;

@@ -23,38 +23,9 @@ namespace SqlLinqer.Components.Select
 
             var strs = GetAll().Select(x => x.Render(query, parameters, flavor, forJson, true));
             
-            if (forJson)
-            {
-                switch (flavor)
-                {
-                    case DbFlavor.Sqlite:
-                        return $"json_object({string.Join(",", strs)})";
-                    case DbFlavor.DuckDb:
-                        return $"json_object({string.Join(",", strs)}) AS \"__sqlinqer_json\"";
-                    case DbFlavor.PostgreSql:
-                        // DISTINCT requires equality, which PostgreSQL provides for jsonb, not json.
-                        string jsonObject = query.Distinct ? "jsonb_build_object" : "json_build_object";
-                        string jsonAggregate = query.Distinct ? "jsonb_agg" : "json_agg";
-                        if (!query.IsSubQuery || query.Table.ParentRelationship?.Type == Modeling.RelationshipType.OneToOne)
-                            return $"{jsonObject}( {string.Join(",", strs)} )";
-                        else
-                            return $"{jsonAggregate}( {jsonObject}( {string.Join(",", strs)} ) )";
-                    case DbFlavor.MySql:
-                        if (!query.IsSubQuery || query.Table.ParentRelationship?.Type == Modeling.RelationshipType.OneToOne)
-                            return $"JSON_OBJECT( {string.Join(",", strs)} )";
-                        else
-                            return $"JSON_ARRAYAGG( JSON_OBJECT( {string.Join(",", strs)} ) )";
-                    case DbFlavor.SqlServer:
-                    case DbFlavor.AzureSql:
-                        return $"{string.Join(",", strs)}";
-                    default:
-                        throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(SelectCollection)}.{nameof(Render)}");
-                }
-            }
-            else
-            {
-                return $"{string.Join(",", strs)}";
-            }
+            string fields = string.Join(",", strs);
+            return forJson ? SqlLinqer.Compilation.SqlDialect.For(flavor).JsonProjection(fields, query.Distinct,
+                query.IsSubQuery && query.Table.ParentRelationship?.Type != Modeling.RelationshipType.OneToOne) : fields;
         }
 
         protected internal string RenderGroupBy(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)

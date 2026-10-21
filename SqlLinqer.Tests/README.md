@@ -99,3 +99,13 @@ dotnet run -c Release --project SqlLinqer.Tests -- --suite regression --benchmar
 ```
 
 Benchmarks report measurements and do not make timing assertions.
+
+## Compilation and asynchronous execution checks
+
+The regression suite includes snapshot isolation, repeated data/count compilation, and concurrent rendering across dialects.
+It also checks asynchronous command contracts, cancellation, caller transaction ownership, insert batching, and typed callable outputs.
+Async checks execute CRUD, JSON results, binary values, nested collections, aggregates, and rollback against temporary SQLite and DuckDB databases.
+The integration suite includes asynchronous PostgreSQL/MySQL checks when its disposable endpoints are configured.
+
+The render benchmark reports ordinary rendering allocations, snapshot capture allocations, and rendering allocations from a reused snapshot.
+See [query compilation](../docs/QUERY_COMPILATION.md) and [execution](../docs/EXECUTION.md) for the supported interfaces and ownership rules.

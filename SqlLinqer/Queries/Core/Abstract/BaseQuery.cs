@@ -1,3 +1,4 @@
+using SqlLinqer.Compilation;
 using SqlLinqer.Components.Render;
 using SqlLinqer.Connections;
 using SqlLinqer.Queries.Interfaces;
@@ -9,6 +10,17 @@ namespace SqlLinqer.Queries.Core.Abstract
     /// </summary>
     public abstract class BaseQuery : IQueryCore
     {
+        internal BaseConnector BoundConnector { get; set; }
+        internal bool IsCompilationCopy;
+
+        /// <summary>Captures an isolated definition for repeated or concurrent rendering.</summary>
+        public QuerySnapshot Capture() => new QuerySnapshot(this);
+
+        /// <summary>
+        /// The connector supplied when the query was created, or the current default connector.
+        /// </summary>
+        protected BaseConnector ExecutionConnector => BoundConnector ?? SqlLinqer.Default.Connector;
+
         /// <summary>
         /// The base structue of a core query.
         /// </summary>
@@ -17,11 +29,15 @@ namespace SqlLinqer.Queries.Core.Abstract
         /// <inheritdoc/>
         public RenderedQuery Render(DbFlavor flavor)
         {
-            var tempQuery = new RenderedQuery();
-            tempQuery.Transactional = (flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb)
-                && (this is InsertQuery || this is UpdateQuery || this is DeleteQuery);
-            tempQuery.Text = Render(tempQuery.Parameters, flavor);
-            return tempQuery;
+            // Procedure rendering only reads its bindings. Preserve the existing TVP
+            // identity contract; explicit Capture still freezes their mutable payloads.
+            if (this is SqlLinqer.Queries.Core.StoredProcedureQuery)
+            {
+                var result = new RenderedQuery();
+                result.Text = Render(result.Parameters, flavor);
+                return result;
+            }
+            return QuerySnapshot.RenderQuery(this, flavor);
         }
 
         /// <inheritdoc/>

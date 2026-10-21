@@ -31,7 +31,7 @@ public class UserRegistrationService
         try
         {
             var userResponse = user.BeginInsertAuto(connector)
-                .Execute(connector, transaction);
+                .Execute(transaction);
             if (userResponse.State != ResponseState.Valid)
                 throw userResponse.Error;
 
@@ -42,7 +42,7 @@ public class UserRegistrationService
             };
 
             var permissionResponse = link.BeginInsertAuto(connector)
-                .Execute(connector, transaction);
+                .Execute(transaction);
             if (permissionResponse.State != ResponseState.Valid)
                 throw permissionResponse.Error;
 

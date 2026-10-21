@@ -1,6 +1,7 @@
 using System;
 using System.Data.Common;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SqlLinqer.Connections
 {
@@ -14,18 +15,26 @@ namespace SqlLinqer.Connections
         private bool active = true;
         private bool expired;
         private Exception cancellationError;
+        private readonly CancellationToken cancellationToken;
+        private readonly CancellationTokenRegistration registration;
 
-        internal CommandDeadline(DbCommand command, TimeSpan timeout)
+        internal CommandDeadline(DbCommand command, TimeSpan timeout, CancellationToken cancellationToken = default)
         {
             if (timeout < TimeSpan.Zero || timeout.TotalMilliseconds > uint.MaxValue - 1)
                 throw new ArgumentOutOfRangeException(nameof(timeout), "DuckDB command timeout must be zero or between zero and 4294967294 milliseconds.");
             this.command = command;
-            if (timeout > TimeSpan.Zero)
+            this.cancellationToken = cancellationToken;
+            timer = new Timer(Cancel, null, timeout > TimeSpan.Zero ? timeout : Timeout.InfiniteTimeSpan, TimeSpan.FromMilliseconds(20));
+            registration = cancellationToken.Register(() =>
             {
-                // Repeat after expiry: an interrupt racing command startup may be cleared
-                // by the engine before execution. Every callback stays inside this scope.
-                timer = new Timer(Cancel, null, timeout, TimeSpan.FromMilliseconds(20));
-            }
+                lock (gate)
+                {
+                    if (!active) return;
+                    try { command.Cancel(); }
+                    catch (Exception error) { cancellationError = error; }
+                    timer.Change(TimeSpan.Zero, TimeSpan.FromMilliseconds(20));
+                }
+            });
         }
 
         private void Cancel(object state)
@@ -33,7 +42,7 @@ namespace SqlLinqer.Connections
             lock (gate)
             {
                 if (!active) return;
-                expired = true;
+                if (!cancellationToken.IsCancellationRequested) expired = true;
                 try { command.Cancel(); }
                 catch (Exception error) { cancellationError = error; }
             }
@@ -45,6 +54,11 @@ namespace SqlLinqer.Connections
             {
                 T result = action();
                 Dispose();
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    (result as IDisposable)?.Dispose();
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
                 if (expired)
                 {
                     (result as IDisposable)?.Dispose();
@@ -55,6 +69,35 @@ namespace SqlLinqer.Connections
             catch (Exception error)
             {
                 Dispose();
+                cancellationToken.ThrowIfCancellationRequested();
+                if (expired && !(error is TimeoutException))
+                    throw new TimeoutException("The DuckDB command exceeded ConnectorOptions.CommandTimeout.", error);
+                throw;
+            }
+        }
+
+        internal async Task<T> ExecuteAsync<T>(Func<Task<T>> action)
+        {
+            try
+            {
+                T result = await action().ConfigureAwait(false);
+                Dispose();
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    (result as IDisposable)?.Dispose();
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+                if (expired)
+                {
+                    (result as IDisposable)?.Dispose();
+                    throw new TimeoutException("The DuckDB command exceeded ConnectorOptions.CommandTimeout.", cancellationError);
+                }
+                return result;
+            }
+            catch (Exception error)
+            {
+                Dispose();
+                cancellationToken.ThrowIfCancellationRequested();
                 if (expired && !(error is TimeoutException))
                     throw new TimeoutException("The DuckDB command exceeded ConnectorOptions.CommandTimeout.", error);
                 throw;
@@ -65,6 +108,7 @@ namespace SqlLinqer.Connections
         {
             lock (gate)
                 active = false;
+            registration.Dispose();
             timer?.Dispose();
         }
     }

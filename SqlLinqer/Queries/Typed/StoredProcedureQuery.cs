@@ -9,7 +9,7 @@ namespace SqlLinqer.Queries.Typed
     /// A stored procedure query based around a data model.
     /// </summary>
     /// <typeparam name="T">The type serving as the root data model</typeparam>
-    public class StoredProcedureQuery<T> 
+    public partial class StoredProcedureQuery<T>
         : Core.StoredProcedureQuery
         , IQueryTyped
         , IQueryTypedStoredProcedure<StoredProcedureQuery<T>>
@@ -41,7 +41,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<List<T>> ExecuteJson(DbTransaction transaction = null)
         {
-            return ExecuteJson(SqlLinqer.Default.Connector, transaction);
+            return ExecuteJson(ExecutionConnector, transaction);
         }
         /// <inheritdoc/>
         public SqlResponse<List<T>> ExecuteJson(BaseConnector connector, DbTransaction transaction = null)
@@ -58,7 +58,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<System.Data.DataTable> ExecuteDataTable(DbTransaction transaction = null)
         {
-            return ExecuteDataTable(SqlLinqer.Default.Connector, transaction);
+            return ExecuteDataTable(ExecutionConnector, transaction);
         }
         /// <inheritdoc/>
         public SqlResponse<System.Data.DataTable> ExecuteDataTable(BaseConnector connector, DbTransaction transaction = null)

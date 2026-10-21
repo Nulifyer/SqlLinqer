@@ -18,10 +18,11 @@ namespace SqlLinqer.Queries.Typed
     /// </summary>
     /// <typeparam name="T">The type serving as the root data model</typeparam>
     /// <typeparam name="TPk">The type of the primary key</typeparam>
-    public class SelectPrimaryKeyExistsQuery<T, TPk>
+    public partial class SelectPrimaryKeyExistsQuery<T, TPk>
         : Core.SelectQuery
         , IQueryTyped
         , IQueryExecutable<bool>
+        , IAsyncQueryExecutable<bool>
         where T : class
     {
         /// <summary>
@@ -46,7 +47,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<bool> Execute(DbTransaction transaction = null)
         {
-            return Execute(SqlLinqer.Default.Connector, transaction);
+            return Execute(ExecutionConnector, transaction);
         }
         /// <inheritdoc/>
         public SqlResponse<bool> Execute(BaseConnector connector, DbTransaction transaction = null)

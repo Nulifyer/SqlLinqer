@@ -37,6 +37,9 @@ The demos require the employee database described in their connection settings.
 
 ## Guides
 
+- [Sync and async execution](docs/EXECUTION.md)
+- [Query snapshots and compilation](docs/QUERY_COMPILATION.md)
+
 - [Publish a NuGet release](docs/RELEASING.md)
 - [Set up a connection](docs/SETUP_A_CONNECTION.md)
 - [Inject a connector](docs/SETUP_A_CONNECTION.md#inject-a-connector)
@@ -72,7 +75,7 @@ var response = User
     .Where(x => x.Permissions.First().Name, "% admin", SqlOp.NOTLIKE)
     .OrderBy(x => x.Manager.Name, SqlDir.ASC)
     .ThenBy(x => x.Name, SqlDir.ASC)
-    .Execute(connector);
+    .Execute();
 
 if (response.State == ResponseState.Valid)
 {

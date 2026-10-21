@@ -21,6 +21,12 @@ namespace SqlLinqer.Queries.Core
 
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
+            var working = IsCompilationCopy ? this : SqlLinqer.Compilation.SnapshotGraph.Capture(this);
+            return working.RenderCore(parameters, flavor);
+        }
+
+        private string RenderCore(ParameterCollection parameters, DbFlavor flavor)
+        {
             parameters.SetFlavor(flavor);
             var stashables = new IStashable[]
             {

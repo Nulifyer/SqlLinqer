@@ -45,45 +45,7 @@ namespace SqlLinqer.Components.Select
 
         public string Render(DbFlavor flavor)
         {
-            int limit = Limit;
-            int offset = Offset;
-            switch (flavor)
-            {
-                case DbFlavor.Sqlite:
-                case DbFlavor.DuckDb:
-                case DbFlavor.PostgreSql:
-                case DbFlavor.MySql:
-                    if (Top > 0)
-                    {
-                        limit = Top;
-                        offset = 0;
-                    }
-                    break;
-                case DbFlavor.SqlServer:
-                case DbFlavor.AzureSql:
-                    // nothing
-                    break;
-                default:
-                    throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(PagingControls)}");
-            }
-
-            if (limit > 0)
-            {
-                switch (flavor)
-                {
-                    case DbFlavor.Sqlite:
-                    case DbFlavor.DuckDb:
-                    case DbFlavor.PostgreSql:
-                    case DbFlavor.MySql:
-                        return $" LIMIT {limit} OFFSET {offset} ";
-                    case DbFlavor.SqlServer:
-                    case DbFlavor.AzureSql:
-                        return $" OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY";
-                    default:
-                        throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(PagingControls)}");
-                }
-            }
-            return null;
+            return SqlLinqer.Compilation.SqlDialect.For(flavor).Paging(Top, Limit, Offset);
         }
 
         private int _Top;

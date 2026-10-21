@@ -18,7 +18,7 @@ var newUser = new User
 };
 
 var query = User.BeginInsert(connector).InsertAuto(newUser);
-var response = query.Execute(connector);
+var response = query.Execute();
 if (response.State != ResponseState.Valid)
     throw response.Error;
 
@@ -40,7 +40,7 @@ var newUsers = new[]
 };
 
 var batchQuery = User.BeginInsert(connector).InsertAuto(newUsers);
-var batchResponse = batchQuery.Execute(connector);
+var batchResponse = batchQuery.Execute();
 ```
 
 ## Batch limits and transactions
@@ -77,7 +77,7 @@ var anotherUser = new User
 
 var instanceResponse = anotherUser
     .BeginInsertAuto(connector)
-    .Execute(connector);
+    .Execute();
 ```
 
 ## Use a table-valued parameter
@@ -85,5 +85,5 @@ var instanceResponse = anotherUser
 On SQL Server, use `ExecuteTvp` as an alternative to `Execute` for a table-valued parameter insert:
 
 ```csharp
-var tvpResponse = batchQuery.ExecuteTvp(connector);
+var tvpResponse = batchQuery.ExecuteTvp();
 ```

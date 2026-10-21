@@ -16,7 +16,7 @@ public int AssignManager(string userId, string managerId)
     var response = User.BeginUpdate(connector)
         .Update(x => x.ManagerId, managerId)
         .Where(x => x.Id, userId, SqlOp.EQ)
-        .Execute(connector);
+        .Execute();
 
     if (response.State != ResponseState.Valid)
         throw response.Error;
@@ -38,7 +38,7 @@ public int GrantPermission(string userId, int permissionId)
         PermissionId = permissionId
     };
 
-    var response = link.BeginInsertAuto(connector).Execute(connector);
+    var response = link.BeginInsertAuto(connector).Execute();
     if (response.State != ResponseState.Valid)
         throw response.Error;
 
@@ -56,7 +56,7 @@ public int RevokePermission(string userId, int permissionId)
     var response = UserPermission.BeginDelete(connector)
         .Where(x => x.UserId, userId, SqlOp.EQ)
         .Where(x => x.PermissionId, permissionId, SqlOp.EQ)
-        .Execute(connector);
+        .Execute();
 
     if (response.State != ResponseState.Valid)
         throw response.Error;

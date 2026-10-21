@@ -9,6 +9,9 @@ namespace SqlLinqer.Components.Render
     public class RenderedQuery
     {
         internal bool Transactional;
+        /// <summary>The logical selected object structure, independent of JSON transport.</summary>
+        public SqlLinqer.Compilation.SqlResultShape ResultShape { get; internal set; }
+
         /// <summary>
         /// The text of the query
         /// </summary>

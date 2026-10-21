@@ -9,7 +9,7 @@ using SqlLinqer.Modeling;
 
 namespace SqlLinqer.Tests.Regression;
 
-internal static class CallableRegressionTests
+internal static partial class CallableRegressionTests
 {
     private static void Check(bool condition, string message)
     { if (!condition) throw new InvalidOperationException(message); }

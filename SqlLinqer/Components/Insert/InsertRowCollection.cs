@@ -60,6 +60,29 @@ namespace SqlLinqer.Components.Insert
         /// <param name="objs">The objects to add</param>
         public void AddRows(IEnumerable<object> objs) => Rows.AddRange(objs);
 
+        // Materialize only mapped insert values, rather than copying application entities
+        // and their navigation graphs. Further snapshots can share the same row layout.
+        internal void CaptureValues(Func<object, object> capture)
+        {
+            for (int i = 0; i < Rows.Count; i++)
+            {
+                if (Rows[i] is CapturedRow) continue;
+                var values = new Dictionary<string, object>();
+                foreach (var column in Columns.Values)
+                    values.Add(column.UUID, capture(column.GetValue(Rows[i])));
+                Rows[i] = new CapturedRow(values);
+            }
+        }
+
+        private static object ReadValue(object row, ReflectedColumn column)
+            => row is CapturedRow captured ? captured.Values[column.UUID] : column.GetValue(row);
+
+        private sealed class CapturedRow
+        {
+            internal readonly Dictionary<string, object> Values;
+            internal CapturedRow(Dictionary<string, object> values) { Values = values; }
+        }
+
         /// <summary>
         /// Returns the required batch size given the size of the data and the given parameter limit
         /// </summary>
@@ -120,7 +143,7 @@ namespace SqlLinqer.Components.Insert
                 var row = new InsertRow();                
                 foreach (var column in Columns.Values)
                 {
-                    var value = new InsertRowValue(column.ColumnName, column.GetValue(obj), column.DbType);
+                    var value = new InsertRowValue(column.ColumnName, ReadValue(obj, column), column.DbType);
                     row.Values.Add(value);
                 }
                 return row;
@@ -148,7 +171,7 @@ namespace SqlLinqer.Components.Insert
 
                 foreach (var column in Columns.Values)
                 {
-                    var value = column.GetValue(obj);
+                    var value = ReadValue(obj, column);
                     dRow[column.ColumnName] = value == null ? DBNull.Value : value;
                 }
 

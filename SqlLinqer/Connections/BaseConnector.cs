@@ -14,7 +14,7 @@ namespace SqlLinqer.Connections
     /// <summary>
     /// Creates connections and executes commands to the database
     /// </summary>
-    public abstract class BaseConnector
+    public abstract partial class BaseConnector
     {
         private static readonly JsonSerializerOptions JsonOptions = LegacyModelConfigResolver.CreateOptions();
         private static readonly JsonSerializerOptions SqliteJsonOptions = CreateSqliteJsonOptions(false);
@@ -195,30 +195,20 @@ namespace SqlLinqer.Connections
         /// <returns>A response containing a list of objects of type 'T' derserialized from the resulting JSON string output from the database.</returns>
         public SqlResponse<List<T>> ExecuteReaderJson<T>(RenderedQuery query, DbTransaction existingTransaction = null) where T : class
         {
-            var jsonOptions = Options.UseSqlModelJsonContract
-                ? (DbFlavor == DbFlavor.Sqlite ? SqliteSqlModelJsonOptions : SqlModelJsonOptions)
-                : (DbFlavor == DbFlavor.Sqlite ? SqliteJsonOptions : JsonOptions);
+            var mapper = CreateJsonMapper<T>();
             return ExecuteOnConnection(query, existingTransaction, false, command =>
             {
                 using (var reader = command.ExecuteReader())
-                {
-                    if (JsonResultsRowByRow())
-                    {
-                        var rows = new List<T>();
-                        while (reader.Read())
-                            rows.Add(JsonSerializer.Deserialize<T>(reader[0].ToString(), jsonOptions));
-                        return rows;
-                    }
-
-                    var builder = new StringBuilder();
-                    while (reader.Read())
-                        builder.Append(reader[0].ToString());
-                    string json = builder.ToString();
-                    return string.IsNullOrWhiteSpace(json)
-                        ? new List<T>()
-                        : JsonSerializer.Deserialize<List<T>>(json, jsonOptions);
-                }
+                    return mapper.Read(reader);
             });
+        }
+
+        private JsonResultMapper<T> CreateJsonMapper<T>() where T : class
+        {
+            var options = Options.UseSqlModelJsonContract
+                ? (DbFlavor == DbFlavor.Sqlite ? SqliteSqlModelJsonOptions : SqlModelJsonOptions)
+                : (DbFlavor == DbFlavor.Sqlite ? SqliteJsonOptions : JsonOptions);
+            return new JsonResultMapper<T>(options, JsonResultsRowByRow());
         }
 
         /// <summary>
@@ -262,18 +252,7 @@ namespace SqlLinqer.Connections
         {
             // DuckDB returns BLOB values as streams over native result memory.
             // DataTable.Load closes the reader before callers can copy those streams.
-            for (int i = 0; i < reader.FieldCount; i++)
-            {
-                string originalName = reader.GetName(i);
-                if (string.IsNullOrEmpty(originalName))
-                    originalName = $"Column{i + 1}";
-                string name = originalName;
-                int suffix = 1;
-                while (table.Columns.Contains(name))
-                    name = originalName + suffix++;
-                var type = reader.GetFieldType(i);
-                table.Columns.Add(name, typeof(Stream).IsAssignableFrom(type) ? typeof(byte[]) : type);
-            }
+            InitializeResultColumns(table, reader);
 
             while (reader.Read())
             {
@@ -292,6 +271,22 @@ namespace SqlLinqer.Connections
                     }
                 }
                 table.Rows.Add(values);
+            }
+        }
+
+        private static void InitializeResultColumns(DataTable table, DbDataReader reader)
+        {
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                string originalName = reader.GetName(i);
+                if (string.IsNullOrEmpty(originalName))
+                    originalName = $"Column{i + 1}";
+                string name = originalName;
+                int suffix = 1;
+                while (table.Columns.Contains(name))
+                    name = originalName + suffix++;
+                var type = reader.GetFieldType(i);
+                table.Columns.Add(name, typeof(Stream).IsAssignableFrom(type) ? typeof(byte[]) : type);
             }
         }
 
@@ -349,21 +344,6 @@ namespace SqlLinqer.Connections
         /// <summary>
         /// Controlls if the ExecuteReaderJson function parses results row by row or as a single blob
         /// </summary>
-        public virtual bool JsonResultsRowByRow()
-        {
-            switch (DbFlavor)
-            {
-                case DbFlavor.DuckDb:
-                case DbFlavor.PostgreSql:
-                case DbFlavor.MySql:
-                case DbFlavor.Sqlite:
-                    return true;
-                case DbFlavor.SqlServer:
-                case DbFlavor.AzureSql:
-                    return false;
-                default:
-                    throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {DbFlavor} is not supported by {nameof(BaseConnector)}.{nameof(JsonResultsRowByRow)}");
-            }
-        }
+        public virtual bool JsonResultsRowByRow() => SqlLinqer.Compilation.SqlDialect.For(DbFlavor).JsonRows;
     }
 }

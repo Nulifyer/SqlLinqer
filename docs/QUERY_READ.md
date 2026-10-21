@@ -49,12 +49,15 @@ var relatedQuery = User.BeginSelect(connector)
     .ThenBy(x => x.Name, SqlDir.ASC);
 ```
 
+See [sync and async execution](EXECUTION.md) for asynchronous methods and cancellation.
+See [query snapshots](QUERY_COMPILATION.md) for isolated repeated compilation.
+
 ## Execute a typed select
 
 `Execute` returns a list of the model type. Check the response state before reading the result:
 
 ```csharp
-var response = rootQuery.Execute(connector);
+var response = rootQuery.Execute();
 if (response.State == ResponseState.Valid)
 {
     foreach (var user in response.Result)
@@ -74,7 +77,7 @@ var pagedQuery = User.BeginSelect(connector)
     .OrderBy(x => x.Id, SqlDir.ASC)
     .Page(1, 10);
 
-var pageResponse = pagedQuery.ExecuteWithTotalCount(connector);
+var pageResponse = pagedQuery.ExecuteWithTotalCount();
 if (pageResponse.State != ResponseState.Valid)
     throw pageResponse.Error;
 
@@ -108,7 +111,7 @@ var aggregateQuery = User.BeginSelectBuilder(connector)
     .OrderBy(x => x.PermissionCount, SqlDir.DESC)
     .ThenBy(x => x.Id, SqlDir.ASC);
 
-var aggregateResponse = aggregateQuery.Execute(connector);
+var aggregateResponse = aggregateQuery.Execute();
 ```
 
 `Execute` returns the type defined in `BuildQuery`. Use `new { ... }` for an anonymous result type.
@@ -117,7 +120,7 @@ Apply a limit before requesting the total count:
 
 ```csharp
 aggregateQuery.Limit(10, 0);
-var aggregatePage = aggregateQuery.ExecuteWithTotalCount(connector);
+var aggregatePage = aggregateQuery.ExecuteWithTotalCount();
 ```
 
 ## Add optional search filters
@@ -149,7 +152,7 @@ public List<User> SearchUsers(
     var response = query
         .OrderBy(x => x.Id, SqlDir.ASC)
         .Page(page, pageSize)
-        .Execute(connector);
+        .Execute();
 
     if (response.State != ResponseState.Valid)
         throw response.Error;
@@ -175,7 +178,7 @@ public List<User> FindManagedUsers(string searchText, string managerId)
     query.Where(matches)
         .Where(x => x.ManagerId, managerId, SqlOp.EQ);
 
-    var response = query.Execute(connector);
+    var response = query.Execute();
     if (response.State != ResponseState.Valid)
         throw response.Error;
 
@@ -196,7 +199,7 @@ public List<User> GetUsersByIds(string[] userIds)
     var response = User.BeginSelect(connector)
         .SelectRootColumns()
         .Where(x => x.Id, userIds, SqlArrayOp.IN)
-        .Execute(connector);
+        .Execute();
 
     if (response.State != ResponseState.Valid)
         throw response.Error;
@@ -212,7 +215,7 @@ Use `BeginPrimaryKeyExists` to check an ID without loading a model:
 ```csharp
 public bool UserExists(string userId)
 {
-    var response = User.BeginPrimaryKeyExists(userId, connector).Execute(connector);
+    var response = User.BeginPrimaryKeyExists(userId, connector).Execute();
     if (response.State != ResponseState.Valid)
         throw response.Error;
 

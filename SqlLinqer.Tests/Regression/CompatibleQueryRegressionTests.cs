@@ -230,6 +230,12 @@ internal static class CompatibleQueryRegressionTests
             long before = GC.GetAllocatedBytesForCurrentThread();
             for (int i = 0; i < 10; i++) query.Render(DbFlavor.PostgreSql);
             Console.WriteLine($"RENDER_ALLOCATION predicates={count} bytes_per_render={(GC.GetAllocatedBytesForCurrentThread() - before) / 10}");
+            before = GC.GetAllocatedBytesForCurrentThread();
+            var snapshot = query.Capture();
+            long captureBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+            before = GC.GetAllocatedBytesForCurrentThread();
+            for (int i = 0; i < 10; i++) snapshot.Render(DbFlavor.PostgreSql);
+            Console.WriteLine($"SNAPSHOT_ALLOCATION predicates={count} bytes_per_capture={captureBytes} bytes_per_render={(GC.GetAllocatedBytesForCurrentThread() - before) / 10}");
         }
     }
 

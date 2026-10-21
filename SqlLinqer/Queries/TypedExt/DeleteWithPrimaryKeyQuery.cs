@@ -17,12 +17,13 @@ namespace SqlLinqer.Queries.TypedExt
     /// </summary>
     /// <typeparam name="T">The type serving as the root data model</typeparam>
     /// <typeparam name="TPk">The type of the primary key</typeparam>
-    public class DeleteWithPrimaryKeyQuery<T, TPk>
+    public partial class DeleteWithPrimaryKeyQuery<T, TPk>
         : DeleteQuery<T>
         , IQueryTyped
         , ITypedWhereCollection<DeleteWithPrimaryKeyQuery<T, TPk>, T>
         , IQueryTypedOutput<DeleteWithPrimaryKeyQuery<T, TPk>, T>
         , IQueryExecutableWithPrimaryKeys<int, TPk>
+        , IAsyncQueryExecutableWithPrimaryKeys<int, TPk>
         where T : class
     {
         /// <summary>
@@ -110,7 +111,7 @@ namespace SqlLinqer.Queries.TypedExt
         /// <inheritdoc/>
         public new SqlPrimaryKeysResponse<int, TPk> Execute(DbTransaction transaction = null)
         {
-            return Execute(SqlLinqer.Default.Connector, transaction);
+            return Execute(ExecutionConnector, transaction);
         }
         /// <inheritdoc/>
         public new SqlPrimaryKeysResponse<int, TPk> Execute(BaseConnector connector, DbTransaction transaction = null)

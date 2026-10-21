@@ -16,13 +16,15 @@ namespace SqlLinqer.Queries.Typed
     /// A DELETE query. Based around a type.
     /// </summary>
     /// <typeparam name="T">The type serving as the root data model</typeparam>
-    public class DeleteQuery<T> 
+    public partial class DeleteQuery<T>
         : Core.DeleteQuery
         , IQueryTyped
         , ITypedWhereCollection<DeleteQuery<T>, T>
         , IQueryTypedOutput<DeleteQuery<T>, T>
         , IQueryExecutable<int>
+        , IAsyncQueryExecutable<int>
         , IQueryExecutableWithOutput
+        , IAsyncQueryExecutableWithOutput
         where T : class
     {
         /// <summary>
@@ -121,7 +123,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<int> Execute(DbTransaction transaction = null)
         {
-            return Execute(SqlLinqer.Default.Connector, transaction);
+            return Execute(ExecutionConnector, transaction);
         }
         /// <inheritdoc/>
         public SqlResponse<int> Execute(BaseConnector connector, DbTransaction transaction = null)
@@ -132,7 +134,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<DataTable> ExecuteWithOutput(DbTransaction transaction = null)
         {
-            return ExecuteWithOutput(SqlLinqer.Default.Connector, transaction);
+            return ExecuteWithOutput(ExecutionConnector, transaction);
         }
         /// <inheritdoc/>
         public SqlResponse<DataTable> ExecuteWithOutput(BaseConnector connector, DbTransaction transaction = null)
@@ -171,7 +173,8 @@ namespace SqlLinqer.Queries.Typed
                 var primaryKeyData = connector.ExecuteReaderDataTable(rendered, existingTransaction);
                 if (primaryKeyData.State == ResponseState.Valid)
                 {
-                    foreach (System.Data.DataRow row in primaryKeyData.Result.Rows)
+                    using (var table = primaryKeyData.Result)
+                    foreach (System.Data.DataRow row in table.Rows)
                     {
                         primaryKeys.Add(row[0]);
                     }

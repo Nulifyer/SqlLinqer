@@ -127,7 +127,7 @@ var replaceDomainQuery = User.BeginUpdate(connector)
 ## Execute an update
 
 ```csharp
-var response = query.Execute(connector);
+var response = query.Execute();
 ```
 
 If `response.State` is `ResponseState.Valid`, `response.Result` contains the affected-row count. Otherwise, inspect `response.Error`.

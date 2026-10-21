@@ -66,6 +66,41 @@ internal static class IntegrationSuite
             IntegrationItem Read(int id) => Valid(new SelectQuery<IntegrationItem>().SelectRootColumns().Where(x => x.Id, id, SqlOp.EQ).Execute(connector)).Single();
             IntegrationItem NewItem(string name) => new(name, true, 1, DatabaseFixture.SampleDate.AddTicks(1234560));
 
+            Test("async select, nested results, and totals match synchronous execution", () =>
+            {
+                async Task CheckAsync()
+                {
+                    var result = await new SelectQuery<IntegrationItem>().SelectRootColumns().Select(x => x.Children)
+                        .OrderBy(x => x.Id, SqlDir.ASC).Page(1, 2).ExecuteWithTotalCountAsync(connector);
+                    var rows = Valid(result);
+                    Expect(rows.Count == 2 && result.TotalResults == 22 && rows[0].Children.Count() == 2, "Async rows, children, or total differ.");
+                    var empty = Valid(await new SelectQuery<IntegrationItem>().SelectRootColumns().Select(x => x.Children)
+                        .Where(x => x.Id, 22, SqlOp.EQ).ExecuteAsync(connector)).Single();
+                    Expect(empty.Children.Count() == 0, "Empty async relationship was not an empty collection.");
+                }
+                CheckAsync().GetAwaiter().GetResult();
+            });
+            Test("async writes preserve caller rollback and returned keys where supported", () =>
+            {
+                async Task CheckAsync()
+                {
+                    using var connection = database.Open();
+                    using var transaction = connection.BeginTransaction();
+                    Valid(await new InsertQuery<IntegrationItem>().InsertAuto(NewItem("async rollback")).ExecuteAsync(connector, transaction));
+                    var rows = Valid(await new SelectQuery<IntegrationItem>().SelectRootColumns()
+                        .Where(x => x.Name, "async rollback", SqlOp.EQ).ExecuteAsync(connector, transaction));
+                    Expect(rows.Count == 1 && connection.State == ConnectionState.Open, "Async caller transaction changed.");
+                    transaction.Rollback();
+                    Expect(database.Count() == 22, "Async insert escaped caller rollback.");
+                    if (flavor == DbFlavor.PostgreSql)
+                    {
+                        var inserted = await new InsertWithPrimaryKeyQuery<IntegrationItem, int>().InsertAuto(NewItem("async keys")).ExecuteAsync(connector);
+                        Expect(Valid(inserted) == 1 && inserted.TouchedPrimaryKeys.Count == 1, "Async returned keys differ.");
+                    }
+                }
+                CheckAsync().GetAwaiter().GetResult();
+            });
+
             Test("native JSON loads fields, dates, enums and private model members", () =>
             {
                 var item = Read(1);

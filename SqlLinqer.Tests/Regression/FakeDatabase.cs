@@ -9,6 +9,11 @@ namespace SqlLinqer.Tests.Regression;
 internal sealed class FakeDatabase
 {
     public string FailAt;
+    public int AsyncOpens, AsyncCommands, AsyncReads, AsyncNextResults, SyncCommands;
+    public int DisposedReaders;
+    public CancellationToken LastOpenToken, LastCommandToken, LastReadToken, LastNextToken;
+    public Func<CancellationToken, Task> BeforeAsyncCommand, BeforeAsyncRead;
+
     public string FailSql;
     public int FailOnExecution;
     public bool FailRollback;
@@ -60,6 +65,15 @@ public sealed class FakeConnection : DbConnection
     public override void ChangeDatabase(string name) { }
     public override void Open()
     {
+        DatabaseState.ThrowIf("open");
+        _state = ConnectionState.Open;
+    }
+    public override async Task OpenAsync(CancellationToken cancellationToken)
+    {
+        await Task.Yield();
+        cancellationToken.ThrowIfCancellationRequested();
+        DatabaseState.AsyncOpens++;
+        DatabaseState.LastOpenToken = cancellationToken;
         DatabaseState.ThrowIf("open");
         _state = ConnectionState.Open;
     }
@@ -148,9 +162,36 @@ internal sealed class FakeCommand(FakeConnection connection) : DbCommand
         if (connection.DatabaseState.FailSql != null && CommandText.TrimStart().StartsWith(connection.DatabaseState.FailSql))
             throw new InvalidOperationException("SQL stage failure: " + connection.DatabaseState.FailSql);
     }
-    public override int ExecuteNonQuery() { Execute(); return 1; }
-    public override object ExecuteScalar() { Execute(); return connection.DatabaseState.Total; }
+    public override int ExecuteNonQuery() { connection.DatabaseState.SyncCommands++; Execute(); return 1; }
+    public override object ExecuteScalar() { connection.DatabaseState.SyncCommands++; Execute(); return connection.DatabaseState.Total; }
     protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
+    {
+        connection.DatabaseState.SyncCommands++;
+        return CreateReader();
+    }
+    private async Task BeforeAsync(CancellationToken cancellationToken)
+    {
+        await Task.Yield();
+        connection.DatabaseState.LastCommandToken = cancellationToken;
+        if (connection.DatabaseState.BeforeAsyncCommand != null)
+            await connection.DatabaseState.BeforeAsyncCommand(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        connection.DatabaseState.AsyncCommands++;
+    }
+    public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
+    {
+        await BeforeAsync(cancellationToken); Execute(); return 1;
+    }
+    public override async Task<object> ExecuteScalarAsync(CancellationToken cancellationToken)
+    {
+        await BeforeAsync(cancellationToken); Execute(); return connection.DatabaseState.Total;
+    }
+    protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
+    {
+        await BeforeAsync(cancellationToken);
+        return new AsyncTrackingReader(CreateReader(), connection.DatabaseState);
+    }
+    private DbDataReader CreateReader()
     {
         Execute();
         if (connection.DatabaseState.ReaderFactory != null)

@@ -37,44 +37,10 @@ namespace SqlLinqer.Components.Select
         /// <inheritdoc/>
         public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool forJson, bool include_alias)
         {
-            // A relationship remains one JSON-valued column in tabular results.
-            // A multi-column scalar subquery would produce invalid SQL.
-            string rendered_query = SubQuery.Render(parameters, flavor, true);
-            rendered_query = $"({rendered_query})";
-
-            // One-to-one SQL Server relationships extract the first JSON element.
-            switch (flavor)
-            {
-                case DbFlavor.Sqlite:
-                    if (forJson)
-                        return $"{Alias.DbWrapString(flavor)}, json({rendered_query})";
-                    rendered_query = $"json({rendered_query})";
-                    break;
-                case DbFlavor.DuckDb:
-                case DbFlavor.PostgreSql:
-                case DbFlavor.MySql:
-                    if (forJson)
-                        return $"{Alias.DbWrapString(flavor)}, {rendered_query}";
-                    break;
-                case DbFlavor.SqlServer:
-                case DbFlavor.AzureSql:
-                    if (Relationship.Type == RelationshipType.OneToOne)
-                    {
-                        rendered_query = $"JSON_QUERY({rendered_query}, '$[0]')";
-                    }
-                    else
-                    {
-                        // Empty SQL Server JSON subqueries can yield SQL NULL.
-                        // Preserve collection results and keep them marked as JSON.
-                        rendered_query = $"JSON_QUERY(COALESCE({rendered_query}, '[]'))";
-                    }
-                    break;
-                default:
-                    throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(SelectRelationship)}.{nameof(Render)}");
-            }
-
-            string alias = include_alias ? $" AS {Alias.DbWrap(flavor)}" : null;
-            return $"{rendered_query}{alias}";
+            // Relationships remain JSON-valued columns even in tabular projections.
+            string sql = SubQuery.Render(parameters, flavor, true);
+            return SqlLinqer.Compilation.SqlDialect.For(flavor).Relationship(sql, Alias,
+                Relationship.Type != RelationshipType.OneToOne, forJson, include_alias);
         }
 
         /// <inheritdoc/>

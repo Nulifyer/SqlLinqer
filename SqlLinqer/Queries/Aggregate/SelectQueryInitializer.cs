@@ -5,6 +5,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using SqlLinqer.Components.Modeling;
 using SqlLinqer.Components.Select;
+using SqlLinqer.Connections;
 using SqlLinqer.Extensions.MemberExpressionExtensions;
 
 namespace SqlLinqer.Queries.Typed
@@ -13,6 +14,7 @@ namespace SqlLinqer.Queries.Typed
         where TBase : class
     {
         protected readonly Table Table;
+        internal BaseConnector BoundConnector { get; set; }
 
         public SelectQueryInitializer(string default_schema = null) : this(Table.GetCached<TBase>(default_schema)) { }
         public SelectQueryInitializer(Table table)
@@ -42,6 +44,7 @@ namespace SqlLinqer.Queries.Typed
             where TReturn : class
         {
             var builder = new SelectQueryBuilder<TBase, TReturn>(Table);
+            builder.Query.BoundConnector = BoundConnector;
 
             var info = GetMembersAndArguments(expression);
 

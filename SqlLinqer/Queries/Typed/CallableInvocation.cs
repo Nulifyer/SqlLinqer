@@ -11,7 +11,7 @@ using SqlLinqer.Modeling;
 namespace SqlLinqer.Queries.Typed
 {
     /// <summary>An invocation of a typed SQL Server or Azure SQL procedure.</summary>
-    public sealed class CallableInvocation<TCallable, TArgs, TResult>
+    public sealed partial class CallableInvocation<TCallable, TArgs, TResult>
         where TCallable : SqlLinqerCallable<TCallable, TArgs, TResult>
         where TArgs : class
         where TResult : class, new()

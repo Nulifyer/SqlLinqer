@@ -24,7 +24,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A insert query for the defined object type. The query will ouput the inserted primary keys.</returns>
         public static new InsertWithPrimaryKeyQuery<TObj, TPrimaryKey> BeginInsert(BaseConnector connector = null)
         {
-            var query = new InsertWithPrimaryKeyQuery<TObj, TPrimaryKey>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema);
+            var query = new InsertWithPrimaryKeyQuery<TObj, TPrimaryKey>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
             return query;
         }
         /// <summary>
@@ -34,7 +34,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A insert query for the defined object type. The query will output the inserted primary keys. The inserted columns are based off the <see cref="SqlLinqer.Modeling.SqlAutoInsert"/> and <see cref="SqlLinqer.Modeling.SqlAutoInsertExclude"/> attributes.</returns>
         public new InsertWithPrimaryKeyQuery<TObj, TPrimaryKey> BeginInsertAuto(BaseConnector connector = null)
         {
-            var query = BeginInsert(connector ?? SqlLinqer.Default.Connector);
+            var query = BeginInsert(connector);
             query.InsertAuto(this as TObj);
             return query;
         }
@@ -49,7 +49,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A select query where the primary key == {primaryKeyValue}.</returns>
         public static SelectQuery<TObj> BeginSelect(TPrimaryKey primaryKeyValue, BaseConnector connector = null)
         {
-            var query = BeginSelect(connector ?? SqlLinqer.Default.Connector);
+            var query = BeginSelect(connector);
             query.RootWhere.AddComponent(new WhereColumnValue(query.Table.PrimaryKey, primaryKeyValue, SqlOp.EQ, SqlSubQueryOp.ANY));
             return query;
         }
@@ -65,7 +65,7 @@ namespace SqlLinqer.Modeling
         /// </returns>
         public static SelectQuery<TObj> BeginSelectAuto(TPrimaryKey primaryKeyValue, BaseConnector connector = null)
         {
-            var query = BeginSelectAuto(connector ?? SqlLinqer.Default.Connector);
+            var query = BeginSelectAuto(connector);
             query.RootWhere.AddComponent(new WhereColumnValue(query.Table.PrimaryKey, primaryKeyValue, SqlOp.EQ, SqlSubQueryOp.ANY));
             return query;
         }
@@ -80,7 +80,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A update query where the primary key == {primaryKeyValue}.</returns>
         public static UpdateWithPrimaryKeyQuery<TObj, TPrimaryKey> BeginUpdate(TPrimaryKey primaryKeyValue, BaseConnector connector = null)
         {
-            var query = new UpdateWithPrimaryKeyQuery<TObj, TPrimaryKey>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema);
+            var query = new UpdateWithPrimaryKeyQuery<TObj, TPrimaryKey>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
             query.RootWhere.AddComponent(new WhereColumnValue(query.Table.PrimaryKey, primaryKeyValue, SqlOp.EQ, SqlSubQueryOp.ANY));
             return query;
         }
@@ -95,7 +95,6 @@ namespace SqlLinqer.Modeling
         /// </returns>
         public UpdateWithPrimaryKeyQuery<TObj, TPrimaryKey> BeginUpdateAuto(BaseConnector connector = null)
         {
-            connector = connector ?? SqlLinqer.Default.Connector;
             var query = BeginUpdate(GetPrimaryKeyValue(connector), connector);
             query.UpdateAuto(this as TObj);
             return query;
@@ -111,7 +110,6 @@ namespace SqlLinqer.Modeling
         /// </returns>
         public UpdateWithPrimaryKeyQuery<TObj, TPrimaryKey> BeginUpdateNonDefaults(BaseConnector connector = null)
         {
-            connector = connector ?? SqlLinqer.Default.Connector;
             var query = BeginUpdate(GetPrimaryKeyValue(connector), connector);
             query.UpdateNonDefaults(this as TObj);
             return query;
@@ -126,7 +124,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A insert query for the defined object type. The query will ouput the inserted primary keys.</returns>
         public static new DeleteWithPrimaryKeyQuery<TObj, TPrimaryKey> BeginDelete(BaseConnector connector = null)
         {
-            var query = new DeleteWithPrimaryKeyQuery<TObj, TPrimaryKey>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema);
+            var query = new DeleteWithPrimaryKeyQuery<TObj, TPrimaryKey>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
             return query;
         }
         /// <summary>
@@ -137,7 +135,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A delete query where the primary key == {primaryKeyValue}.</returns>
         public static DeleteQuery<TObj> BeginDelete(TPrimaryKey primaryKeyValue, BaseConnector connector = null)
         {
-            var query = BeginDelete(connector ?? SqlLinqer.Default.Connector);
+            var query = BeginDelete(connector);
             query.RootWhere.AddComponent(new WhereColumnValue(query.Table.PrimaryKey, primaryKeyValue, SqlOp.EQ, SqlSubQueryOp.ANY));
             return query;
         }
@@ -151,7 +149,6 @@ namespace SqlLinqer.Modeling
         /// </returns>
         public DeleteQuery<TObj> BeginDeleteAuto(BaseConnector connector = null)
         {
-            connector = connector ?? SqlLinqer.Default.Connector;
             var query = BeginDelete(GetPrimaryKeyValue(connector), connector);
             return query;
         }
@@ -166,7 +163,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A delete query where the primary key == {primaryKeyValue}.</returns>
         public static SelectPrimaryKeyExistsQuery<TObj, TPrimaryKey> BeginPrimaryKeyExists(TPrimaryKey primaryKeyValue, BaseConnector connector = null)
         {
-            var query = new SelectPrimaryKeyExistsQuery<TObj, TPrimaryKey>(primaryKeyValue, connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema);
+            var query = new SelectPrimaryKeyExistsQuery<TObj, TPrimaryKey>(primaryKeyValue, connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
             return query;
         }
         #endregion

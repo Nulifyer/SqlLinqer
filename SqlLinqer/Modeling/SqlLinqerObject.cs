@@ -19,7 +19,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A insert query for the defined object type.</returns>
         public static InsertQuery<TObj> BeginInsert(BaseConnector connector = null)
         {
-            return new InsertQuery<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema);
+            return new InsertQuery<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
         }
         /// <summary>
         /// Create an auto insert query
@@ -31,7 +31,7 @@ namespace SqlLinqer.Modeling
         /// </returns>
         public InsertQuery<TObj> BeginInsertAuto(BaseConnector connector = null)
         {
-            var query = BeginInsert(connector ?? SqlLinqer.Default.Connector);
+            var query = BeginInsert(connector);
             query.InsertAuto(this as TObj);
             return query;
         }
@@ -45,7 +45,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A select query for the defined object type.</returns>
         public static SelectQuery<TObj> BeginSelect(BaseConnector connector = null)
         {
-            return new SelectQuery<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema);
+            return new SelectQuery<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
         }
         /// <summary>
         /// Create a select query for the object
@@ -58,7 +58,7 @@ namespace SqlLinqer.Modeling
         /// </returns>
         public static SelectQuery<TObj> BeginSelectAuto(BaseConnector connector = null)
         {
-            var query = BeginSelect(connector ?? SqlLinqer.Default.Connector);
+            var query = BeginSelect(connector);
             query.SelectAuto();
             return query;
         }
@@ -71,7 +71,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A select aggregate query for the defined object type.</returns>
         public static SelectQueryInitializer<TObj> BeginSelectBuilder(BaseConnector connector = null)
         {
-            return new SelectQueryInitializer<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema);
+            return new SelectQueryInitializer<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
         }
         #endregion
 
@@ -83,7 +83,7 @@ namespace SqlLinqer.Modeling
         /// <returns>An update query for the defined object type.</returns>
         public static UpdateQuery<TObj> BeginUpdate(BaseConnector connector = null)
         {
-            return new UpdateQuery<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema);
+            return new UpdateQuery<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
         }
         #endregion
 
@@ -95,7 +95,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A delete query for the defined object type.</returns>
         public static DeleteQuery<TObj> BeginDelete(BaseConnector connector = null)
         {
-            return new DeleteQuery<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema);
+            return new DeleteQuery<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
         }
         #endregion
 
@@ -107,7 +107,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A truncate query for the defined object type.</returns>
         public static TruncateQuery<TObj> BeginTruncate(BaseConnector connector = null)
         {
-            return new TruncateQuery<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema);
+            return new TruncateQuery<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
         }
         #endregion
 
@@ -120,7 +120,7 @@ namespace SqlLinqer.Modeling
         /// <returns>A stored procedure query for the defined object type.</returns>
         public static StoredProcedureQuery<TObj> BeginStoredProcedure(string name, BaseConnector connector = null)
         {
-            return BeginStoredProcedure(name, connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema);
+            return new StoredProcedureQuery<TObj>(name, connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
         }
         /// <summary>
         /// Create a stored procedure query for the object
