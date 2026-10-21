@@ -57,6 +57,8 @@ dotnet add package SqlLinqer
 Install your database's ADO.NET provider, [create a connector](docs/SETUP_A_CONNECTION.md), and [map your models](docs/BUILDING_A_DATAMODEL.md).
 The [NuGet README](SqlLinqer/README.md) walks through relationships, projections, inserts, updates, and deletes with one example model.
 
+This development line targets 2.2.
+
 The NuGet page contains the latest published release. This repository also includes development features, including experimental result streaming.
 
 ## Explore the library

@@ -47,9 +47,9 @@ The GitHub prerelease setting must match the presence of a prerelease suffix.
 
 ## Checks and retries
 
-The build job runs `dotnet run --project SqlLinqer.Tests -c Release` for regression, SQLite, DuckDB, and offline SQL Server/Azure SQL checks.
-It does not run live SQL Server, Azure SQL, PostgreSQL, or MySQL checks.
-Run those checks separately when the release needs live database validation.
+The reusable validation workflow must pass before packaging. It builds both compatibility programs, checks formatting, runs local suites and runner checks, and validates SQLite 3.38.
+A separate job runs every suite against disposable PostgreSQL, MySQL, and SQL Server databases. Actual Azure SQL validation remains optional.
+The same workflow runs for pull requests and pushes to master.
 Library builds treat missing or invalid public XML documentation as errors. The NuGet package includes the XML file for C# editor tooltips.
 The publish job receives only the package artifact and requests publishing credentials after the build job succeeds.
 
