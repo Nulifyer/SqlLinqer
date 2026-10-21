@@ -14,7 +14,7 @@ namespace SqlLinqer.Queries.Typed
         where TBase : class
     {
         /// <summary>Creates a projection expression builder.</summary>
-        public SelectQueryBuilder() {}
+        public SelectQueryBuilder() { }
 
         /* *******************************************************
          * Non-Functions

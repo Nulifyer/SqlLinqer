@@ -16,7 +16,7 @@ namespace SqlLinqer.Queries.Interfaces
         /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
         /// <returns>The inserted-row count and execution state.</returns>
         SqlResponse<T> ExecuteTvp(DbTransaction transaction = null);
-        
+
         /// <summary>
         /// Inserts through a generated SQL Server or Azure SQL table-valued parameter, with one transaction for the inserted rows. Check the response State before reading its Result.
         /// Type creation and cleanup use separate autocommit connections in the write database, requiring type-creation and schema permissions.

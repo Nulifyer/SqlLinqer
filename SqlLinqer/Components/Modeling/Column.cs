@@ -12,7 +12,7 @@ namespace SqlLinqer.Components.Modeling
         private string _uuidColumn;
         /// <summary>A stable query identifier derived from the table identity and column name.</summary>
         public string UUID
-        { 
+        {
             get
             {
                 var tableId = Table.UUID;
@@ -32,16 +32,16 @@ namespace SqlLinqer.Components.Modeling
         public string ColumnName;
         /// <summary>An explicit parameter type, or null to let the provider infer it.</summary>
         public DbType? DbType;
-        
+
         /// <summary>The explicit output alias, or null to use the generated column identifier.</summary>
         public string _alias;
         /// <summary>The explicit output alias, falling back to the generated column identifier.</summary>
-        public string Alias 
+        public string Alias
         {
             get => _alias ?? UUID;
             set => _alias = value;
         }
-        
+
 
         /// <summary>Creates a column mapping from a table, column name, and any supplied alias.</summary>
         public Column(Table table, string column_name)

@@ -88,7 +88,7 @@ internal static class CallableChecks
         {
             using var transaction = connection.BeginTransaction();
             var result = LiveSuite.Valid(LiveCall.Call(new LiveCall.Args
-                { MinId = int.MaxValue, Counter = 1, Name = new SqlArgument<string>(null) }).Execute(connector, transaction));
+            { MinId = int.MaxValue, Counter = 1, Name = new SqlArgument<string>(null) }).Execute(connector, transaction));
             LiveSuite.Require(result.Rows.Count == 0 && result.Total == 0 && result.Message == null
                 && result.Counter == 2 && transaction.Connection == connection, "Empty rows, NULL, or transaction ownership differs");
             transaction.Rollback();

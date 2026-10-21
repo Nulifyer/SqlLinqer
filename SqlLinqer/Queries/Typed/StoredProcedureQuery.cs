@@ -23,7 +23,7 @@ namespace SqlLinqer.Queries.Typed
         /// <param name="schema">The procedure schema, or null to render an unqualified name.</param>
         public StoredProcedureQuery(string name, string schema = null) : base(name, schema)
         {
-            
+
         }
 
         /// <inheritdoc/>

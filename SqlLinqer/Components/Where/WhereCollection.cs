@@ -138,7 +138,7 @@ namespace SqlLinqer.Components.Where
 
             return newCollection;
         }
-        
+
         /// <summary>Returns the logical inverse of this group and its predicates.</summary>
         protected internal WhereCollection Invert()
         {
@@ -274,7 +274,7 @@ namespace SqlLinqer.Components.Where
             }
             return false;
         }
-    
+
         /// <summary>Enumerates the mapped columns referenced by this predicate.</summary>
         public IEnumerable<Column> GetColumnReferences()
         {

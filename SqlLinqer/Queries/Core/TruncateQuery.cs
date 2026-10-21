@@ -10,7 +10,7 @@ namespace SqlLinqer.Queries.Core
         /// <summary>Creates a TRUNCATE query for the supplied table.</summary>
         public TruncateQuery(Table table) : base(table)
         {
-            
+
         }
 
         /// <inheritdoc/>

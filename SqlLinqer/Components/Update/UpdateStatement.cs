@@ -13,7 +13,7 @@ namespace SqlLinqer.Components.Update
         /// <summary>
         /// Value Column
         /// </summary>
-        public Column UpdateColumn { get; protected set;}
+        public Column UpdateColumn { get; protected set; }
 
         internal string RenderTarget(DbFlavor flavor)
         {

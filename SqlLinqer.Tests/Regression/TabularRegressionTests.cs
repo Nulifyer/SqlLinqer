@@ -102,15 +102,15 @@ internal static class TabularRegressionTests
             });
 
             foreach (DbFlavor flavor in Enum.GetValues<DbFlavor>())
-            test($"tabular table and list skip leading non-tabular results, flavor={flavor}, async={asynchronous}", () =>
-            {
-                var database = new FakeDatabase { ReaderFactory = _ => new DataTableReader(new[] { new DataTable(), Rows() }) };
-                var connector = new FakeConnector(database, flavor);
-                using var table = Result(asynchronous ? connector.ExecuteReaderDataTableAsync(new RenderedQuery("SELECT rows")).GetAwaiter().GetResult()
-                    : connector.ExecuteReaderDataTable(new RenderedQuery("SELECT rows")));
-                Check(table.Rows.Count == 1 && Result(Read<Model>(connector)).Single().Id == 7, "Leading result hid rows");
-                if (asynchronous) Check(database.AsyncNextResults == 2, "Result advancement was not asynchronous");
-            });
+                test($"tabular table and list skip leading non-tabular results, flavor={flavor}, async={asynchronous}", () =>
+                {
+                    var database = new FakeDatabase { ReaderFactory = _ => new DataTableReader(new[] { new DataTable(), Rows() }) };
+                    var connector = new FakeConnector(database, flavor);
+                    using var table = Result(asynchronous ? connector.ExecuteReaderDataTableAsync(new RenderedQuery("SELECT rows")).GetAwaiter().GetResult()
+                        : connector.ExecuteReaderDataTable(new RenderedQuery("SELECT rows")));
+                    Check(table.Rows.Count == 1 && Result(Read<Model>(connector)).Single().Id == 7, "Leading result hid rows");
+                    if (asynchronous) Check(database.AsyncNextResults == 2, "Result advancement was not asynchronous");
+                });
         }
 
         test("tabular async list propagates cancellation while loading and disposes resources", () =>

@@ -68,9 +68,9 @@ internal static class AzureSqlRegressionTests
             ["WHERE subquery"] = () => new SelectQuery<Item>().SelectRootColumns()
                 .Where(x => x.CategoryId, new SelectQuery<Category>().Select(x => x.Id).Top(2), SqlArrayOp.IN),
             ["aggregate and group by"] = () => Item.BeginSelectBuilder().BuildQuery(x => new
-                { Name = x.Select(y => y.Name), Count = x.Count(), Max = x.Max(y => y.Id), Upper = x.UPPER(y => y.Name) }),
+            { Name = x.Select(y => y.Name), Count = x.Count(), Max = x.Max(y => y.Id), Upper = x.UPPER(y => y.Name) }),
             ["CASE"] = () => Item.BeginSelectBuilder().BuildQuery(x => new
-                { Flag = x.Case<int>(c => c.AddCaseValue(1, w => w.Where(y => y.Enabled, true, SqlOp.EQ)).AddElseValue(0)) }),
+            { Flag = x.Case<int>(c => c.AddCaseValue(1, w => w.Where(y => y.Enabled, true, SqlOp.EQ)).AddElseValue(0)) }),
             ["CTE"] = () => new CteSelect(),
             ["insert output"] = () => new InsertQuery<Item>().InsertAuto(new Item { Name = "a", Enabled = true }).Output(x => x.Id),
             ["insert returned key"] = () => new InsertWithPrimaryKeyQuery<Item, int>().InsertAuto(new Item { Name = "a" }),

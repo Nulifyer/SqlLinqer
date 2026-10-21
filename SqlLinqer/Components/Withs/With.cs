@@ -20,7 +20,7 @@ namespace SqlLinqer.Components.Withs
         public readonly Table OutputTable;
         /// <summary>The common table expressions required before this expression.</summary>
         public readonly List<With> DependsOn;
-        
+
         private int? _order;
         /// <summary>The dependency depth used to order common table expressions.</summary>
         public int Order
@@ -36,7 +36,7 @@ namespace SqlLinqer.Components.Withs
             Alias = alias;
             DependsOn = new List<With>();
             OutputTable = new Table(null, Alias, Alias);
-            
+
             foreach (var select in Query.Selects.GetAll())
             {
                 var with_col = new Column(OutputTable, select.Alias, select.Alias);

@@ -49,10 +49,10 @@ namespace SqlLinqer.Components.Where
 
             if (rel_many_left == null && rel_many_right == null)
                 return this;
-            
+
             bool left_IsSameOrChildOf;
             bool right_IsSameOrChildOf;
-                        
+
             if (rel_many_left == null ^ rel_many_right == null)
             {
                 left_IsSameOrChildOf = false;
@@ -103,7 +103,7 @@ namespace SqlLinqer.Components.Where
 
             builder.Append($"{Left.Render(flavor)} {Operator.GetDescription()} {Right.Render(flavor)}");
         }
-    
+
         /// <inheritdoc/>
         public override IEnumerable<Column> GetColumnReferences()
         {

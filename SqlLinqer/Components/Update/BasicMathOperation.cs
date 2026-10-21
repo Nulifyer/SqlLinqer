@@ -12,14 +12,14 @@ namespace SqlLinqer.Components.Update
         public readonly MathOp Operator;
         /// <summary>The operand applied to the current assignment value.</summary>
         public readonly object Value;
-        
+
         /// <summary>Creates an arithmetic update operation.</summary>
         public BasicMathOperation(MathOp op, object value)
         {
             Operator = op;
             Value = value;
         }
-        
+
         /// <inheritdoc/>
         public override string Render(UpdateQuery query, UpdateStatement statement, ParameterCollection parameters, DbFlavor flavor)
         {
@@ -28,7 +28,7 @@ namespace SqlLinqer.Components.Update
             string opStr = Operator.GetDescription();
             return $"{statement.RenderTarget(flavor)} = {columnStr} {opStr} {placeholder}";
         }
-        
+
         /// <summary>
         /// A enum of simple math operations
         /// </summary>
@@ -39,19 +39,19 @@ namespace SqlLinqer.Components.Update
             /// </summary>
             [Description("+")]
             Add,
-            
+
             /// <summary>
             /// Subtraction
             /// </summary>
             [Description("-")]
             Sub,
-            
+
             /// <summary>
             /// Multiplication
             /// </summary>
             [Description("*")]
             Mult,
-            
+
             /// <summary>
             /// Division
             /// </summary>

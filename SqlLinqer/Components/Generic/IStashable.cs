@@ -10,5 +10,5 @@ namespace SqlLinqer.Components.Generic
         bool Stash();
         /// <summary>Restores and clears saved state. Returns true when saved state existed.</summary>
         bool Unstash();
-    }    
+    }
 }

@@ -37,7 +37,7 @@ namespace SqlLinqer.Queries.Core.Abstract
         /// The base structue of a core query.
         /// </summary>
         public BaseQuery() { }
-        
+
         /// <inheritdoc/>
         public RenderedQuery Render(DbFlavor flavor)
         {

@@ -9,12 +9,12 @@ namespace SqlLinqer.Queries.Core.Abstract
     {
         /// <summary>The root table mapping for this query.</summary>
         protected internal readonly Table Table;
-        
+
         /// <summary>
         /// The base structue of a query targeting a table.
         /// </summary>
         public TableQuery(Table table)
-        { 
+        {
             Table = table;
         }
     }

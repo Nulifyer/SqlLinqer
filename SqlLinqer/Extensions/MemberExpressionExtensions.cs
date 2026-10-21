@@ -53,7 +53,7 @@ namespace SqlLinqer.Extensions.MemberExpressionExtensions
                         ExtractMemberPath(exp, path);
                     }
                     break;
-                    
+
                 case BinaryExpression binaryExpression:
                     ExtractMemberPath(binaryExpression.Left, path);
                     break;

@@ -45,7 +45,7 @@ namespace SqlLinqer.Components.Generic
         public bool HasKey(TKey key)
         {
             return Components.ContainsKey(key);
-        }        
+        }
         /// <summary>Returns the component for the key, or the component type's default value if absent.</summary>
         public TCom TryGet(TKey key)
         {
@@ -63,7 +63,7 @@ namespace SqlLinqer.Components.Generic
         {
             return Components.Values.OfType<T>().Cast<T>().ToArray();
         }
-    
+
         private bool _stashed = false;
         /// <summary>Saves the current state if no state is already saved. Returns true when saved.</summary>
         public virtual bool Stash()

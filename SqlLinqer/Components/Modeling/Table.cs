@@ -51,10 +51,10 @@ namespace SqlLinqer.Components.Modeling
         /// <summary>
         /// The parent relationship of the table
         /// </summary>
-        public Relationship ParentRelationship 
+        public Relationship ParentRelationship
         {
             get => _parentRelationship;
-            internal set { _parentRelationship = value; GenerateUUID(); } 
+            internal set { _parentRelationship = value; GenerateUUID(); }
         }
 
         private List<UnprocessedRelationshipMember> _unprocessed;
@@ -125,7 +125,7 @@ namespace SqlLinqer.Components.Modeling
 
         private void GenerateUUID()
         {
-            if (ParentRelationship == null || SourceType == null) 
+            if (ParentRelationship == null || SourceType == null)
                 UUID = StringExtensions.GetRandomHashString();
             else
                 UUID = $"{ParentRelationship.ParentTable.UUID}.{ParentRelationship.DataTarget.Alias}.{SourceType.FullName}.{Name}".GetHashString();
@@ -196,7 +196,7 @@ namespace SqlLinqer.Components.Modeling
         }
         private List<string> GetPath(List<string> path, Table root)
         {
-            if (this.ParentRelationship == null ||  this.UUID == root?.UUID)
+            if (this.ParentRelationship == null || this.UUID == root?.UUID)
                 return path;
 
             ParentRelationship.ParentTable.GetPath(path, root);
@@ -213,11 +213,11 @@ namespace SqlLinqer.Components.Modeling
         {
             if (
                 // child table is not null
-                child_table != null && 
+                child_table != null &&
                 (
                     // child table is same as parent table
-                    child_table == parent_table || 
-                    ( 
+                    child_table == parent_table ||
+                    (
                         // check to see if parent table has the same relationship parent as child
                         // and parent is also not the relationship's child table
                         // this mean the parent table is a linking table in the joins of the relatinship
@@ -237,7 +237,7 @@ namespace SqlLinqer.Components.Modeling
 
         internal bool IsSameOrAlsoUnderSameParent(Table other_child)
         {
-            return this.UUID == other_child.UUID 
+            return this.UUID == other_child.UUID
                 || (
                     IsChildOf(other_child, this.ParentRelationship?.ParentTable)
                     && IsChildOf(this, other_child.ParentRelationship?.ParentTable)
@@ -251,18 +251,18 @@ namespace SqlLinqer.Components.Modeling
         internal static bool IsChildOf(Table child_table, Table parent_table)
         {
             if (child_table == null || parent_table == null) return false;
-            
+
             var current = child_table;
             if (current.UUID == parent_table.UUID)
                 return false;
-            
+
             while (current != null)
             {
                 if (current.ParentRelationship != null && current.ParentRelationship.ParentTable.UUID == parent_table.UUID)
                     return true;
                 current = current.ParentRelationship?.ParentTable;
             }
-            
+
             return false;
         }
 
@@ -281,10 +281,10 @@ namespace SqlLinqer.Components.Modeling
 
             return collection;
         }
-        
+
         private static readonly MemoryCache<Tuple<Type, string>, Table> _cache
             = new MemoryCache<Tuple<Type, string>, Table>(TimeSpan.FromSeconds(10), true);
-        
+
         /// <summary>
         /// Get the table from a given type
         /// </summary>

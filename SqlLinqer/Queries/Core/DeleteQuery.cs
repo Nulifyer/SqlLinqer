@@ -12,7 +12,7 @@ namespace SqlLinqer.Queries.Core
     {
         /// <summary>The modified-row output projection.</summary>
         protected internal OutputsCollection Outputs;
-        
+
         /// <summary>Creates a DELETE query for the supplied table.</summary>
         public DeleteQuery(Table table) : base(table)
         {

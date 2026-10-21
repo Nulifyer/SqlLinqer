@@ -26,7 +26,7 @@ namespace SqlLinqer.Components.Select
                 return null;
 
             var strs = GetAll().Select(x => x.Render(query, parameters, flavor, forJson, true));
-            
+
             string fields = string.Join(",", strs);
             return forJson ? SqlLinqer.Compilation.SqlDialect.For(flavor).JsonProjection(fields, query.Distinct,
                 query.IsSubQuery && query.Table.ParentRelationship?.Type != Modeling.RelationshipType.OneToOne) : fields;

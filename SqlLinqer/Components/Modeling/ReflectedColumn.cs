@@ -18,10 +18,10 @@ namespace SqlLinqer.Components.Modeling
         public readonly AutoOptions AutoOptions;
 
         /// <summary>Creates a column mapping from reflected member metadata.</summary>
-        public ReflectedColumn(Table table, UnprocessedColumnMember unprocessed_column) 
+        public ReflectedColumn(Table table, UnprocessedColumnMember unprocessed_column)
             : base(table, unprocessed_column.Member.Name, unprocessed_column.Member.Name)
         {
-            CodeMember = unprocessed_column.Member;            
+            CodeMember = unprocessed_column.Member;
             PrimaryKey = unprocessed_column.PrimaryKeyInfo != null;
             ColumnName = unprocessed_column.ColumnInfo?.Name ?? CodeMember.Name;
             DbType = unprocessed_column.ColumnInfo?.DbType;
@@ -36,9 +36,9 @@ namespace SqlLinqer.Components.Modeling
         /// <summary>
         /// The code type of the <see cref="CodeMember"/> value, non-nullable
         /// </summary>
-        public Type ValueType 
-        { 
-            get 
+        public Type ValueType
+        {
+            get
             {
                 var raw_type = CodeMember?.GetFieldOrPropValueType();
                 return Nullable.GetUnderlyingType(raw_type) ?? raw_type;

@@ -8,7 +8,7 @@ namespace SqlLinqer.Components.Update
     /// An update statement that updates one column with another
     /// </summary>
     public class ColumnValueUpdate : UpdateStatement
-    {        
+    {
         /// <summary>
         /// Value Column
         /// </summary>

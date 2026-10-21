@@ -50,7 +50,7 @@ namespace SqlLinqer.Components.Select
                 {
                     case DbFlavor.Sqlite:
                     case DbFlavor.DuckDb:
-                    case DbFlavor.PostgreSql:                        
+                    case DbFlavor.PostgreSql:
                     case DbFlavor.MySql:
                         return $"{Alias.DbWrapString(flavor)}, ({caseStr})";
                     case DbFlavor.SqlServer:

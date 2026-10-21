@@ -72,6 +72,6 @@ namespace SqlLinqer.Components.Select
         {
             AddCaseValue(return_value, null);
             return this;
-        }    
+        }
     }
 }

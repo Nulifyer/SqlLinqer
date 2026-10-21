@@ -26,7 +26,7 @@ namespace SqlLinqer.Exceptions
         /// </summary>
         /// <param name="table">The table the path was applied to.</param>
         /// <param name="path">The path that was searched.</param>
-        public SqlPathNotFoundException(Table table, IEnumerable<string> path) 
+        public SqlPathNotFoundException(Table table, IEnumerable<string> path)
             : base($"The path '{(path != null ? string.Join(".", path) : null)}' cannot be found on table '{table.Name}'{(table.SourceType != null ? $" from type '{table.SourceType.Name}'" : (table.ParentRelationship != null ? $" with parent table '{table.ParentRelationship.ParentTable.Name}'" : null))}.")
         {
             Table = table;

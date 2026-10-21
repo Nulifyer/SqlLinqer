@@ -9,6 +9,6 @@ namespace SqlLinqer.Queries.Interfaces
     /// </summary>
     public interface IQueryTyped
     {
-        
+
     }
 }

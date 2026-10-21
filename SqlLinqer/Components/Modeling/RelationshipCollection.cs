@@ -9,7 +9,7 @@ namespace SqlLinqer.Components.Modeling
         /// <summary>Creates an empty relationship collection.</summary>
         public RelationshipCollection() : base()
         {
-            
+
         }
 
         /// <summary>Adds or replaces a relationship indexed by its data-target alias.</summary>

@@ -17,7 +17,7 @@ namespace SqlLinqer.Queries.Interfaces
         /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
         /// <returns>The affected-row count and touched primary keys. An error response has no successful key result.</returns>
         SqlPrimaryKeysResponse<int, TPk> Execute(DbTransaction transaction = null);
-        
+
         /// <summary>
         /// Executes a write and returns its affected-row count and affected primary keys. Check the response State before reading its Result.
         /// MySQL modified-row output is unsupported.

@@ -28,12 +28,12 @@ internal static class MappingChecks
         });
         Test("DataTable materializes native scalar and binary columns", () =>
         {
-            var query = new SelectQuery<Person>("main").SelectRootColumns().Where(x=>x.Id,100,SqlOp.EQ);
+            var query = new SelectQuery<Person>("main").SelectRootColumns().Where(x => x.Id, 100, SqlOp.EQ);
             var rendered = new RenderedQuery();
-            rendered.Text = query.Render(rendered.Parameters,DbFlavor.DuckDb,false);
+            rendered.Text = query.Render(rendered.Parameters, DbFlavor.DuckDb, false);
             using var table = Result(connector.ExecuteReaderDataTable(rendered));
             var row = table.Rows[0];
-            Expect((Guid)row["Token"] == person.Token && ((byte[])row["Payload"]).SequenceEqual(person.Payload) && (decimal)row["Amount"] == person.Amount && (bool)row["Enabled"] && (DateTime)row["Born"] == person.Born,"DataTable changed native types");
+            Expect((Guid)row["Token"] == person.Token && ((byte[])row["Payload"]).SequenceEqual(person.Payload) && (decimal)row["Amount"] == person.Amount && (bool)row["Enabled"] && (DateTime)row["Born"] == person.Born, "DataTable changed native types");
         });
     }
 
@@ -41,10 +41,10 @@ internal static class MappingChecks
     {
         Test("wide scalar aggregates convert native HUGEINT without losing checked overflow", () =>
         {
-            Expect(Result(connector.ExecuteScalar<long>(new RenderedQuery("SELECT sum(Id) FROM people")))==406L,"Native HUGEINT sum conversion failed");
-            Expect(Result(connector.ExecuteScalar<decimal>(new RenderedQuery("SELECT 1234567890123456789012345678::HUGEINT")))==1234567890123456789012345678m,"Wide decimal scalar changed");
-            var overflow=connector.ExecuteScalar<int>(new RenderedQuery("SELECT 2147483648::BIGINT"));
-            Expect(overflow.State==ResponseState.Error && overflow.Error.InnerException is OverflowException,"Key/scalar narrowing silently overflowed");
+            Expect(Result(connector.ExecuteScalar<long>(new RenderedQuery("SELECT sum(Id) FROM people"))) == 406L, "Native HUGEINT sum conversion failed");
+            Expect(Result(connector.ExecuteScalar<decimal>(new RenderedQuery("SELECT 1234567890123456789012345678::HUGEINT"))) == 1234567890123456789012345678m, "Wide decimal scalar changed");
+            var overflow = connector.ExecuteScalar<int>(new RenderedQuery("SELECT 2147483648::BIGINT"));
+            Expect(overflow.State == ResponseState.Error && overflow.Error.InnerException is OverflowException, "Key/scalar narrowing silently overflowed");
         });
     }
 }

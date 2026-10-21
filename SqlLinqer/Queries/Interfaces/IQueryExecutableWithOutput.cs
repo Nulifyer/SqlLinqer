@@ -16,7 +16,7 @@ namespace SqlLinqer.Queries.Interfaces
         /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
         /// <returns>The buffered modified rows and execution state. Dispose the Result table after a successful response.</returns>
         SqlResponse<DataTable> ExecuteWithOutput(DbTransaction transaction = null);
-        
+
         /// <summary>
         /// Executes a write and buffers the selected modified columns in a DataTable that the caller must dispose. Check the response State before reading its Result.
         /// MySQL modified-row output is unsupported.

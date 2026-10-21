@@ -19,7 +19,7 @@ namespace SqlLinqer.Components.Joins
         public readonly WhereCollection Condition;
         /// <summary>Additional predicates appended to the join condition.</summary>
         public readonly WhereCollection AdditionalCondition;
-        
+
         private bool _reversed;
         /// <summary>The child table depth, negated for a reversed join.</summary>
         public int Order => _reversed ? Child.Order * -1 : Child.Order;
@@ -58,7 +58,7 @@ namespace SqlLinqer.Components.Joins
 
         /// <summary>Renders this component for the selected database dialect.</summary>
         public virtual void Render(JoinQuery query, ParameterCollection parameters, DbFlavor flavor, StringBuilder builder)
-        {            
+        {
             if (Condition.Count > 0 && Child.UUID != query.Table.UUID)
             {
                 builder.Append($"LEFT JOIN ");

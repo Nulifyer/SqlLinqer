@@ -67,7 +67,7 @@ namespace SqlLinqer.Components.Where
                             .Select(x => x.Table)
                             .DistinctBy(x => x.UUID)
                             .All(x => x.IsSameOrChildOf(SubQuery.Table));
-                        
+
                         if (allAreSameOrChildren)
                         {
                             SubQuery.RootWhere.AddComponent(com);

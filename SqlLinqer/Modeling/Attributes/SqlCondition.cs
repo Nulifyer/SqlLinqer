@@ -13,12 +13,12 @@ namespace SqlLinqer.Modeling
         /// If the condition should replace the join condition from the relationship
         /// </summary>
         public virtual bool Override { get; }
-        
+
         /// <summary>
         /// The index of the join in the relationship to apply to
         /// </summary>
         public readonly int ApplyToIdx;
-        
+
         /// <summary>
         /// Defines additional conditions against to add to the join of the decorated relationship
         /// </summary>

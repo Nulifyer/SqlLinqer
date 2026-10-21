@@ -79,10 +79,10 @@ namespace SqlLinqer.Queries.Typed
                 if (primaryKeyData.State == ResponseState.Valid)
                 {
                     using (var table = primaryKeyData.Result)
-                    foreach (System.Data.DataRow row in table.Rows)
-                    {
-                        primaryKeys.Add(row[0]);
-                    }
+                        foreach (System.Data.DataRow row in table.Rows)
+                        {
+                            primaryKeys.Add(row[0]);
+                        }
                     response.SetResult(primaryKeys.Count);
                 }
                 executedRes = primaryKeyData;

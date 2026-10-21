@@ -18,7 +18,7 @@ namespace SqlLinqer.Modeling
         {
             RelationshipType = relationshipType;
         }
-        
+
         /// <summary>Resolves the relationship attribute into mapped columns and joins.</summary>
         public abstract Relationship ProcessRelationship(Table currentTable, UnprocessedRelationshipMember unprocessed);
     }

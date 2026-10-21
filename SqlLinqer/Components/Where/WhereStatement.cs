@@ -11,7 +11,7 @@ namespace SqlLinqer.Components.Where
     {
         /// <summary>The preparation order used to sort predicates.</summary>
         public abstract int Order { get; }
-        
+
         /// <summary>Returns the logical inverse of this predicate.</summary>
         public abstract IWhereComponent Invert();
         /// <summary>Prepares the predicate and any relationship subqueries for the owning query.</summary>

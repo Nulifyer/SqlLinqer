@@ -37,5 +37,5 @@ namespace SqlLinqer
         /// </summary>
         [Description("NOT IN")]
         NOTALL,
-    }    
+    }
 }

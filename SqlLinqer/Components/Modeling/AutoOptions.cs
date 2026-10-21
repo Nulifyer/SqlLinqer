@@ -26,7 +26,7 @@ namespace SqlLinqer.Components.Modeling
             Select = AutoDoThing<SqlAutoSelect, SqlAutoSelectExclude>(member, type, data_target_member) ?? true;
             Update = AutoDoThing<SqlAutoUpdate, SqlAutoUpdateExclude>(member, type, data_target_member) ?? true;
             Insert = AutoDoThing<SqlAutoInsert, SqlAutoInsertExclude>(member, type, data_target_member) ?? true;
-            
+
             OrderByInfo = member.GetCustomAttribute<SqlAutoOrderBy>();
             OrderBy = OrderByInfo != null;
 
@@ -40,7 +40,7 @@ namespace SqlLinqer.Components.Modeling
             {
                 Update = false;
                 UpdateOnDefaultAlways = false;
-                
+
                 if (unprocessed_member.PrimaryKeyInfo.DbGenerated)
                 {
                     Insert = false;

@@ -26,7 +26,7 @@ namespace SqlLinqer.Components.Ordering
             Column = column;
             Dir = dir;
         }
-        
+
         /// <summary>Renders this component for the selected database dialect.</summary>
         public string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
@@ -37,7 +37,7 @@ namespace SqlLinqer.Components.Ordering
                 case SqlDir.DESC:
                     func = SqlFunc.MAX;
                     break;
-                case SqlDir.ASC:                    
+                case SqlDir.ASC:
                 default:
                     func = SqlFunc.MIN;
                     break;

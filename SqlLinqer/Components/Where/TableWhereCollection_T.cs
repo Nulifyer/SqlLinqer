@@ -9,7 +9,7 @@ using SqlLinqer.Queries.Core;
 namespace SqlLinqer.Components.Where
 {
     /// <summary>Builds typed predicates against a mapped model.</summary>
-    public class TableWhereCollection<T> 
+    public class TableWhereCollection<T>
         : TableWhereCollection
         , ITypedWhereCollection<TableWhereCollection<T>, T>
     {

@@ -16,7 +16,7 @@ namespace SqlLinqer.Queries.Interfaces
         /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
         /// <returns>The selected rows in Result and the unpaged projection count in TotalResults. An error clears the rows and total.</returns>
         SqlSelectResponse<T> ExecuteWithTotalCount(DbTransaction transaction = null);
-        
+
         /// <summary>
         /// Returns selected rows and the total root projection count before paging, including DISTINCT and grouping. Check the response State before reading its Result.
         /// Data and count share one captured definition; paging runs them as separate commands.

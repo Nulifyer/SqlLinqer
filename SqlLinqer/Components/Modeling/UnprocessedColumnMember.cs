@@ -22,7 +22,7 @@ namespace SqlLinqer.Components.Modeling
             {
                 PrimaryKeyInfo = Member.GetCustomAttribute<SqlPrimaryKey>();
                 ColumnInfo = Member.GetCustomAttribute<SqlColumn>();
-            }            
+            }
             AutoOptions = new AutoOptions(Member.ReflectedType, this, false);
         }
     }

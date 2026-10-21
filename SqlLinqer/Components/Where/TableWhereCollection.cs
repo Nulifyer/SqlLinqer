@@ -23,7 +23,7 @@ namespace SqlLinqer.Components.Where
             if (column == null)
                 throw new SqlPathNotFoundException(Table, column_path);
 
-            AddComponent(new WhereColumnValue(column, value, op, sub_op));            
+            AddComponent(new WhereColumnValue(column, value, op, sub_op));
         }
         /// <summary>Adds an array or subquery predicate for a mapped column path.</summary>
         protected void WhereColumnArrayValue(IEnumerable<string> column_path, IEnumerable<object> values, SqlArrayOp array_op)

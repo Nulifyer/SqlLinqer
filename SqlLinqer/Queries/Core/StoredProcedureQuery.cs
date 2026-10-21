@@ -66,7 +66,7 @@ namespace SqlLinqer.Queries.Core
                 case DbFlavor.PostgreSql:
                     return $"CALL {(Schema != null ? $"{Schema.DbWrap(flavor)}." : null)}{Procedure.DbWrap(flavor)} {string.Join(",", valueKeys)}";
                 default:
-                        throw new System.NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported");
+                    throw new System.NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported");
             }
         }
     }

@@ -16,7 +16,7 @@ namespace SqlLinqer.Queries.Interfaces
         /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
         /// <returns>The query result and execution state. An empty result or zero affected rows can be successful.</returns>
         SqlResponse<T> Execute(DbTransaction transaction = null);
-        
+
         /// <summary>
         /// Executes the query and returns selected data or the affected-row count. Check the response State before reading its Result.
         /// Validation can throw before database execution.
