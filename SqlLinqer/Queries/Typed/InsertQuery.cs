@@ -14,9 +14,10 @@ using System.Data;
 namespace SqlLinqer.Queries.Typed
 {
     /// <summary>
-    /// A INSERT query. Based around a type.
+    /// Builds inserts from mapped model values. Ordinary execution batches rows within parameter limits using one write transaction.
+    /// SQL Server and Azure SQL cap ordinary commands at 2,100 parameters and 1,000 VALUES rows. Owned batch transactions roll back all batches on failure.
     /// </summary>
-    /// <typeparam name="T">The type serving as the root data model</typeparam>
+    /// <typeparam name="T">The mapped root model type.</typeparam>
     public partial class InsertQuery<T>
         : Core.InsertQuery
         , IQueryTyped
@@ -31,13 +32,14 @@ namespace SqlLinqer.Queries.Typed
         where T : class
     {
         /// <summary>
-        /// A INSERT query. Based around a type.
+        /// Creates a INSERT builder for the supplied or cached model mapping.
         /// </summary>
+        /// <param name="default_schema">The fallback schema for models without an explicit SqlTable schema. This does not bind an execution connector.</param>
         public InsertQuery(string default_schema = null) : this(Table.GetCached<T>(default_schema)) { }
         /// <summary>
-        /// A INSERT query. Based around a type.
+        /// Creates a INSERT builder for the supplied or cached model mapping.
         /// </summary>
-        /// <param name="table">The root table of the query</param>
+        /// <param name="table">The root table mapping, whose database objects must already exist.</param>
         public InsertQuery(Table table) : base(table)
         {
 
@@ -115,7 +117,7 @@ namespace SqlLinqer.Queries.Typed
         public SqlResponse<DataTable> ExecuteWithOutput(BaseConnector connector, DbTransaction transaction = null)
         {
             if (connector == null)
-                throw new ArgumentNullException("Either pass a connector or set the default connector.", nameof(connector));
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
             return ExecuteBatches<DataTable>(connector, transaction,
                 (query, tx) => connector.ExecuteReaderDataTable(query, tx),
                 (all, batch) =>
@@ -126,12 +128,23 @@ namespace SqlLinqer.Queries.Typed
                 }, table => table?.Dispose());
         }
 
-        /// <inheritdoc cref="ExecuteTvp(DbTransaction)"/>
+        /// <summary>
+        /// Inserts through a generated SQL Server or Azure SQL TVP and buffers the selected output columns.
+        /// Type creation and cleanup use separate autocommit connections in the write database. Inserted rows keep their write transaction.
+        /// </summary>
+        /// <param name="transaction">An optional caller-owned transaction. The library does not commit, roll back, or dispose it.</param>
+        /// <returns>A response containing the combined output rows as a DataTable. The caller disposes a successful table.</returns>
         public SqlResponse<DataTable> ExecuteTvpWithOutput(DbTransaction transaction = null)
         {
             return ExecuteTvpWithOutput(ExecutionConnector, transaction);
         }
-        /// <inheritdoc cref="ExecuteTvp(BaseConnector, DbTransaction)"/>
+        /// <summary>
+        /// Inserts through a generated SQL Server or Azure SQL TVP and buffers the selected output columns.
+        /// Type creation and cleanup use separate autocommit connections in the write database. Inserted rows keep their write transaction.
+        /// </summary>
+        /// <param name="connector">The execution connector. It must create fresh connections to the same server as the write transaction.</param>
+        /// <param name="transaction">An optional caller-owned transaction. The library does not commit, roll back, or dispose it.</param>
+        /// <returns>A response containing the combined output rows as a DataTable. The caller disposes a successful table.</returns>
         public SqlResponse<DataTable> ExecuteTvpWithOutput(BaseConnector connector, DbTransaction transaction = null)
         {
             return ExecuteTvpCore(connector, transaction,
@@ -141,7 +154,7 @@ namespace SqlLinqer.Queries.Typed
         internal SqlResponse<int> ExecuteAndCapturePrimaryKeys(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null)
         {
             if (connector == null)
-                throw new ArgumentNullException("Either pass a connector or set the default connector.", nameof(connector));
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
 
             if (this.Inserts.Count == 0)
             {
@@ -309,7 +322,7 @@ namespace SqlLinqer.Queries.Typed
             var response = new SqlResponse<TResult>();
             DbConnection conn = null;
             DbTransaction transaction = null;
-            bool typeCreated = false;
+            bool typeCleanupRequired = false;
             try
             {
                 conn = existingTransaction == null
@@ -317,16 +330,18 @@ namespace SqlLinqer.Queries.Typed
                     : existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
                 if (conn.State != ConnectionState.Open)
                     conn.Open();
-                transaction = existingTransaction ?? conn.BeginTransaction(IsolationLevel.ReadCommitted);
 
-                var create = connector.ExecuteNonQuery(new RenderedQuery(createType), transaction);
+                // Type DDL must be committed before SQL Server binds the TVP. It also
+                // needs independent cleanup when a caller rolls back or dooms its transaction.
+                typeCleanupRequired = true;
+                var create = connector.ExecuteTypeDdl(new RenderedQuery(createType), conn.Database);
                 if (create.State == ResponseState.Error) throw create.Error;
-                typeCreated = true;
+                transaction = existingTransaction ?? conn.BeginTransaction(IsolationLevel.ReadCommitted);
                 response = execute(tempQuery, transaction);
                 if (response.State == ResponseState.Error) throw response.Error;
-                var drop = connector.ExecuteNonQuery(new RenderedQuery(dropType), transaction);
+                var drop = connector.ExecuteTypeDdl(new RenderedQuery(dropType), conn.Database);
                 if (drop.State == ResponseState.Error) throw drop.Error;
-                typeCreated = false;
+                typeCleanupRequired = false;
                 if (existingTransaction == null) transaction.Commit();
             }
             catch (Exception error)
@@ -336,13 +351,17 @@ namespace SqlLinqer.Queries.Typed
                     try { transaction.Rollback(); }
                     catch { }
                 }
-                else if (typeCreated)
+                if (typeCleanupRequired)
                 {
-                    // A usable caller transaction can clean up immediately. A doomed one must
-                    // be rolled back by its owner, which also rolls back CREATE TYPE.
-                    try { connector.ExecuteNonQuery(new RenderedQuery(dropType), transaction); }
-                    catch { }
+                    try
+                    {
+                        var cleanup = connector.ExecuteTypeDdl(new RenderedQuery(dropType), conn.Database);
+                        if (cleanup.State == ResponseState.Error) error.Data["TvpTypeCleanupError"] = cleanup.Error;
+                    }
+                    catch (Exception cleanupError) { error.Data["TvpTypeCleanupError"] = cleanupError; }
                 }
+                try { (response.Result as IDisposable)?.Dispose(); }
+                catch { }
                 response.SetError(error);
             }
             finally

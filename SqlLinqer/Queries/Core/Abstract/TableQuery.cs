@@ -7,6 +7,7 @@ namespace SqlLinqer.Queries.Core.Abstract
     /// </summary>
     public abstract class TableQuery : BaseQuery
     {
+        /// <summary>The root table mapping for this query.</summary>
         protected internal readonly Table Table;
         
         /// <summary>

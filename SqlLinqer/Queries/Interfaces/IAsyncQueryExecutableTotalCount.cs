@@ -6,27 +6,30 @@ using SqlLinqer.Connections;
 namespace SqlLinqer.Queries.Interfaces
 {
     /// <summary>
-    /// A <see cref="IQueryTyped"/> that can be executed and will return a total count.
+    /// Executes a selected page and reports its total before root paging. Requested cancellation propagates as an exception.
     /// </summary>
-    /// <typeparam name="T">The return type of the execution result</typeparam>
+    /// <typeparam name="T">The declared query result type.</typeparam>
     public interface IAsyncQueryExecutableTotalCount<T>
     {
         /// <summary>
-        /// Asynchronously executes the query, capturing database errors and propagating requested cancellation.
-        /// Uses the connector supplied at query creation, or <see cref="SqlLinqer.Default.Connector"/> if none was supplied.
+        /// Asynchronously returns selected rows and the total root projection count before paging, including DISTINCT and grouping. Requested cancellation throws.
+        /// Uses the retained connector or the current default. Data and count share one captured definition; paging runs them as separate commands.
         /// </summary>
-        /// <param name="transaction">An existing database transactiong with the connection property set to the open connection.</param>
-        /// <param name="cancellationToken">Cancels connection opening, command execution, and result reading.</param>
-        /// <returns>The retult of the query in a state based wrapper.</returns>
+        /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
+        /// <param name="cancellationToken">Cancels provider connection opening, command execution, and result reading. Defaults to no requested cancellation.</param>
+        /// <returns>The selected rows in Result and the unpaged projection count in TotalResults. An error clears the rows and total.</returns>
+        /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         Task<SqlSelectResponse<T>> ExecuteWithTotalCountAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Asynchronously executes the query, capturing database errors and propagating requested cancellation.
+        /// Asynchronously returns selected rows and the total root projection count before paging, including DISTINCT and grouping. Requested cancellation throws.
+        /// Data and count share one captured definition; paging runs them as separate commands.
         /// </summary>
-        /// <param name="connector">The connector used to render and execute this call, without changing the query's retained connector.</param>
-        /// <param name="transaction">An existing database transactiong with the connection property set to the open connection.</param>
-        /// <param name="cancellationToken">Cancels connection opening, command execution, and result reading.</param>
-        /// <returns>The retult of the query in a state based wrapper.</returns>
+        /// <param name="connector">The connector used for this call. It does not replace the retained connector or rebuild the query model mappings and schema.</param>
+        /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
+        /// <param name="cancellationToken">Cancels provider connection opening, command execution, and result reading. Defaults to no requested cancellation.</param>
+        /// <returns>The selected rows in Result and the unpaged projection count in TotalResults. An error clears the rows and total.</returns>
+        /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         Task<SqlSelectResponse<T>> ExecuteWithTotalCountAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default);
     }
 }

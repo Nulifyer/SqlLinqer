@@ -8,14 +8,17 @@ using SqlLinqer.Queries.Core;
 
 namespace SqlLinqer.Components.Where
 {
+    /// <summary>Builds typed predicates against a mapped model.</summary>
     public class TableWhereCollection<T> 
         : TableWhereCollection
         , ITypedWhereCollection<TableWhereCollection<T>, T>
     {
+        /// <summary>Creates a predicate group bound to a root table mapping.</summary>
         public TableWhereCollection(Table table, SqlWhereOp group_op) : base(table, group_op)
         {
 
         }
+        /// <summary>Creates a predicate group bound to a root table mapping.</summary>
         public TableWhereCollection(SqlWhereOp group_op) : base(Table.GetCached<T>(), group_op)
         {
 
@@ -75,16 +78,19 @@ namespace SqlLinqer.Components.Where
             return this;
         }
 
+        /// <summary>Adds a comparison between a mapped column path and a value.</summary>
         public new TableWhereCollection<T> WhereColumnValue(IEnumerable<string> column_path, object value, SqlOp op, SqlSubQueryOp sub_op = SqlSubQueryOp.ANY)
         {
             base.WhereColumnValue(column_path, value, op, sub_op);
             return this;
         }
+        /// <summary>Adds an array or subquery predicate for a mapped column path.</summary>
         public new TableWhereCollection<T> WhereColumnArrayValue(IEnumerable<string> column_path, IEnumerable<object> values, SqlArrayOp array_op)
         {
             base.WhereColumnArrayValue(column_path, values, array_op);
             return this;
         }
+        /// <summary>Adds a comparison between two mapped column paths.</summary>
         public new TableWhereCollection<T> WhereTwoColumn(IEnumerable<string> column_path_left, IEnumerable<string> column_path_right, SqlOp op)
         {
             base.WhereTwoColumn(column_path_left, column_path_right, op);

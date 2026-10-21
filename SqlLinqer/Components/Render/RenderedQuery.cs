@@ -4,20 +4,24 @@ using System.Linq;
 namespace SqlLinqer.Components.Render
 {
     /// <summary>
-    /// A rendered query with the query text and the parameters
+    /// Holds parameterized SQL command text, its bindings, and optional logical SELECT result-shape metadata.
     /// </summary>
     public class RenderedQuery
     {
         internal bool Transactional;
-        /// <summary>The logical selected object structure, independent of JSON transport.</summary>
+        /// <summary>
+        /// The logical selected member structure for a regular SELECT. Count and other commands can leave it null.
+        /// SQL expressions without a declared member type use object metadata.
+        /// </summary>
         public SqlLinqer.Compilation.SqlResultShape ResultShape { get; internal set; }
 
         /// <summary>
-        /// The text of the query
+        /// The parameterized SQL command text. Execute it together with Parameters so application values remain bound.
         /// </summary>
         public string Text;
         /// <summary>
-        /// The parameters of the query
+        /// The bindings referenced by Text. Each ordinary query render returns fresh bindings.
+        /// Do not share mutable bindings between concurrent renders or executions.
         /// </summary>
         public ParameterCollection Parameters;
 
@@ -38,8 +42,9 @@ namespace SqlLinqer.Components.Render
         }
 
         /// <summary>
-        /// Get diagnostic query text with input placeholders replaced by values. Output bindings remain placeholders.
+        /// Returns diagnostic SQL with input values substituted. Output and input/output parameter bindings remain placeholders.
         /// </summary>
+        /// <returns>Diagnostic command text, or the original empty/null text.</returns>
         public string GetTextWithParameterValues()
         {
             if (string.IsNullOrEmpty(this.Text))
@@ -96,6 +101,7 @@ namespace SqlLinqer.Components.Render
             return newText;
         }
 
+        /// <summary>Returns diagnostic SQL with parameter values substituted. Do not use it to execute commands.</summary>
         public override string ToString()
         {
             return GetTextWithParameterValues();

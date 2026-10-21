@@ -8,7 +8,8 @@ namespace SqlLinqer
     public static class Default
     {
         /// <summary>
-        /// The default database connector
+        /// The connector used at execution time when a query has no retained or explicit execution connector.
+        /// Model schemas are selected at query construction and do not change with this default.
         /// </summary>
         public static BaseConnector Connector { get; set; }
     }

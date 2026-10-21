@@ -12,7 +12,7 @@ namespace SqlLinqer.Modeling
     public class SqlConditionParentColumnConstant : SqlCondition
     {
         /// <summary>
-        /// The target colum
+        /// The target column
         /// </summary>
         public readonly string ParentColumn;
         /// <summary>

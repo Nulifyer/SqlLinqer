@@ -82,6 +82,10 @@ The caller must decide how to complete a cancelled transaction.
 Connections and transactions created by the library are disposed. Failed or cancelled owned writes attempt rollback.
 Batched inserts retain one transaction for all batches.
 
+Generated SQL Server TVP inserts create and drop their table type through separate autocommit connections.
+The insert uses the owned or supplied write transaction. Type cleanup also runs after cancellation or a server-aborted transaction.
+The connector must create connections to the same server as the write connection. Metadata commands use the write connection's database.
+
 The library retains its .NET Standard 2.0 target.
 Transaction begin, commit, rollback, and disposal use synchronous base contracts, which do not provide asynchronous lifecycle methods in this target.
 Connection opening and database commands use the asynchronous provider contracts.

@@ -261,11 +261,12 @@ internal static class RegressionSuite
                 var connector = new FakeConnector(database, DbFlavor.SqlServer);
                 using var connection = new FakeConnection(database); connection.Open();
                 using var transaction = (FakeTransaction)connection.BeginTransaction();
-                if (fail) database.FailAt = "execute";
+                if (fail) database.FailSql = "INSERT INTO";
                 var result = new InsertWithPrimaryKeyQuery<Item, int>().InsertAuto(new Item()).ExecuteTvp(connector, transaction);
                 Expect(result.State == (fail ? ResponseState.Error : ResponseState.Valid), "Unexpected TVP response");
-                Expect(connector.Created == 0, "TVP created another connection");
-                Expect(database.Executed.All(x => x.UsedTransaction == transaction), "TVP command ignored caller transaction");
+                Expect(connector.Created == 2, "TVP metadata connections were not isolated");
+                Expect(database.Executed.Where(x => x.CommandText.StartsWith("INSERT INTO")).All(x => x.UsedTransaction == transaction), "TVP insert ignored caller transaction");
+                TvpRegressionTests.CheckTypeDdl(database);
                 Expect(!transaction.IsDisposed && transaction.Commits == 0 && transaction.Rollbacks == 0, "TVP completed caller transaction");
                 Expect(!connection.IsDisposed && connection.State == ConnectionState.Open, "TVP closed caller connection");
             });
@@ -275,13 +276,14 @@ internal static class RegressionSuite
         {
             Test($"TVP completes its owned transaction, failure={fail}", () =>
             {
-                var database = new FakeDatabase { FailAt = fail ? "execute" : null };
+                var database = new FakeDatabase { FailSql = fail ? "INSERT INTO" : null };
                 var connector = new FakeConnector(database, DbFlavor.SqlServer);
                 var result = new InsertWithPrimaryKeyQuery<Item, int>().InsertAuto(new Item()).ExecuteTvp(connector);
                 Expect(result.State == (fail ? ResponseState.Error : ResponseState.Valid), "Unexpected TVP response");
-                Expect(connector.Created == 1, "TVP split the operation across connections");
-                var connection = database.Connections.Single();
+                Expect(connector.Created == 3, "TVP metadata connections were not isolated");
+                var connection = database.Connections.First();
                 var transaction = connection.Transactions.Single();
+                TvpRegressionTests.CheckTypeDdl(database);
                 Expect(transaction.IsDisposed && connection.IsDisposed, "TVP leaked resources");
                 Expect(transaction.Commits == (fail ? 0 : 1) && transaction.Rollbacks == (fail ? 1 : 0), "Incorrect TVP transaction result");
             });
@@ -398,9 +400,11 @@ internal static class RegressionSuite
         }
 
         AzureSqlRegressionTests.Run(Test);
+        ProductionRegressionTests.Run(Test);
         ConnectorBindingRegressionTests.Run(Test);
         CompilationRegressionTests.Run(Test);
         AsyncRegressionTests.Run(Test);
+        TvpRegressionTests.Run(Test);
         CallableRegressionTests.RunAsync(Test);
         CallableRegressionTests.Run(Test);
         JsonRegressionTests.Run(Test);

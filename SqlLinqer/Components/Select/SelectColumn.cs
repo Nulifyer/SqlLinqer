@@ -8,16 +8,21 @@ using SqlLinqer.Queries.Core;
 
 namespace SqlLinqer.Components.Select
 {
+    /// <summary>A mapped column in a SELECT projection.</summary>
     public class SelectColumn : SelectStatement
     {
         private readonly string _alias;
+        /// <summary>The mapped column to select.</summary>
         public readonly Column Column;
+        /// <inheritdoc/>
         public override string Alias => _alias ?? Column.Alias;
 
+        /// <summary>Creates a selected column, using the supplied alias when present.</summary>
         public SelectColumn(Column column)
         {
             Column = column;
         }
+        /// <summary>Creates a selected column, using the supplied alias when present.</summary>
         public SelectColumn(Column column, string alias)
         {
             _alias = alias;

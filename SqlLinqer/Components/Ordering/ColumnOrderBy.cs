@@ -7,17 +7,22 @@ using System;
 
 namespace SqlLinqer.Components.Ordering
 {
+    /// <summary>Orders results by a mapped column.</summary>
     public class ColumnOrderBy : IOrderByStatement
     {
+        /// <summary>The column used for sorting.</summary>
         public Column Column;
+        /// <summary>The sorting direction.</summary>
         public SqlDir Dir;
 
+        /// <summary>Creates a column sorting expression.</summary>
         public ColumnOrderBy(Column column, SqlDir dir)
         {
             Column = column;
             Dir = dir;
         }
 
+        /// <summary>Renders this component for the selected database dialect.</summary>
         public string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
             switch (flavor)

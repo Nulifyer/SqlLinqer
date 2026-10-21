@@ -8,17 +8,22 @@ using SqlLinqer.Extensions.StringExtensions;
 
 namespace SqlLinqer.Queries.Core
 {
+    /// <summary>Builds an UPDATE command for a mapped table.</summary>
     public class UpdateQuery : WhereQuery
     {
+        /// <summary>The column assignments to apply.</summary>
         protected internal UpdatesCollection Updates;
+        /// <summary>The modified-row output projection.</summary>
         protected internal OutputsCollection Outputs;
 
+        /// <summary>Creates an UPDATE query for the supplied table.</summary>
         public UpdateQuery(Table table) : base(table)
         {
             Updates = new UpdatesCollection();
             Outputs = new OutputsCollection();
         }
 
+        /// <inheritdoc/>
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
             var working = IsCompilationCopy ? this : SqlLinqer.Compilation.SnapshotGraph.Capture(this);

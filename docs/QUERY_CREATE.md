@@ -87,3 +87,6 @@ On SQL Server, use `ExecuteTvp` as an alternative to `Execute` for a table-value
 ```csharp
 var tvpResponse = batchQuery.ExecuteTvp();
 ```
+
+The insert uses one write transaction. Generated type creation and cleanup use separate autocommit connections to avoid SQL Server metadata deadlocks.
+The connector creates those connections even when you supply a transaction. See the [SQL Server TVP lifecycle](../SqlLinqer.Tests/SqlServer/README.md#native-behavior-and-limits) for ownership and cleanup details.

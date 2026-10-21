@@ -5,24 +5,20 @@ using System.Data.Common;
 namespace SqlLinqer.Connections
 {
     /// <summary>
-    /// Creates new connections to the database by replicating the example connection passed to it.
+    /// Creates fresh provider connections from a template's type and connection string. Provider authentication properties are not copied.
+    /// AccessToken, AccessTokenCallback, and SqlCredential are not copied; use ConnectionFactoryConnector for authentication through provider properties.
     /// </summary>
-    /// <remarks>
-    /// Copies only the provider type and connection string, replacing the connection timeout.
-    /// Provider properties such as AccessToken, AccessTokenCallback and SqlCredential are not copied.
-    /// Use ConnectionFactoryConnector when authentication requires properties on each new connection.
-    /// </remarks>
     public class ReplicatorConnector : BaseConnector
     {
         private readonly Type _type;
         private readonly string _connectionString;
 
         /// <summary>
-        /// Creates new connections to the database by replicating the example connection passed to it.
+        /// Creates a connector from a provider template without retaining its authentication-property values.
         /// </summary>
-        /// <param name="connection">The connection to replicate</param>        
-        /// <param name="dbFlavor">The type of Sql database</param>
-        /// <param name="options">A set of configuration options</param>
+        /// <param name="connection">A template provider connection. Its type and connection string are copied; the template itself is not used for query execution.</param>
+        /// <param name="dbFlavor">The SQL dialect and JSON transport format.</param>
+        /// <param name="options">Connector settings, or null to use their defaults.</param>
         public ReplicatorConnector(DbConnection connection, DbFlavor dbFlavor, ConnectorOptions options) : base(dbFlavor, options)
         {
             if (connection == null)
@@ -65,10 +61,10 @@ namespace SqlLinqer.Connections
             _connectionString = connectionParams.ConnectionString;
         }
         /// <summary>
-        /// Creates new connections to the database by replicating the example connection passed to it.
+        /// Creates a connector from a provider template without retaining its authentication-property values.
         /// </summary>
-        /// <param name="connection">The connection to replicate</param>        
-        /// <param name="dbFlavor">The type of Sql database</param>
+        /// <param name="connection">A template provider connection. Its type and connection string are copied; the template itself is not used for query execution.</param>
+        /// <param name="dbFlavor">The SQL dialect and JSON transport format.</param>
         public ReplicatorConnector(DbConnection connection, DbFlavor dbFlavor) : this(connection, dbFlavor, new ConnectorOptions()) { }
 
         /// <inheritdoc/>

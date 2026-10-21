@@ -56,6 +56,7 @@ namespace SqlLinqer.Components.Render
             Components.Add(id, new TvpParameter(id, value, typeName));
         }
     
+        /// <summary>Imports parameters from another collection without replacing existing placeholders.</summary>
         protected internal void ImportParametersFrom(ParameterCollectionBase other_collection)
         {
             foreach (var parameter in other_collection.GetAll())

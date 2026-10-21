@@ -5,30 +5,27 @@ using SqlLinqer.Queries.Typed;
 namespace SqlLinqer.Modeling
 {
     /// <summary>
-    /// Includes the extension methods of the SqlLinqer library
-    /// Should be inherited by classes with no primary key. For those with a primary key use <see cref="SqlLinqerPrimaryKeyObject{TObj, TKey}"/>
+    /// Provides typed query factories for an existing mapped table. Use SqlLinqerPrimaryKeyObject for primary-key query helpers.
     /// </summary>
-    /// <typeparam name="TObj">The data model that represents the database table and its relationships to other data models</typeparam>
+    /// <typeparam name="TObj">The concrete model type representing the database table.</typeparam>
     public abstract class SqlLinqerObject<TObj> where TObj : class
     {
         #region Insert
         /// <summary>
-        /// Create a insert query for the object
+        /// Creates an empty insert builder for this mapped model.
         /// </summary>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>A insert query for the defined object type.</returns>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A mutable insert query. Add rows with InsertAuto before executing.</returns>
         public static InsertQuery<TObj> BeginInsert(BaseConnector connector = null)
         {
             return new InsertQuery<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
         }
         /// <summary>
-        /// Create an auto insert query
+        /// Creates an insert for this instance using automatic-insert attributes.
+        /// Database-generated primary keys are omitted.
         /// </summary>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>
-        /// A insert query for the defined object type. The inserted columns are based off the
-        /// <see cref="SqlLinqer.Modeling.SqlAutoInsert"/> and <see cref="SqlLinqer.Modeling.SqlAutoInsertExclude"/> attributes.
-        /// </returns>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>An insert query containing this instance and its automatic-insert columns.</returns>
         public InsertQuery<TObj> BeginInsertAuto(BaseConnector connector = null)
         {
             var query = BeginInsert(connector);
@@ -39,23 +36,20 @@ namespace SqlLinqer.Modeling
 
         #region Select
         /// <summary>
-        /// Create a select query for the object
+        /// Creates a SELECT builder without selecting its output columns.
         /// </summary>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>A select query for the defined object type.</returns>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A mutable select query.</returns>
         public static SelectQuery<TObj> BeginSelect(BaseConnector connector = null)
         {
             return new SelectQuery<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
         }
         /// <summary>
-        /// Create a select query for the object
+        /// Creates a SELECT with automatic column and relationship selection.
+        /// Relationships require SqlAutoSelect inclusion.
         /// </summary>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>
-        /// A select query.
-        /// The selected columns are based off the <see cref="SqlLinqer.Modeling.SqlAutoSelect"/>
-        /// and <see cref="SqlLinqer.Modeling.SqlAutoSelectExclude"/> attributes.
-        /// </returns>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A mutable select query.</returns>
         public static SelectQuery<TObj> BeginSelectAuto(BaseConnector connector = null)
         {
             var query = BeginSelect(connector);
@@ -66,9 +60,10 @@ namespace SqlLinqer.Modeling
 
         #region Select Aggregate
         /// <summary>
-        /// Create a select aggregate query for the object
+        /// Creates an aggregate or named projection builder. BuildQuery defines the result members and SQL expressions.
         /// </summary>
-        /// <returns>A select aggregate query for the defined object type.</returns>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>An initializer for a projection into an anonymous or declared result type.</returns>
         public static SelectQueryInitializer<TObj> BeginSelectBuilder(BaseConnector connector = null)
         {
             return new SelectQueryInitializer<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
@@ -77,10 +72,10 @@ namespace SqlLinqer.Modeling
 
         #region Update
         /// <summary>
-        /// Create an update query for the object
+        /// Creates an update builder. Add a WHERE filter before execution.
         /// </summary>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>An update query for the defined object type.</returns>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A mutable update query.</returns>
         public static UpdateQuery<TObj> BeginUpdate(BaseConnector connector = null)
         {
             return new UpdateQuery<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
@@ -89,10 +84,10 @@ namespace SqlLinqer.Modeling
 
         #region Delete
         /// <summary>
-        /// Create a delete query for the object
+        /// Creates a delete query. Add a WHERE filter before execution.
         /// </summary>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>A delete query for the defined object type.</returns>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A mutable delete query.</returns>
         public static DeleteQuery<TObj> BeginDelete(BaseConnector connector = null)
         {
             return new DeleteQuery<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
@@ -101,10 +96,10 @@ namespace SqlLinqer.Modeling
 
         #region Truncate
         /// <summary>
-        /// Create a truncate query for the object
+        /// Creates a command to remove every row from the mapped table. SQLite TRUNCATE is unsupported.
         /// </summary>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>A truncate query for the defined object type.</returns>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A typed truncate query.</returns>
         public static TruncateQuery<TObj> BeginTruncate(BaseConnector connector = null)
         {
             return new TruncateQuery<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
@@ -113,21 +108,21 @@ namespace SqlLinqer.Modeling
 
         #region StoredProcedure
         /// <summary>
-        /// Create a stored procedure query for the object
+        /// Creates a legacy stored-procedure query that loads typed JSON or a tabular result.
         /// </summary>
-        /// <param name="name">The name of the stored procedure</param>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>A stored procedure query for the defined object type.</returns>
+        /// <param name="name">The name of the existing stored procedure.</param>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A procedure query with no input parameters yet.</returns>
         public static StoredProcedureQuery<TObj> BeginStoredProcedure(string name, BaseConnector connector = null)
         {
             return new StoredProcedureQuery<TObj>(name, connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
         }
         /// <summary>
-        /// Create a stored procedure query for the object
+        /// Creates a legacy stored-procedure query that loads typed JSON or a tabular result.
         /// </summary>
-        /// <param name="name">The name of the stored procedure</param>
-        /// <param name="schema">The schema of the stored procedure</param>
-        /// <returns>A stored procedure query for the defined object type.</returns>
+        /// <param name="name">The name of the existing stored procedure.</param>
+        /// <param name="schema">The explicit procedure schema, or null for an unqualified procedure name.</param>
+        /// <returns>A procedure query with no input parameters yet.</returns>
         public static StoredProcedureQuery<TObj> BeginStoredProcedure(string name, string schema)
         {
             return new StoredProcedureQuery<TObj>(name, schema);
@@ -135,10 +130,10 @@ namespace SqlLinqer.Modeling
         #endregion
 
         /// <summary>
-        /// Gets the table model of the type
+        /// Returns the cached table mapping for this model and the selected default schema.
         /// </summary>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>The primary key value of the object.</returns>
+        /// <param name="connector">The connector supplying the default schema, or null to use the current default connector's schema.</param>
+        /// <returns>The mapped table metadata, including columns, primary key, and relationships.</returns>
         public static Table GetTableModel(BaseConnector connector = null)
         {
             return Table.GetCached<TObj>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema);

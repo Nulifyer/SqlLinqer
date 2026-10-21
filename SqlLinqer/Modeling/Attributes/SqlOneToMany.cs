@@ -9,7 +9,8 @@ using SqlLinqer.Extensions.TypeExtensions;
 namespace SqlLinqer.Modeling
 {
     /// <summary>
-    /// Used to label one to many realtionships
+    /// Maps a related collection through the child model's foreign key. A selected relationship loads an empty collection when no rows match.
+    /// Select the relationship explicitly or include it with SqlAutoSelect. Persist relationship changes through foreign keys or linking rows.
     /// </summary>
     public sealed class SqlOneToMany : RelationshipAttribute
     {
@@ -24,25 +25,26 @@ namespace SqlLinqer.Modeling
         public readonly string JoiningForeignKey;
 
         /// <summary>
-        /// Marks property/field as a one to many relationship
+        /// Maps a related collection through the child model's foreign key. A selected relationship loads an empty collection when no rows match.
         /// </summary>
-        /// <param name="joiningForeignKey">The name of joined class's property/field where the current class's primary key is the foreign key</param>
+        /// <param name="joiningForeignKey">The child model's CLR foreign-key member name, usually supplied with nameof.</param>
         public SqlOneToMany(string joiningForeignKey) : base(RelationshipType.OneToMany)
         {
             JoiningForeignKey = joiningForeignKey;
         }
 
         /// <summary>
-        /// Marks property/field as a one to many relationship
+        /// Maps a related collection through the child model's foreign key. A selected relationship loads an empty collection when no rows match.
         /// </summary>
-        /// <param name="localPrimaryKey">The name of the base class's property/field that behaves as the primary key</param>
-        /// <param name="joiningForeignKey">The name of joined class's property/field where the current class's primary key is the foreign key</param>
+        /// <param name="localPrimaryKey">The root model's CLR key member name. The one-argument overload uses its SqlPrimaryKey member.</param>
+        /// <param name="joiningForeignKey">The child model's CLR foreign-key member name, usually supplied with nameof.</param>
         public SqlOneToMany(string localPrimaryKey, string joiningForeignKey) : base(RelationshipType.OneToMany)
         {
             LocalPrimaryKey = localPrimaryKey;
             JoiningForeignKey = joiningForeignKey;
         }
 
+        /// <inheritdoc/>
         public override Relationship ProcessRelationship(Table currentTable, UnprocessedRelationshipMember unprocessed)
         {
             ReflectedColumn primaryKey = null;

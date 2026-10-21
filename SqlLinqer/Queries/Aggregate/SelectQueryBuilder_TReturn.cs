@@ -11,12 +11,15 @@ using System;
 
 namespace SqlLinqer.Queries.Typed
 {
+    /// <summary>Translates projected members and SQL function expressions into SELECT statements.</summary>
     public class SelectQueryBuilder<TBase, TReturn>
         where TBase : class
         where TReturn : class
     {
+        /// <summary>The SELECT query populated by translated projection expressions.</summary>
         public readonly SelectAnonymousQuery<TBase, TReturn> Query;
 
+        /// <summary>Creates a statement translator for the supplied root table.</summary>
         public SelectQueryBuilder(Table table)
         {
             Query = new SelectAnonymousQuery<TBase, TReturn>(table);
@@ -27,11 +30,13 @@ namespace SqlLinqer.Queries.Typed
          * *******************************************************
          */
 
+        /// <summary>Projects a model member, optionally selecting specified nested members.</summary>
         public void Select(MemberInfo member, Expression expression)
         {
             _Select(member, expression, null);
         }
 
+        /// <summary>Projects a model member, optionally selecting specified nested members.</summary>
         public void Select(MemberInfo member, Expression expression, Expression[] sub_expressions)
         {
             _Select(member, expression, null);
@@ -66,12 +71,14 @@ namespace SqlLinqer.Queries.Typed
             }
         }
 
+        /// <summary>Adds a CASE expression to the projection.</summary>
         public void SelectCase(MemberInfo member, LambdaExpression expression)
         {
             var case_statement = Case(member, expression);
             Query.Selects.AddStatement(case_statement);
         }
         
+        /// <summary>Defines a CASE expression for the projected member.</summary>
         public CaseStatement Case(MemberInfo member, LambdaExpression expression)
         {
             var case_statement = new CaseStatement<TBase>(Query.Table, member.Name);
@@ -84,6 +91,7 @@ namespace SqlLinqer.Queries.Typed
          * *******************************************************
          */
 
+        /// <summary>Creates a SQL expression for the absolute value.</summary>
         public SelectFuncStatement ABS(MemberInfo member, Expression expression)
         {
             var arg = GetArg(member, expression);
@@ -91,6 +99,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for the day of the month.</summary>
         public SelectFuncStatement DAY(MemberInfo member, Expression expression)
         {
             var arg = GetArg(member, expression);
@@ -98,8 +107,10 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for the leading characters.</summary>
         public void LEFT(MemberInfo member, Expression expression, ConstantExpression length) => SUBSTRING(member, expression, Expression.Constant(0), length);
 
+        /// <summary>Creates a SQL expression for lowercase text.</summary>
         public SelectFuncStatement LOWER(MemberInfo member, Expression expression)
         {
             var arg = GetArg(member, expression);
@@ -107,6 +118,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for text without leading spaces.</summary>
         public SelectFuncStatement LTRIM(MemberInfo member, Expression expression)
         {
             var arg = GetArg(member, expression);
@@ -114,6 +126,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for the month.</summary>
         public SelectFuncStatement MONTH(MemberInfo member, Expression expression)
         {
             var arg = GetArg(member, expression);
@@ -121,6 +134,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for reversed text.</summary>
         public SelectFuncStatement REVERSE(MemberInfo member, Expression expression)
         {
             var arg = GetArg(member, expression);
@@ -128,6 +142,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for the trailing characters.</summary>
         public SelectFuncStatement RIGHT(MemberInfo member, Expression expression, ConstantExpression length)
         {
             var arg = GetArg(member, expression);
@@ -135,6 +150,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for text without trailing spaces.</summary>
         public SelectFuncStatement RTRIM(MemberInfo member, Expression expression)
         {
             var arg = GetArg(member, expression);
@@ -142,6 +158,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for the SOUNDEX phonetic code.</summary>
         public SelectFuncStatement SOUNDDEX(MemberInfo member, Expression expression)
         {
             var arg = GetArg(member, expression);
@@ -149,6 +166,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for a substring using the database's position rules.</summary>
         public SelectFuncStatement SUBSTRING(MemberInfo member, Expression expression, ConstantExpression start, ConstantExpression lenth)
         {
             var arg = GetArg(member, expression);
@@ -156,6 +174,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for trimmed text.</summary>
         public SelectFuncStatement TRIM(MemberInfo member, Expression expression)
         {
             var arg = GetArg(member, expression);
@@ -163,6 +182,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for uppercase text.</summary>
         public SelectFuncStatement UPPER(MemberInfo member, Expression expression)
         {
             var arg = GetArg(member, expression);
@@ -170,6 +190,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for the year.</summary>
         public SelectFuncStatement YEAR(MemberInfo member, Expression expression)
         {
             var arg = GetArg(member, expression);
@@ -182,6 +203,7 @@ namespace SqlLinqer.Queries.Typed
          * *******************************************************
          */
 
+        /// <summary>Creates a SQL expression for the first non-null expression.</summary>
         public SelectFuncStatement Coalesce(MemberInfo member, params Expression[] expressions)
         {
             var args = GetArgs(member, expressions);
@@ -189,6 +211,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for concatenated expressions.</summary>
         public SelectStatement Concat(MemberInfo member, Expression[] expressions)
         {
             var args = GetArgs(member, expressions);
@@ -196,6 +219,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for expressions concatenated with a separator.</summary>
         public SelectStatement ConcatWS(MemberInfo member, ConstantExpression separator, Expression[] expressions)
         {
             var args = new List<object>();
@@ -205,6 +229,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for expressions concatenated with a separator.</summary>
         public SelectStatement Join(MemberInfo member, ConstantExpression separator, Expression[] expressions) => ConcatWS(member, separator, expressions);
 
         /* *******************************************************
@@ -212,6 +237,7 @@ namespace SqlLinqer.Queries.Typed
          * *******************************************************
          */
 
+        /// <summary>Creates a SQL expression for the average.</summary>
         public SelectFuncStatement Avg(MemberInfo member, Expression expression)
         {
             var arg = GetArg(member, expression);
@@ -219,8 +245,11 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for the non-null expression count.</summary>
         public SelectFuncStatement Count(MemberInfo member) => Count(member, null, Expression.Constant(false));
+        /// <summary>Creates a SQL expression for the non-null expression count.</summary>
         public SelectFuncStatement Count(MemberInfo member, Expression expression) => Count(member, expression, Expression.Constant(false));
+        /// <summary>Creates a SQL expression for the non-null expression count, optionally counting distinct values.</summary>
         public SelectFuncStatement Count(MemberInfo member, Expression expression, ConstantExpression distinct)
         {
             object arg = expression != null ? GetArg(member, expression) : 1;
@@ -228,8 +257,11 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
         
+        /// <summary>Creates a SQL expression for a 64-bit non-null expression count.</summary>
         public SelectFuncStatement CountBig(MemberInfo member) => CountBig(member, null, Expression.Constant(false));
+        /// <summary>Creates a SQL expression for a 64-bit non-null expression count.</summary>
         public SelectFuncStatement CountBig(MemberInfo member, Expression expression) => CountBig(member, expression, Expression.Constant(false));
+        /// <summary>Creates a SQL expression for a 64-bit non-null expression count, optionally counting distinct values.</summary>
         public SelectFuncStatement CountBig(MemberInfo member, Expression expression, ConstantExpression distinct)
         {
             object arg = expression != null ? GetArg(member, expression) : 1;
@@ -237,6 +269,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
         
+        /// <summary>Creates a SQL expression for the maximum.</summary>
         public SelectFuncStatement Max(MemberInfo member, Expression expression)
         {
             var arg = GetArg(member, expression);
@@ -244,6 +277,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
         
+        /// <summary>Creates a SQL expression for the minimum.</summary>
         public SelectFuncStatement Min(MemberInfo member, Expression expression)
         {
             var arg = GetArg(member, expression);
@@ -251,6 +285,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
         
+        /// <summary>Creates a SQL expression for strings aggregated across rows.</summary>
         public SelectFuncStatement StringAgg(MemberInfo member, params Expression[] expressions)
         {
             var args = GetArgs(member, expressions);
@@ -258,6 +293,7 @@ namespace SqlLinqer.Queries.Typed
             return stm;
         }
 
+        /// <summary>Creates a SQL expression for the sum.</summary>
         public SelectFuncStatement Sum(MemberInfo member, Expression expression)
         {
             var arg = GetArg(member, expression);
@@ -270,6 +306,7 @@ namespace SqlLinqer.Queries.Typed
          * *******************************************************
          */
 
+        /// <summary>Translates a function marker call into a SELECT expression.</summary>
         public SelectStatement GetSelectStatement(MemberInfo member, MethodCallExpression call_expression)
         {
             var args = new List<object>();
@@ -336,10 +373,6 @@ namespace SqlLinqer.Queries.Typed
             if (col == null)
                 throw new SqlPathNotFoundException(Query.Table, path);
             return col;
-        }
-        private IEnumerable<Column> GetColumns(Expression[] expressions)
-        {
-            return expressions.Select(x => GetColumn(x));
         }
     }
 }

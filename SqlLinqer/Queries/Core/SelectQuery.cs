@@ -238,15 +238,18 @@ namespace SqlLinqer.Queries.Core
                 }
             }
         }
+        /// <summary>Applies mapped automatic ordering, optionally including related tables.</summary>
         protected internal void OrderByAuto(bool recursive)
         {
             OrderByAuto(recursive, false);
         }
+        /// <summary>Replaces current ordering with the supplied column and direction.</summary>
         protected internal void OrderBy(Column column, SqlDir dir, bool enable_sub_queries, bool do_uuid_alias)
         {
             OrderBys.Clear();
             ThenBy(column, dir, enable_sub_queries, do_uuid_alias);
         }
+        /// <summary>Appends ordering by the supplied column and direction.</summary>
         protected internal void ThenBy(Column column, SqlDir dir, bool enable_sub_queries, bool do_uuid_alias)
         {
             var path = column.GetPath(Table);
@@ -294,10 +297,11 @@ namespace SqlLinqer.Queries.Core
         }
 
         /// <summary>
-        /// Renders the query into a string that returns the total number of restuls.
+        /// Renders the root projection count before TOP, limit, and offset without changing future data rendering.
         /// </summary>
-        /// <param name="parameters">The parameter collection to use</param>
-        /// <param name="flavor">The type of Sql database being used</param>
+        /// <param name="parameters">The bindings to extend for the count command. Do not share a mutable collection between concurrent renders.</param>
+        /// <param name="flavor">The count command's SQL dialect.</param>
+        /// <returns>The count SQL referencing this parameter collection.</returns>
         public string RenderForCount(ParameterCollection parameters, DbFlavor flavor)
         {
             return QuerySnapshot.RenderSelect(this, parameters, flavor, true, true);

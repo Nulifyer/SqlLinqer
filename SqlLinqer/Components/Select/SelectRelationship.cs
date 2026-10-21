@@ -9,14 +9,19 @@ using SqlLinqer.Queries.Core;
 
 namespace SqlLinqer.Components.Select
 {
+    /// <summary>A nested SELECT projection for a mapped relationship.</summary>
     public class SelectRelationship : SelectStatement
     {
+        /// <summary>The relationship whose data is selected.</summary>
         public readonly Relationship Relationship;
+        /// <summary>The query defining the nested related data.</summary>
         public readonly SelectQuery SubQuery;
 
         private string _alias;
+        /// <inheritdoc/>
         public override string Alias => _alias ?? Relationship.DataTarget.Alias;
 
+        /// <summary>Creates a nested relationship projection on the parent query.</summary>
         public SelectRelationship(SelectQuery parent_query, Relationship relationship, string alias = null)
         {
             _alias = alias;

@@ -16,14 +16,14 @@ namespace SqlLinqer.Queries.TypedExt
 {
     public partial class DeleteWithPrimaryKeyQuery<T, TPk>
     {
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <inheritdoc/>
         public new async Task<SqlPrimaryKeysResponse<int, TPk>> ExecuteAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return await ExecuteAsync(ExecutionConnector, transaction, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <inheritdoc/>
         public new async Task<SqlPrimaryKeysResponse<int, TPk>> ExecuteAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

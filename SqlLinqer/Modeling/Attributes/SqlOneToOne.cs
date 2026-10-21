@@ -9,7 +9,8 @@ using SqlLinqer.Extensions.MemberInfoExtensions;
 namespace SqlLinqer.Modeling
 {
     /// <summary>
-    /// Used to label one to one realtionships
+    /// Maps a single related object through a local foreign key. A selected relationship loads null when no related row matches.
+    /// Select the relationship explicitly or include it with SqlAutoSelect. Persist relationship changes through foreign keys or linking rows.
     /// </summary>
     public sealed class SqlOneToOne : RelationshipAttribute
     {
@@ -24,25 +25,26 @@ namespace SqlLinqer.Modeling
         public readonly string JoiningPrimaryKey;
 
         /// <summary>
-        /// Marks property/field as a one to one relationship
+        /// Maps a single related object through a local foreign key. A selected relationship loads null when no related row matches.
         /// </summary>
-        /// <param name="localForeignKey">The name of this class's property/field that contains the realted foreign key</param>
+        /// <param name="localForeignKey">The CLR member name of the foreign key on the root model, usually supplied with nameof.</param>
         public SqlOneToOne(string localForeignKey) : base(RelationshipType.OneToOne)
         {
             LocalForeignKey = localForeignKey;
         }
         
         /// <summary>
-        /// Marks property/field as a one to one relationship
+        /// Maps a single related object through a local foreign key. A selected relationship loads null when no related row matches.
         /// </summary>
-        /// <param name="localForeignKey">The name of this class's property/field that contains the realted foreign key</param>
-        /// <param name="joiningPrimaryKey">The name of the base class's property/field that behaves as the foreign key</param>
+        /// <param name="localForeignKey">The CLR member name of the foreign key on the root model, usually supplied with nameof.</param>
+        /// <param name="joiningPrimaryKey">The related model's CLR key member name. The one-argument overload uses its SqlPrimaryKey member.</param>
         public SqlOneToOne(string localForeignKey, string joiningPrimaryKey) : base(RelationshipType.OneToOne)
         {
             LocalForeignKey = localForeignKey;
             JoiningPrimaryKey = joiningPrimaryKey;
         }
 
+        /// <inheritdoc/>
         public override Relationship ProcessRelationship(Table currentTable, UnprocessedRelationshipMember unprocessed)
         {
             var col_type = unprocessed.UnprocessedMember.Member.GetFieldOrPropValueType();

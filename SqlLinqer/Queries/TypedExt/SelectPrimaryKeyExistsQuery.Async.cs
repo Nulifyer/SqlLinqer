@@ -17,19 +17,32 @@ namespace SqlLinqer.Queries.Typed
 {
     public partial class SelectPrimaryKeyExistsQuery<T, TPk>
     {
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <summary>
+        /// Asynchronously checks for the primary key without loading a row. Check State before interpreting a false result.
+        /// </summary>
+        /// <param name="transaction">An optional caller-owned transaction with an open connection.</param>
+        /// <param name="cancellationToken">Cancels provider I/O. Requested cancellation throws.</param>
+        /// <returns>A valid true result for an existing key, valid false when absent, or an error response.</returns>
+        /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         public async Task<SqlResponse<bool>> ExecuteAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return await ExecuteAsync(ExecutionConnector, transaction, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <summary>
+        /// Asynchronously checks for the primary key without loading a row. Check State before interpreting a false result.
+        /// </summary>
+        /// <param name="connector">The connector used for this execution only.</param>
+        /// <param name="transaction">An optional caller-owned transaction with an open connection.</param>
+        /// <param name="cancellationToken">Cancels provider I/O. Requested cancellation throws.</param>
+        /// <returns>A valid true result for an existing key, valid false when absent, or an error response.</returns>
+        /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         public async Task<SqlResponse<bool>> ExecuteAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (connector == null)
-                throw new ArgumentNullException("Either pass a connector or set the default connector.", nameof(connector));
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
 
             var renderedQuery = new SqlLinqer.Components.Render.RenderedQuery();
             renderedQuery.Text = this.Render(renderedQuery.Parameters, connector.DbFlavor, false);

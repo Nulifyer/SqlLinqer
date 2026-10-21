@@ -15,6 +15,12 @@ internal static class AsyncProviderChecks
 {
     internal static void Run(DbFlavor flavor, Action<string, Action> test)
     {
+        test($"real {flavor} sync/async scalar nulls, nullable values, GUIDs, enums, and invariant conversion", () =>
+        {
+            using DbConnection template = flavor == DbFlavor.Sqlite
+                ? new SqliteConnection("Data Source=:memory:") : new DuckDBConnection("Data Source=:memory:");
+            ProductionRegressionTests.CheckScalars(new ReplicatorConnector(template, flavor)).GetAwaiter().GetResult();
+        });
         test($"real {flavor} sync/async CRUD, totals, nesting, binary values, and caller rollback", () => CheckProvider(flavor).GetAwaiter().GetResult());
     }
 

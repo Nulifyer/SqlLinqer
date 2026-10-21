@@ -3,15 +3,14 @@
 namespace SqlLinqer.Modeling
 {
     /// <summary>
-    /// Defines the target class to NOT have all columns selected on auto.
-    /// Defines the target property or field to NOT be selected on auto.
+    /// Omits a mapped member from SelectAuto while preserving explicit Select and SelectRootColumns access.
+    /// On a model class, sets the member default; member attributes can override it.
     /// </summary>
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false)]
     public sealed class SqlAutoSelectExclude : Attribute
     {
         /// <summary>
-        /// Defines the target class to NOT have all columns selected on auto.
-        /// Defines the target property or field to NOT be selected on auto.
+        /// Omits a mapped member from SelectAuto while preserving explicit Select and SelectRootColumns access.
         /// </summary>
         public SqlAutoSelectExclude()
         {

@@ -9,12 +9,17 @@ using SqlLinqer.Queries.Core;
 
 namespace SqlLinqer.Components.Ordering
 {
+    /// <summary>Orders root rows by a related collection column through a scalar subquery.</summary>
     public class SubQueryOrderBy : IOrderByStatement
     {
+        /// <summary>The relationship traversed by the sorting subquery.</summary>
         public readonly Relationship Relationship;
+        /// <summary>The related column used for sorting.</summary>
         public readonly Column Column;
+        /// <summary>The sorting direction.</summary>
         public readonly SqlDir Dir;
 
+        /// <summary>Creates a sorting subquery for a related column.</summary>
         public SubQueryOrderBy(Relationship relationship, Column column, SqlDir dir)
         {
             Relationship = relationship;
@@ -22,6 +27,7 @@ namespace SqlLinqer.Components.Ordering
             Dir = dir;
         }
         
+        /// <summary>Renders this component for the selected database dialect.</summary>
         public string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
             // decide if min or max

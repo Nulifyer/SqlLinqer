@@ -3,13 +3,10 @@ using System.Data.Common;
 
 namespace SqlLinqer.Connections
 {
-    /// <summary>Creates provider connections using an application-supplied factory.</summary>
-    /// <remarks>
-    /// The factory must return a new connection on every call. The connector owns and disposes
-    /// these connections. Caller-supplied transactions bypass the factory and remain caller-owned.
-    /// Configure login timeout and authentication in the factory; ConnectionTimeout does not rewrite
-    /// its connections. CommandTimeout still applies to commands executed by this connector.
-    /// </remarks>
+    /// <summary>
+    /// Creates a fresh provider connection through an application factory, preserving property-based authentication such as tokens and credential callbacks.
+    /// The factory must return fresh connections, which the connector owns and disposes. Supplied transactions provide the query connection; generated TVP type commands still use separate factory connections to the same server and write database. Configure login timeout in the factory.
+    /// </summary>
     public sealed class ConnectionFactoryConnector : BaseConnector
     {
         private readonly Func<DbConnection> _factory;

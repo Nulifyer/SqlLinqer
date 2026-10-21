@@ -7,31 +7,32 @@ using SqlLinqer.Queries.TypedExt;
 namespace SqlLinqer.Modeling
 {
     /// <summary>
-    /// Includes the extension methods of the SqlLinqer library
-    /// Should be inherited by classes with a primary key. For those without a primary key use <see cref="SqlLinqerObject{TObj}"/>
+    /// Provides typed query factories, primary-key filters, and affected-key capture for a model with one mapped primary key.
+    /// Mark the key member with SqlPrimaryKey; set dbGenerated to false for application-generated keys.
     /// </summary>
-    /// <typeparam name="TObj">The class that represents the database table and its relationships</typeparam>
-    /// <typeparam name="TPrimaryKey">The type of value for the primary key</typeparam>
+    /// <typeparam name="TObj">The concrete mapped model type.</typeparam>
+    /// <typeparam name="TPrimaryKey">The primary key value type.</typeparam>
     public abstract class SqlLinqerPrimaryKeyObject<TObj, TPrimaryKey>
         : SqlLinqerObject<TObj>
         where TObj : class
     {
         #region Insert
         /// <summary>
-        /// Create an insert with primary key query
+        /// Creates an empty insert builder that captures inserted primary keys.
         /// </summary>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>A insert query for the defined object type. The query will ouput the inserted primary keys.</returns>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A mutable insert query. Add rows with InsertAuto before executing.</returns>
         public static new InsertWithPrimaryKeyQuery<TObj, TPrimaryKey> BeginInsert(BaseConnector connector = null)
         {
             var query = new InsertWithPrimaryKeyQuery<TObj, TPrimaryKey>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
             return query;
         }
         /// <summary>
-        /// Create an auto insert with primary key query
+        /// Creates an insert for this instance using automatic-insert attributes and captures its inserted primary key.
+        /// Database-generated primary keys are omitted.
         /// </summary>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>A insert query for the defined object type. The query will output the inserted primary keys. The inserted columns are based off the <see cref="SqlLinqer.Modeling.SqlAutoInsert"/> and <see cref="SqlLinqer.Modeling.SqlAutoInsertExclude"/> attributes.</returns>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>An insert query containing this instance and its automatic-insert columns.</returns>
         public new InsertWithPrimaryKeyQuery<TObj, TPrimaryKey> BeginInsertAuto(BaseConnector connector = null)
         {
             var query = BeginInsert(connector);
@@ -42,11 +43,11 @@ namespace SqlLinqer.Modeling
 
         #region Select
         /// <summary>
-        /// Create a select with primary key query
+        /// Creates a SELECT builder without selecting its output columns and filters it by the supplied primary key.
         /// </summary>
-        /// <param name="primaryKeyValue">The target primary key value</param>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>A select query where the primary key == {primaryKeyValue}.</returns>
+        /// <param name="primaryKeyValue">The key value used in the query's primary-key equality filter.</param>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A mutable select query with a primary-key equality filter.</returns>
         public static SelectQuery<TObj> BeginSelect(TPrimaryKey primaryKeyValue, BaseConnector connector = null)
         {
             var query = BeginSelect(connector);
@@ -54,15 +55,12 @@ namespace SqlLinqer.Modeling
             return query;
         }
         /// <summary>
-        /// Create a select with primary key query
+        /// Creates a SELECT with automatic column and relationship selection and filters it by the supplied primary key.
+        /// Relationships require SqlAutoSelect inclusion.
         /// </summary>
-        /// <param name="primaryKeyValue">The target primary key value</param>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>
-        /// A select query where the primary key == {primaryKeyValue}.
-        /// The selected columns are based off the <see cref="SqlLinqer.Modeling.SqlAutoSelect"/> 
-        /// and <see cref="SqlLinqer.Modeling.SqlAutoSelectExclude"/> attributes.
-        /// </returns>
+        /// <param name="primaryKeyValue">The key value used in the query's primary-key equality filter.</param>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A mutable select query with a primary-key equality filter.</returns>
         public static SelectQuery<TObj> BeginSelectAuto(TPrimaryKey primaryKeyValue, BaseConnector connector = null)
         {
             var query = BeginSelectAuto(connector);
@@ -73,11 +71,11 @@ namespace SqlLinqer.Modeling
 
         #region Update
         /// <summary>
-        /// Create an update with primary key query
+        /// Creates an update builder with a primary-key filter.
         /// </summary>
-        /// <param name="primaryKeyValue">The target primary key value</param>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>A update query where the primary key == {primaryKeyValue}.</returns>
+        /// <param name="primaryKeyValue">The key value used in the query's primary-key equality filter.</param>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A mutable update query filtered by the instance or supplied primary key.</returns>
         public static UpdateWithPrimaryKeyQuery<TObj, TPrimaryKey> BeginUpdate(TPrimaryKey primaryKeyValue, BaseConnector connector = null)
         {
             var query = new UpdateWithPrimaryKeyQuery<TObj, TPrimaryKey>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
@@ -85,14 +83,11 @@ namespace SqlLinqer.Modeling
             return query;
         }
         /// <summary>
-        /// Create an auto update with primary key query
+        /// Creates assignments from this instance using automatic-update attributes with a primary-key filter.
+        /// Includes null values and excludes the primary key.
         /// </summary>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>
-        /// A update query where the primary key == {primaryKeyValue}.
-        /// The value for the primary key comes from the column defined as the primary key.
-        /// The updated columns are based off the <see cref="SqlLinqer.Modeling.SqlAutoUpdate"/> and <see cref="SqlLinqer.Modeling.SqlAutoUpdateExclude"/> attributes.
-        /// </returns>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A mutable update query filtered by the instance or supplied primary key.</returns>
         public UpdateWithPrimaryKeyQuery<TObj, TPrimaryKey> BeginUpdateAuto(BaseConnector connector = null)
         {
             var query = BeginUpdate(GetPrimaryKeyValue(connector), connector);
@@ -100,14 +95,11 @@ namespace SqlLinqer.Modeling
             return query;
         }
         /// <summary>
-        /// Create a update non-default value with primary key query
+        /// Creates an update filtered by this instance's primary key, skipping null assignments unless marked SqlUpdateDefaultAlways.
+        /// Includes zero and false, ignores automatic-update include/exclude attributes, and excludes the primary key.
         /// </summary>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>
-        /// A update query where the primary key == {primaryKeyValue}.
-        /// The value for the primary key comes from the column defined as the primary key.
-        /// The updated columns are based off the column value being equal to the C# term 'default'.
-        /// </returns>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A mutable update query filtered by the instance or supplied primary key.</returns>
         public UpdateWithPrimaryKeyQuery<TObj, TPrimaryKey> BeginUpdateNonDefaults(BaseConnector connector = null)
         {
             var query = BeginUpdate(GetPrimaryKeyValue(connector), connector);
@@ -118,21 +110,21 @@ namespace SqlLinqer.Modeling
 
         #region Delete
         /// <summary>
-        /// Create an insert with primary key query
+        /// Creates a delete query. Add a WHERE filter before execution.
         /// </summary>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>A insert query for the defined object type. The query will ouput the inserted primary keys.</returns>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A mutable delete query that captures deleted primary keys.</returns>
         public static new DeleteWithPrimaryKeyQuery<TObj, TPrimaryKey> BeginDelete(BaseConnector connector = null)
         {
             var query = new DeleteWithPrimaryKeyQuery<TObj, TPrimaryKey>(connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
             return query;
         }
         /// <summary>
-        /// Create a delete with primary key query
+        /// Creates a delete query filtered by the supplied primary key.
         /// </summary>
-        /// <param name="primaryKeyValue">The target primary key value</param>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>A delete query where the primary key == {primaryKeyValue}.</returns>
+        /// <param name="primaryKeyValue">The key value used in the query's primary-key equality filter.</param>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A mutable delete query with a primary-key equality filter.</returns>
         public static DeleteQuery<TObj> BeginDelete(TPrimaryKey primaryKeyValue, BaseConnector connector = null)
         {
             var query = BeginDelete(connector);
@@ -140,13 +132,10 @@ namespace SqlLinqer.Modeling
             return query;
         }
         /// <summary>
-        /// Create an auto delete with primary key query
+        /// Creates a delete query filtered by this instance's primary key.
         /// </summary>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>
-        /// A delete query where the primary key == {primaryKeyValue}.
-        /// The value for the primary key comes from the column defined as the primary key.
-        /// </returns>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A mutable delete query with a primary-key equality filter.</returns>
         public DeleteQuery<TObj> BeginDeleteAuto(BaseConnector connector = null)
         {
             var query = BeginDelete(GetPrimaryKeyValue(connector), connector);
@@ -156,11 +145,12 @@ namespace SqlLinqer.Modeling
 
         #region Exists
         /// <summary>
-        /// Create a exists select with primary key query
+        /// Creates a query that checks whether the supplied primary key exists without loading the model.
+        /// Check response State before interpreting the Boolean result; errors also return false.
         /// </summary>
-        /// <param name="primaryKeyValue">The target primary key value</param>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>A delete query where the primary key == {primaryKeyValue}.</returns>
+        /// <param name="primaryKeyValue">The key value used in the query's primary-key equality filter.</param>
+        /// <param name="connector">The connector retained by the new query, or null to use the current default at execution time. Its default schema supplies unmapped schemas during construction.</param>
+        /// <returns>A query returning true for a matching key or false when no row matches.</returns>
         public static SelectPrimaryKeyExistsQuery<TObj, TPrimaryKey> BeginPrimaryKeyExists(TPrimaryKey primaryKeyValue, BaseConnector connector = null)
         {
             var query = new SelectPrimaryKeyExistsQuery<TObj, TPrimaryKey>(primaryKeyValue, connector?.Options.DefaultSchema ?? SqlLinqer.Default.Connector?.Options.DefaultSchema) { BoundConnector = connector };
@@ -169,20 +159,20 @@ namespace SqlLinqer.Modeling
         #endregion
 
         /// <summary>
-        /// Sets the primary key value of the object
+        /// Assigns this instance's mapped primary-key member without changing the database.
         /// </summary>
-        /// <param name="value">The value to set</param>
-        /// <param name="connector">The connector to pull information from</param>
+        /// <param name="value">The primary key value to assign.</param>
+        /// <param name="connector">An optional connector supplied with the model operation.</param>
         public void SetPrimaryKeyValue(TPrimaryKey value, BaseConnector connector = null)
         {
             var pk = GetPrimaryKey(connector ?? SqlLinqer.Default.Connector);
             pk.SetValue(this as TObj, value);
         }
         /// <summary>
-        /// Gets the primary key value of the object
+        /// Reads this instance's mapped primary-key member without querying the database.
         /// </summary>
-        /// <param name="connector">The connector to pull information from</param>
-        /// <returns>The primary key value of the object.</returns>
+        /// <param name="connector">An optional connector supplied with the model operation.</param>
+        /// <returns>The value of the mapped primary-key member.</returns>
         public TPrimaryKey GetPrimaryKeyValue(BaseConnector connector = null)
         {
             return GetPrimaryKeyValue(false, connector ?? SqlLinqer.Default.Connector);

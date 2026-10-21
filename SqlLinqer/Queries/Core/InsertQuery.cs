@@ -9,11 +9,15 @@ using SqlLinqer.Components.Generic;
 
 namespace SqlLinqer.Queries.Core
 {
+    /// <summary>Builds an INSERT command for mapped rows.</summary>
     public class InsertQuery : TableQuery
     {
+        /// <summary>The mapped rows and values to insert.</summary>
         protected internal InsertRowCollection Inserts;
+        /// <summary>The modified-row output projection.</summary>
         protected internal OutputsCollection Outputs;
 
+        /// <summary>Creates an INSERT query for the supplied table.</summary>
         public InsertQuery(Table table) : base(table)
         {
             Inserts = new InsertRowCollection();

@@ -1,7 +1,7 @@
 namespace SqlLinqer
 {
     /// <summary>
-    /// Indicates the state of the reponse being <see cref="ResponseState.Valid"/> or <see cref="ResponseState.Error"/>
+    /// Indicates whether a response contains a successful result or an error. The result value alone does not indicate success.
     /// </summary>
     public enum ResponseState
     {
@@ -10,7 +10,7 @@ namespace SqlLinqer
         /// </summary>
         Error = 0,
         /// <summary>
-        /// Response obejct contains a valid response
+        /// Response object contains a valid response
         /// </summary>
         Valid = 1
     }

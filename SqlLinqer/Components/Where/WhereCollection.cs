@@ -10,9 +10,12 @@ using SqlLinqer.Components.Modeling;
 
 namespace SqlLinqer.Components.Where
 {
+    /// <summary>A group of predicates combined with a logical operator.</summary>
     public class WhereCollection : ComponentCollectionBase<IWhereComponent>, IWhereComponent
     {
+        /// <summary>The identity of this predicate group.</summary>
         protected internal readonly string UUID;
+        /// <summary>The logical operator joining the predicates.</summary>
         protected internal readonly SqlWhereOp WhereOp;
 
         /// <summary>
@@ -20,16 +23,20 @@ namespace SqlLinqer.Components.Where
         /// </summary>
         protected internal int Order => 99999;
 
+        /// <summary>Creates a predicate group with the supplied logical operator.</summary>
         public WhereCollection(SqlWhereOp where_op) : base()
         {
             UUID = SqlLinqer.Extensions.StringExtensions.StringExtensions.GetRandomHashString();
             WhereOp = where_op;
         }
 
+        /// <summary>Inserts a predicate before the current predicates.</summary>
         protected internal new void AddComponentFirst(IWhereComponent component)
             => base.AddComponentFirst(component);
+        /// <summary>Appends a predicate.</summary>
         public new void AddComponent(IWhereComponent component)
             => base.AddComponent(component);
+        /// <summary>Appends the supplied predicates.</summary>
         public new void AddComponents(IEnumerable<IWhereComponent> components)
             => base.AddComponents(components);
         internal new void Clear()
@@ -132,6 +139,7 @@ namespace SqlLinqer.Components.Where
             return newCollection;
         }
         
+        /// <summary>Returns the logical inverse of this group and its predicates.</summary>
         protected internal WhereCollection Invert()
         {
             var invertedCollection = new WhereCollection(WhereOp == SqlWhereOp.AND ? SqlWhereOp.OR : SqlWhereOp.AND);
@@ -174,10 +182,12 @@ namespace SqlLinqer.Components.Where
             return finalized;
         }
 
+        /// <summary>Renders this component for the selected database dialect.</summary>
         protected internal string Render(ParameterCollection parameters, DbFlavor flavor)
         {
             return Render(null, parameters, flavor);
         }
+        /// <summary>Renders this component for the selected database dialect.</summary>
         protected internal string Render(WhereQuery query, ParameterCollection parameters, DbFlavor flavor, bool include_where = true)
         {
             if (Count == 0)
@@ -224,6 +234,7 @@ namespace SqlLinqer.Components.Where
             }
         }
 
+        /// <summary>Attempts to merge this predicate into the current group. Returns true if merged.</summary>
         public bool TryCombineInto(WhereCollection current_collection, IWhereComponent parent_component)
         {
             // parent is a where with
@@ -264,6 +275,7 @@ namespace SqlLinqer.Components.Where
             return false;
         }
     
+        /// <summary>Enumerates the mapped columns referenced by this predicate.</summary>
         public IEnumerable<Column> GetColumnReferences()
         {
             foreach (var com in this.Components)

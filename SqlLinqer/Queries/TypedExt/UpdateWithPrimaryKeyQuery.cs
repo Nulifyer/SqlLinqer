@@ -14,10 +14,11 @@ using SqlLinqer.Components.Outputs;
 namespace SqlLinqer.Queries.TypedExt
 {
     /// <summary>
-    /// A UPDATE query. Based around a type with a primary key.
+    /// Builds updates that return affected-row counts and touched primary keys. Add a WHERE condition to restrict the affected rows.
+    /// MySQL modified-row output is unsupported.
     /// </summary>
-    /// <typeparam name="T">The type serving as the root data model</typeparam>
-    /// <typeparam name="TPk">The type of the primary key</typeparam>
+    /// <typeparam name="T">The root model with a SqlPrimaryKey member.</typeparam>
+    /// <typeparam name="TPk">The primary key value type.</typeparam>
     public partial class UpdateWithPrimaryKeyQuery<T, TPk>
         : UpdateQuery<T>
         , IQueryTyped
@@ -29,13 +30,16 @@ namespace SqlLinqer.Queries.TypedExt
         where T : class
     {
         /// <summary>
-        /// A UPDATE query. Based around a type with a primary key.
+        /// Creates a update builder that captures affected primary keys. A primary-key mapping is required.
+        /// This constructor does not add a WHERE filter.
         /// </summary>
+        /// <param name="default_schema">The fallback schema for the cached model mapping.</param>
         public UpdateWithPrimaryKeyQuery(string default_schema = null) : this(Table.GetCached<T>(default_schema)) { }
         /// <summary>
-        /// A UPDATE query. Based around a type with a primary key.
+        /// Creates a update builder that captures affected primary keys. A primary-key mapping is required.
+        /// This constructor does not add a WHERE filter.
         /// </summary>
-        /// <param name="table">The root table of the query</param>
+        /// <param name="table">The root mapping. It must define a primary key.</param>
         public UpdateWithPrimaryKeyQuery(Table table) : base(table)
         {
             if (table.PrimaryKey == null)
@@ -87,14 +91,18 @@ namespace SqlLinqer.Queries.TypedExt
         {
             return RootWhere.NewWhere(where_op);
         }
-        /// <inheritdoc/>
+        /// <summary>
+        /// Adds a nested condition group while preserving its AND/OR operator. NewWhere creates a detached group until this method adds it.
+        /// </summary>
+        /// <param name="sub_group">The condition group to combine with the root predicates.</param>
+        /// <returns>The same mutable query builder.</returns>
         public new UpdateWithPrimaryKeyQuery<T, TPk> Where(WhereCollection sub_group)
         {
             RootWhere.Where(sub_group);
             return this;
         }
         /// <inheritdoc/>
-        public UpdateWithPrimaryKeyQuery<T, TPk> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlNull value, SqlOp op)
+        public new UpdateWithPrimaryKeyQuery<T, TPk> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlNull value, SqlOp op)
         {
             RootWhere.Where<TProperty>(expression, value, op, SqlSubQueryOp.ANY);
             return this;
@@ -106,7 +114,7 @@ namespace SqlLinqer.Queries.TypedExt
             return this;
         }
         /// <inheritdoc/>
-        public UpdateWithPrimaryKeyQuery<T, TPk> Where<TProperty>(Expression<Func<T, TProperty>> expression, TProperty value, SqlOp op)
+        public new UpdateWithPrimaryKeyQuery<T, TPk> Where<TProperty>(Expression<Func<T, TProperty>> expression, TProperty value, SqlOp op)
         {
             RootWhere.Where<TProperty>(expression, value, op, SqlSubQueryOp.ANY);
             return this;

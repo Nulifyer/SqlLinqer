@@ -8,6 +8,7 @@ namespace SqlLinqer.Components.Outputs
     /// </summary>
     public class OutputsCollection : ComponentCollectionBase<IOutputStatement>
     {
+        /// <summary>Adds an expression to the modified-row output projection.</summary>
         public void AddOutput(IOutputStatement statement)
         {
             AddComponent(statement);

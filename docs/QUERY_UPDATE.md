@@ -28,6 +28,7 @@ var instanceQuery = currentUser.BeginUpdateNonDefaults(connector);
 ```
 
 `UpdateNonDefaults` copies non-null values from the object. Use `UpdateAuto` to apply the model's automatic-update settings instead.
+Value-type defaults such as `0` and `false` are included. `UpdateNonDefaults` does not treat them as omitted values.
 
 ## Set a column to null
 

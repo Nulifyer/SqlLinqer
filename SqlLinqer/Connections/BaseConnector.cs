@@ -12,7 +12,8 @@ using SqlLinqer.Exceptions;
 namespace SqlLinqer.Connections
 {
     /// <summary>
-    /// Creates connections and executes commands to the database
+    /// Creates database connections, binds rendered parameters, and maps command results into response objects.
+    /// Each owned execution obtains and disposes its own connection. Supplied transactions retain caller ownership of their connection, commit, rollback, and disposal.
     /// </summary>
     public abstract partial class BaseConnector
     {
@@ -49,8 +50,9 @@ namespace SqlLinqer.Connections
         }
 
         /// <summary>
-        /// Creates a new connection to the database
+        /// Creates a fresh provider connection. A caller using it directly owns opening, closing, and disposal.
         /// </summary>
+        /// <returns>A new provider connection configured for the database.</returns>
         public abstract DbConnection CreateConnection();
 
         private void ImportFromTempQueryData(DbCommand command, RenderedQuery queryData)
@@ -169,10 +171,13 @@ namespace SqlLinqer.Connections
             => ExecuteOnConnection(query, transaction, true, action);
 
         /// <summary>
-        /// A wrapper function to run each command to the database. This can be overriden to control the execution context.
+        /// Intercepts synchronous command execution and converts execution failures into error responses.
+        /// Override both ExecuteCommand and ExecuteCommandAsync when a policy must cover both execution styles.
         /// </summary>
-        /// <param name="query">The query that will be executed.</param>
-        /// <param name="action">The action to execute the query. This is passed by the another calling function on the connector.</param>
+        /// <typeparam name="T">The scalar or intercepted result type.</typeparam>
+        /// <param name="query">The parameterized SQL text and bindings to execute.</param>
+        /// <param name="action">The operation supplied by the connector. Invoke it to perform the command.</param>
+        /// <returns>The operation's response, or a response retaining the captured execution error.</returns>
         protected virtual SqlResponse<T> ExecuteCommand<T>(RenderedQuery query, Func<SqlResponse<T>> action)
         {
             try
@@ -188,11 +193,13 @@ namespace SqlLinqer.Connections
         }
 
         /// <summary>
-        /// Executes a database query that returns JSON with a structure of the passed type.
+        /// Executes database JSON and buffers it into typed rows using the configured SQL JSON contract.
+        /// The command must return JSON in the dialect's transport format.
         /// </summary>
-        /// <param name="query">The rendered query to perform.</param>
-        /// <param name="existingTransaction">An existing database transaction with the connection property set.</param>
-        /// <returns>A response containing a list of objects of type 'T' derserialized from the resulting JSON string output from the database.</returns>
+        /// <typeparam name="T">The mapped row type.</typeparam>
+        /// <param name="query">The parameterized SQL text and bindings to execute.</param>
+        /// <param name="existingTransaction">An optional caller-owned transaction with an active connection. The library does not complete or dispose it.</param>
+        /// <returns>The buffered rows and execution state. An empty JSON result array produces an empty list.</returns>
         public SqlResponse<List<T>> ExecuteReaderJson<T>(RenderedQuery query, DbTransaction existingTransaction = null) where T : class
         {
             var mapper = CreateJsonMapper<T>();
@@ -212,11 +219,12 @@ namespace SqlLinqer.Connections
         }
 
         /// <summary>
-        /// Executes a database query and returns the results as a <see cref="DataTable"/>
+        /// Executes a tabular command and buffers its results in a DataTable that the caller must dispose.
+        /// DuckDB BLOB streams are copied to byte arrays before the reader closes.
         /// </summary>
-        /// <param name="query">The rendered query to perform.</param>
-        /// <param name="existingTransaction">An existing database transaction with the connection property set.</param>
-        /// <returns>A response containing the results in a <see cref="DataTable"/>.</returns>
+        /// <param name="query">The parameterized SQL text and bindings to execute.</param>
+        /// <param name="existingTransaction">An optional caller-owned transaction with an active connection. The library does not complete or dispose it.</param>
+        /// <returns>The buffered table and execution state. Dispose a successful Result table after use.</returns>
         public SqlResponse<DataTable> ExecuteReaderDataTable(RenderedQuery query, DbTransaction existingTransaction = null)
         {
             return ExecuteOnConnection(query, existingTransaction, query.Transactional, command =>
@@ -291,11 +299,13 @@ namespace SqlLinqer.Connections
         }
 
         /// <summary>
-        /// Executes a database query and returns the first row, first column value of the query.
+        /// Reads the first row's first value and converts it to T. SQL NULL is allowed only when T can hold null.
+        /// Supports compatible numeric conversions, GUIDs, and enums.
         /// </summary>
-        /// <param name="query">The rendered query to perform.</param>
-        /// <param name="existingTransaction">An existing database transaction with the connection property set.</param>
-        /// <returns>A response contianing the first row, first column value of the query converted to type 'T'.</returns>
+        /// <typeparam name="T">The scalar or intercepted result type.</typeparam>
+        /// <param name="query">The parameterized SQL text and bindings to execute.</param>
+        /// <param name="existingTransaction">An optional caller-owned transaction with an active connection. The library does not complete or dispose it.</param>
+        /// <returns>The converted scalar and execution state, with null/default for SQL NULL when T permits null.</returns>
         public SqlResponse<T> ExecuteScalar<T>(RenderedQuery query, DbTransaction existingTransaction = null)
         {
             return ExecuteOnConnection(query, existingTransaction, true, command =>
@@ -318,31 +328,34 @@ namespace SqlLinqer.Connections
                     }
                 }
                 object scalarValue = command.ExecuteScalar();
-                return DbFlavor == DbFlavor.DuckDb ? DbValueConversion.ConvertTo<T>(scalarValue) : (T)Convert.ChangeType(scalarValue, typeof(T));
+                return DbValueConversion.ConvertTo<T>(scalarValue);
             });
         }
 
         /// <summary>
-        /// Executes a database query and returns the number of affected rows.
+        /// Executes a command and returns its affected-row count, preserving supplied transaction ownership.
+        /// Without a supplied transaction, execution commits an owned write transaction on success and attempts rollback on failure.
         /// </summary>
-        /// <param name="query">The rendered query to perform.</param>
-        /// <param name="existingTransaction">An existing database transaction with the connection property set.</param>
-        /// <returns>A response containing the number of affected rows.</returns>
+        /// <param name="query">The parameterized SQL text and bindings to execute.</param>
+        /// <param name="existingTransaction">An optional caller-owned transaction with an active connection. The library does not complete or dispose it.</param>
+        /// <returns>The provider's affected-row count and execution state.</returns>
         public SqlResponse<int> ExecuteNonQuery(RenderedQuery query, DbTransaction existingTransaction = null)
         {
             return ExecuteOnConnection(query, existingTransaction, true, command => command.ExecuteNonQuery());
         }
 
-        /// <summary>
-        /// Creates a new instance of a stored procedure query.
-        /// </summary>
-        // public Queries.Core.StoredProcedureQuery BeginStoredProcedure()
-        // {
-        //     return new Queries.Core.StoredProcedureQuery();
-        // }
+        // SQL Server's table-type metadata cannot be created inside the transaction
+        // that uses it. Keep generated TVP type DDL separate from transactional writes.
+        internal SqlResponse<int> ExecuteTypeDdl(RenderedQuery query, string databaseName)
+            => ExecuteOnConnection(query, null, false, command =>
+            {
+                if (!string.Equals(command.Connection.Database, databaseName, StringComparison.Ordinal))
+                    command.Connection.ChangeDatabase(databaseName);
+                return command.ExecuteNonQuery();
+            });
 
         /// <summary>
-        /// Controlls if the ExecuteReaderJson function parses results row by row or as a single blob
+        /// Controls if the ExecuteReaderJson function parses results row by row or as a single blob
         /// </summary>
         public virtual bool JsonResultsRowByRow() => SqlLinqer.Compilation.SqlDialect.For(DbFlavor).JsonRows;
     }

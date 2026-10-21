@@ -6,14 +6,26 @@ using SqlLinqer.Queries.Interfaces;
 namespace SqlLinqer.Queries.Core.Abstract
 {
     /// <summary>
-    /// The base structue of a core query.
+    /// Provides SQL rendering and detached query capture for mutable query builders.
+    /// Rendering opens no database connection. Finish builder changes before capture or execution.
     /// </summary>
     public abstract class BaseQuery : IQueryCore
     {
         internal BaseConnector BoundConnector { get; set; }
         internal bool IsCompilationCopy;
 
-        /// <summary>Captures an isolated definition for repeated or concurrent rendering.</summary>
+        /// <summary>
+        /// Captures a detached query definition for repeated or concurrent rendering. Later builder changes do not change the snapshot.
+        /// Finish builder mutation before capture. Arrays, binary buffers, and DataTables are copied; other provider-specific objects must remain immutable.
+        /// </summary>
+        /// <returns>A snapshot owning a copy of the query structure and supported mutable parameter values.</returns>
+        /// <example>
+        /// <code>
+        /// var snapshot = query.Capture();
+        /// var data = snapshot.Render(connector);
+        /// var count = snapshot.RenderForCount(connector.DbFlavor);
+        /// </code>
+        /// </example>
         public QuerySnapshot Capture() => new QuerySnapshot(this);
 
         /// <summary>

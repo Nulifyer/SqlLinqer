@@ -185,5 +185,5 @@ Keep output bindings intact when executing rendered calls; the invocation's `Exe
 ## Validation
 
 The regression suite covers result sets, nulls, output timing, argument isolation, and transaction ownership with fake connections.
-The Azure SQL local suite parses generated T-SQL and imports metadata into real SqlClient parameters without connecting.
+The offline SQL Server/Azure SQL suite parses generated T-SQL and imports metadata into real SqlClient parameters without connecting.
 The full container runner verifies procedure execution against SQL Server. Direct Azure execution is optional within the same suite. See [SQL Server/Azure SQL tests](../SqlLinqer.Tests/SqlServer/README.md).

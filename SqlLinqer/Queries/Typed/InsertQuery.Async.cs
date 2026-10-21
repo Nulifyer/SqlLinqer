@@ -17,47 +17,47 @@ namespace SqlLinqer.Queries.Typed
 {
     public partial class InsertQuery<T>
     {
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <inheritdoc/>
         public async Task<SqlResponse<int>> ExecuteAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return await ExecuteAsync(ExecutionConnector, transaction, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <inheritdoc/>
         public async Task<SqlResponse<int>> ExecuteAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return await ExecuteAndCapturePrimaryKeysAsync(connector, transaction, null, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <inheritdoc/>
         public async Task<SqlResponse<int>> ExecuteTvpAsync(DbTransaction existingTransaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return await ExecuteTvpAsync(ExecutionConnector, existingTransaction, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <inheritdoc/>
         public async Task<SqlResponse<int>> ExecuteTvpAsync(BaseConnector connector, DbTransaction existingTransaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return await ExecuteTvpAndCapturePrimaryKeysAsync(connector, existingTransaction, null, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <inheritdoc/>
         public async Task<SqlResponse<DataTable>> ExecuteWithOutputAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return await ExecuteWithOutputAsync(ExecutionConnector, transaction, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <inheritdoc/>
         public async Task<SqlResponse<DataTable>> ExecuteWithOutputAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (connector == null)
-                throw new ArgumentNullException("Either pass a connector or set the default connector.", nameof(connector));
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
             return await ExecuteBatchesAsync<DataTable>(connector, transaction,
                 async (query, tx) => await connector.ExecuteReaderDataTableAsync(query, tx, cancellationToken: cancellationToken).ConfigureAwait(false),
                 (all, batch) =>
@@ -68,14 +68,29 @@ namespace SqlLinqer.Queries.Typed
                 }, table => table?.Dispose(), cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <summary>
+        /// Asynchronously inserts through a generated SQL Server or Azure SQL TVP and buffers the selected output columns.
+        /// Type creation and cleanup use separate autocommit connections in the write database. Inserted rows keep their write transaction.
+        /// </summary>
+        /// <param name="transaction">An optional caller-owned transaction. The library does not commit, roll back, or dispose it.</param>
+        /// <param name="cancellationToken">Cancels provider I/O. Requested cancellation throws, and type cleanup ignores the cancelled token.</param>
+        /// <returns>A response containing the combined output rows as a DataTable. The caller disposes a successful table.</returns>
+        /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         public async Task<SqlResponse<DataTable>> ExecuteTvpWithOutputAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return await ExecuteTvpWithOutputAsync(ExecutionConnector, transaction, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <summary>
+        /// Asynchronously inserts through a generated SQL Server or Azure SQL TVP and buffers the selected output columns.
+        /// Type creation and cleanup use separate autocommit connections in the write database. Inserted rows keep their write transaction.
+        /// </summary>
+        /// <param name="connector">The execution connector. It must create fresh connections to the same server as the write transaction.</param>
+        /// <param name="transaction">An optional caller-owned transaction. The library does not commit, roll back, or dispose it.</param>
+        /// <param name="cancellationToken">Cancels provider I/O. Requested cancellation throws, and type cleanup ignores the cancelled token.</param>
+        /// <returns>A response containing the combined output rows as a DataTable. The caller disposes a successful table.</returns>
+        /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         public async Task<SqlResponse<DataTable>> ExecuteTvpWithOutputAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -83,12 +98,12 @@ namespace SqlLinqer.Queries.Typed
                 async (query, tx) => await connector.ExecuteReaderDataTableAsync(query, tx, cancellationToken: cancellationToken).ConfigureAwait(false), cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <inheritdoc/>
         internal async Task<SqlResponse<int>> ExecuteAndCapturePrimaryKeysAsync(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (connector == null)
-                throw new ArgumentNullException("Either pass a connector or set the default connector.", nameof(connector));
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
 
             if (this.Inserts.Count == 0)
             {
@@ -117,7 +132,7 @@ namespace SqlLinqer.Queries.Typed
             return response;
         }
 
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <inheritdoc/>
         private async Task<SqlResponse<TResult>> ExecuteBatchesAsync<TResult>(BaseConnector connector, DbTransaction existingTransaction,
             Func<RenderedQuery, DbTransaction, Task<SqlResponse<TResult>>> execute,
             Func<TResult, TResult, TResult> merge, Action<TResult> discard = null, CancellationToken cancellationToken = default)
@@ -209,7 +224,7 @@ namespace SqlLinqer.Queries.Typed
             return combined;
         }
 
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <inheritdoc/>
         internal async Task<SqlResponse<int>> ExecuteTvpAndCapturePrimaryKeysAsync(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -235,7 +250,7 @@ namespace SqlLinqer.Queries.Typed
             }, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <inheritdoc/>
         private async Task<SqlResponse<TResult>> ExecuteTvpCoreAsync<TResult>(BaseConnector connector, DbTransaction existingTransaction,
             Func<RenderedQuery, DbTransaction, Task<SqlResponse<TResult>>> execute, CancellationToken cancellationToken = default)
         {
@@ -253,7 +268,7 @@ namespace SqlLinqer.Queries.Typed
             var response = new SqlResponse<TResult>();
             DbConnection conn = null;
             DbTransaction transaction = null;
-            bool typeCreated = false;
+            bool typeCleanupRequired = false;
             try
             {
                 conn = existingTransaction == null
@@ -261,16 +276,19 @@ namespace SqlLinqer.Queries.Typed
                     : existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
                 if (conn.State != ConnectionState.Open)
                     await conn.OpenAsync(cancellationToken).ConfigureAwait(false);
-                transaction = existingTransaction ?? conn.BeginTransaction(IsolationLevel.ReadCommitted);
 
-                var create = await connector.ExecuteNonQueryAsync(new RenderedQuery(createType), transaction, cancellationToken: cancellationToken).ConfigureAwait(false);
+                // Autocommit type DDL avoids SQL Server's self-deadlock on USER_TYPE metadata.
+                // Mark the attempt first so cancellation after server execution still triggers cleanup.
+                typeCleanupRequired = true;
+                var create = await connector.ExecuteTypeDdlAsync(new RenderedQuery(createType), conn.Database, cancellationToken).ConfigureAwait(false);
                 if (create.State == ResponseState.Error) throw create.Error;
-                typeCreated = true;
+                cancellationToken.ThrowIfCancellationRequested();
+                transaction = existingTransaction ?? conn.BeginTransaction(IsolationLevel.ReadCommitted);
                 response = await execute(tempQuery, transaction).ConfigureAwait(false);
                 if (response.State == ResponseState.Error) throw response.Error;
-                var drop = await connector.ExecuteNonQueryAsync(new RenderedQuery(dropType), transaction, cancellationToken: cancellationToken).ConfigureAwait(false);
+                var drop = await connector.ExecuteTypeDdlAsync(new RenderedQuery(dropType), conn.Database, cancellationToken).ConfigureAwait(false);
                 if (drop.State == ResponseState.Error) throw drop.Error;
-                typeCreated = false;
+                typeCleanupRequired = false;
                 cancellationToken.ThrowIfCancellationRequested();
                 if (existingTransaction == null) transaction.Commit();
             }
@@ -281,13 +299,17 @@ namespace SqlLinqer.Queries.Typed
                     try { transaction.Rollback(); }
                     catch { }
                 }
-                else if (typeCreated)
+                if (typeCleanupRequired)
                 {
-                    // A usable caller transaction can clean up immediately. A doomed one must
-                    // be rolled back by its owner, which also rolls back CREATE TYPE.
-                    try { await connector.ExecuteNonQueryAsync(new RenderedQuery(dropType), transaction, cancellationToken: CancellationToken.None).ConfigureAwait(false); }
-                    catch { }
+                    try
+                    {
+                        var cleanup = await connector.ExecuteTypeDdlAsync(new RenderedQuery(dropType), conn.Database, CancellationToken.None).ConfigureAwait(false);
+                        if (cleanup.State == ResponseState.Error) error.Data["TvpTypeCleanupError"] = cleanup.Error;
+                    }
+                    catch (Exception cleanupError) { error.Data["TvpTypeCleanupError"] = cleanupError; }
                 }
+                try { (response.Result as IDisposable)?.Dispose(); }
+                catch { }
                 if (error is OperationCanceledException && cancellationToken.IsCancellationRequested) throw;
                 response.SetError(error);
             }

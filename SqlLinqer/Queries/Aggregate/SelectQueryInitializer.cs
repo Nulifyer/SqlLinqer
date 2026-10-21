@@ -10,13 +10,20 @@ using SqlLinqer.Extensions.MemberExpressionExtensions;
 
 namespace SqlLinqer.Queries.Typed
 {
+    /// <summary>
+    /// Starts a SELECT projection over a mapped model. BuildQuery defines the returned members and SQL expressions.
+    /// </summary>
+    /// <typeparam name="TBase">The existing mapped root model.</typeparam>
     public class SelectQueryInitializer<TBase>
         where TBase : class
     {
+        /// <summary>The root table mapping used by the projection.</summary>
         protected readonly Table Table;
         internal BaseConnector BoundConnector { get; set; }
 
+        /// <summary>Creates a projection initializer from a root mapping or cached model mapping.</summary>
         public SelectQueryInitializer(string default_schema = null) : this(Table.GetCached<TBase>(default_schema)) { }
+        /// <summary>Creates a projection initializer from a root mapping or cached model mapping.</summary>
         public SelectQueryInitializer(Table table)
         {
             Table = table;
@@ -40,6 +47,20 @@ namespace SqlLinqer.Queries.Typed
             }
         }
 
+        /// <summary>
+        /// Translates an anonymous-object or member-initializer projection into SQL. Selected member names become output aliases.
+        /// SQL marker calls are translated rather than evaluated. The returned query filters with TBase expressions and orders with TReturn expressions.
+        /// </summary>
+        /// <typeparam name="TReturn">The anonymous or declared result model type.</typeparam>
+        /// <param name="expression">A projection that constructs TReturn from SQL marker methods such as Select, Count, and Sum.</param>
+        /// <returns>A mutable projected SELECT query retaining the initializer's connector and root mapping.</returns>
+        /// <example>
+        /// <code>
+        /// var query = User.BeginSelectBuilder(connector)
+        ///     .BuildQuery(x =&gt; new { Id = x.Select(p =&gt; p.Id), Count = x.Count() })
+        ///     .OrderBy(x =&gt; x.Id, SqlDir.ASC);
+        /// </code>
+        /// </example>
         public SelectAnonymousQuery<TBase, TReturn> BuildQuery<TReturn>(Expression<Func<SelectQueryBuilder<TBase>, TReturn>> expression)
             where TReturn : class
         {

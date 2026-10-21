@@ -15,6 +15,8 @@ namespace SqlLinqer.Connections
                 throw new InvalidCastException($"Cannot convert SQL NULL to {typeof(T)}.");
             }
             if (target == typeof(Guid)) return (T)(object)Guid.Parse(Convert.ToString(value, CultureInfo.InvariantCulture));
+            if (target.IsEnum)
+                return (T)(value is string text ? Enum.Parse(target, text) : Enum.ToObject(target, value));
             // DuckDB SUM of integral columns returns HUGEINT as BigInteger.
             if (value is System.Numerics.BigInteger integer)
             {

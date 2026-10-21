@@ -52,9 +52,9 @@ namespace SqlLinqer
         [Description("RTRIM")]
         RTRIM,
         /// <summary>
-        /// SoundDex of value
+        /// The SOUNDEX phonetic code of a value. The enum name retains its legacy spelling.
         /// </summary>
-        [Description("SOUNDDEX")]
+        [Description("SOUNDEX")]
         SOUNDDEX,
         /// <summary>
         /// Substring of a value
@@ -165,8 +165,10 @@ namespace SqlLinqer
         VARP,
     }
 
+    /// <summary>Classifies SQL functions for grouping during query compilation.</summary>
     public static class SqlFuncExtensions
     {
+        /// <summary>Returns whether the function can participate in a GROUP BY expression.</summary>
         public static bool DoGroupBy(this SqlFunc func)
         {
             switch (func)
@@ -188,6 +190,7 @@ namespace SqlLinqer
                     return true;
             }
         }
+        /// <summary>Returns whether grouping uses the function result rather than its input columns.</summary>
         public static bool GroupByOutput(this SqlFunc func)
         {
             switch (func)

@@ -43,7 +43,11 @@ namespace SqlLinqer.Components.Render
             return id;
         }
 
-        /// <summary>Creates a parameter collection for the selected SQL dialect.</summary>
+        /// <summary>
+        /// Creates a parameter collection using the selected dialect's placeholder syntax.
+        /// Choose the dialect before adding parameters; populated collections cannot switch syntax families.
+        /// </summary>
+        /// <param name="flavor">The dialect. DuckDB uses $P placeholders; other current dialects use @P placeholders.</param>
         public ParameterCollection(DbFlavor flavor) : this()
         {
             SetFlavor(flavor);
@@ -69,11 +73,11 @@ namespace SqlLinqer.Components.Render
         }
 
         /// <summary>
-        /// Add a parameter to the collection
+        /// Adds a bound value and returns its SQL placeholder. Null is stored as DBNull.Value.
         /// </summary>
-        /// <param name="value">The value of the parameter</param>
-        /// <param name="dbType">The <see cref="System.Data.DbType"/> of the parameter</param>
-        /// <returns>The placeholder string of the parameter</returns>
+        /// <param name="value">The application value to bind. Use AddTvpParameter for DataTable values.</param>
+        /// <param name="dbType">An optional explicit provider parameter type.</param>
+        /// <returns>A generated placeholder that does not collide with existing bindings.</returns>
         public string AddParameter(object value, System.Data.DbType? dbType = null)
         {
             string id = NextId();
@@ -89,11 +93,12 @@ namespace SqlLinqer.Components.Render
             return id;
         }
         /// <summary>
-        /// Add a TVP parameter to the collection
+        /// Adds a Structured parameter for an existing SQL Server table type. The payload remains a reference to the supplied DataTable.
+        /// Does not create or drop the database type. Capture the query to copy supported mutable input data.
         /// </summary>
-        /// <param name="value">The <see cref="System.Data.DataTable"/> value with the data</param>
-        /// <param name="typeName">The Sql type name of the data</param>
-        /// <returns>The placeholder string of the parameter</returns>
+        /// <param name="value">A table matching the existing SQL type's column order and CLR types.</param>
+        /// <param name="typeName">The existing type name, including its schema when required.</param>
+        /// <returns>The generated placeholder for this parameter.</returns>
         public string AddTvpParameter(System.Data.DataTable value, string typeName)
         {
             if (_flavor == DbFlavor.DuckDb)

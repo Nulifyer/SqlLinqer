@@ -246,7 +246,8 @@ internal static class AsyncRegressionTests
                 var result = await new InsertWithPrimaryKeyQuery<Row, int>().InsertAuto(new Row { Name = "tvp" }).ExecuteTvpAsync(connector);
                 Check(result.State == ResponseState.Valid && result.TouchedPrimaryKeys.Single() == 7, result.Error?.ToString());
                 Check(database.AsyncCommands == 3 && database.SyncCommands == 0
-                    && database.Connections.Single().Transactions.Single().Commits == 1, "TVP lifecycle differs");
+                    && database.Connections.First().Transactions.Single().Commits == 1, "TVP lifecycle differs");
+                TvpRegressionTests.CheckTypeDdl(database);
             });
         }
 

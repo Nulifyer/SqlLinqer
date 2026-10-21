@@ -3,7 +3,8 @@
 namespace SqlLinqer.Modeling
 {
     /// <summary>
-    /// Defines the class's table name
+    /// Maps a model class to an existing database table and optional schema. It does not create or migrate the database.
+    /// An explicit schema overrides the connector default.
     /// </summary>
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
     public sealed class SqlTable : Attribute
@@ -14,15 +15,15 @@ namespace SqlLinqer.Modeling
         public readonly string Name;
 
         /// <summary>
-        /// The database schema name
+        /// The explicit database schema, or null to use the schema fallback selected when the query model is built.
         /// </summary>
         public readonly string Schema;
 
         /// <summary>
-        /// Defines the class's database table
+        /// Defines the database table name and optional explicit schema for a model.
         /// </summary>
-        /// <param name="name">The database table name</param>
-        /// <param name="schema">The database schema name</param>
+        /// <param name="name">The existing database table name.</param>
+        /// <param name="schema">The explicit schema, or null to use the model construction's default schema.</param>
         public SqlTable(string name, string schema = null)
         {
             Name = name;

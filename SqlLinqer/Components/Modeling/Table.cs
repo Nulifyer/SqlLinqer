@@ -307,6 +307,7 @@ namespace SqlLinqer.Components.Modeling
             return table;
         }
 
+        /// <summary>Returns a diagnostic description of this mapping.</summary>
         public override string ToString()
         {
             return $"{SourceType?.Name ?? Name}";

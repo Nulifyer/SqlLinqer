@@ -6,28 +6,31 @@ using SqlLinqer.Connections;
 namespace SqlLinqer.Queries.Interfaces
 {
     /// <summary>
-    /// A <see cref="IQueryTyped"/> that can be executed.
+    /// Executes a write while collecting the affected primary keys. Requested cancellation propagates as an exception.
     /// </summary>
-    /// <typeparam name="T">The return type of the execution result</typeparam>
-    /// <typeparam name="TPk">The type of the primary key</typeparam>
+    /// <typeparam name="T">The declared query result type.</typeparam>
+    /// <typeparam name="TPk">The primary key type.</typeparam>
     public interface IAsyncQueryExecutableWithPrimaryKeys<T, TPk>
     {
         /// <summary>
-        /// Asynchronously executes the query, capturing database errors and propagating requested cancellation.
-        /// Uses the connector supplied at query creation, or <see cref="SqlLinqer.Default.Connector"/> if none was supplied.
+        /// Asynchronously executes a write and returns its affected-row count and affected primary keys. Requested cancellation throws.
+        /// Uses the retained connector or the current default. MySQL modified-row output is unsupported.
         /// </summary>
-        /// <param name="transaction">An existing database transactiong with the connection property set to the open connection.</param>
-        /// <param name="cancellationToken">Cancels connection opening, command execution, and result reading.</param>
-        /// <returns>The retult of the query in a state based wrapper.</returns>
+        /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
+        /// <param name="cancellationToken">Cancels provider connection opening, command execution, and result reading. Defaults to no requested cancellation.</param>
+        /// <returns>The affected-row count and touched primary keys. An error response has no successful key result.</returns>
+        /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         Task<SqlPrimaryKeysResponse<int, TPk>> ExecuteAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Asynchronously executes the query, capturing database errors and propagating requested cancellation.
+        /// Asynchronously executes a write and returns its affected-row count and affected primary keys. Requested cancellation throws.
+        /// MySQL modified-row output is unsupported.
         /// </summary>
-        /// <param name="connector">The connector used to render and execute this call, without changing the query's retained connector.</param>
-        /// <param name="transaction">An existing database transactiong with the connection property set to the open connection.</param>
-        /// <param name="cancellationToken">Cancels connection opening, command execution, and result reading.</param>
-        /// <returns>The retult of the query in a state based wrapper.</returns>
+        /// <param name="connector">The connector used for this call. It does not replace the retained connector or rebuild the query model mappings and schema.</param>
+        /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
+        /// <param name="cancellationToken">Cancels provider connection opening, command execution, and result reading. Defaults to no requested cancellation.</param>
+        /// <returns>The affected-row count and touched primary keys. An error response has no successful key result.</returns>
+        /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         Task<SqlPrimaryKeysResponse<int, TPk>> ExecuteAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default);
     }
 }

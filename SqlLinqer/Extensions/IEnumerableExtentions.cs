@@ -25,16 +25,13 @@ namespace SqlLinqer.Extensions.IEnumerableExtentions
         }
         /// <summary>
         /// Returns distinct elements from a sequence based on a specified key.
+        /// Preserves the first occurrence of each key in source order.
         /// </summary>
         /// <typeparam name="T">The type of elements in the source sequence.</typeparam>
         /// <typeparam name="TKey">The type of the key used for distinct comparison.</typeparam>
         /// <param name="source">The source sequence.</param>
         /// <param name="keySelector">A function to extract the key for each element.</param>
         /// <returns>An <see cref="IEnumerable{T}"/> that contains distinct elements based on the specified key.</returns>
-        /// <remarks>
-        /// This extension method uses a hash set to keep track of keys seen during enumeration
-        /// and yields only elements with distinct keys in the order they appear in the source sequence.
-        /// </remarks>
         /// <example>
         /// <code>
         /// var persons = new List&lt;Person&gt;

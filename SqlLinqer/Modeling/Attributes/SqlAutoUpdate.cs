@@ -3,15 +3,14 @@
 namespace SqlLinqer.Modeling
 {
     /// <summary>
-    /// Defines the target class to have all columns updated on auto.
-    /// Defines the target property or field to be updated on auto.
+    /// Includes a mapped non-primary-key member in UpdateAuto, including a null value.
+    /// On a model class, sets the member default; member attributes can override it.
     /// </summary>
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false)]
     public sealed class SqlAutoUpdate : Attribute
     {
         /// <summary>
-        /// Defines the target class to have all columns updated on auto.
-        /// Defines the target property or field to be updated on auto.
+        /// Includes a mapped non-primary-key member in UpdateAuto, including a null value.
         /// </summary>
         public SqlAutoUpdate()
         {

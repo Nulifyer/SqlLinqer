@@ -12,13 +12,19 @@ using System;
 
 namespace SqlLinqer.Components.Where
 {
+    /// <summary>Compares a mapped column with a value or subquery.</summary>
     public class WhereColumnValue : WhereStatement
     {
+        /// <summary>The column being compared.</summary>
         public readonly Column Column;
+        /// <summary>The comparison value or subquery.</summary>
         public readonly object Value;
+        /// <summary>The comparison operator.</summary>
         public readonly SqlOp Operator;
+        /// <summary>The quantifier used when comparing against a subquery.</summary>
         public readonly SqlSubQueryOp SubQueryOp;
 
+        /// <summary>Creates a column comparison with a value or quantified subquery.</summary>
         public WhereColumnValue(Column column, object value, SqlOp op, SqlSubQueryOp sub_query_op)
         {
             Column = column;
@@ -31,13 +37,16 @@ namespace SqlLinqer.Components.Where
             SubQueryOp = sub_query_op;
         }
 
+        /// <summary>The preparation order used to sort predicates.</summary>
         public override int Order => 100;
 
+        /// <inheritdoc/>
         public override IWhereComponent Invert()
         {
             return new WhereColumnValue(Column, Value, Operator.GetInvert(), SubQueryOp);
         }
 
+        /// <inheritdoc/>
         public override IWhereComponent Finalize(WhereQuery query) => FinalizeForDialect(query, null);
 
         internal IWhereComponent FinalizeForDialect(WhereQuery query, DbFlavor? flavor)
@@ -129,6 +138,7 @@ namespace SqlLinqer.Components.Where
                 }
             }
         }
+        /// <inheritdoc/>
         public override bool TryCombineInto(WhereCollection current_collection, IWhereComponent parent_component) => false;
 
         private static string WordPattern(string value)
@@ -150,6 +160,7 @@ namespace SqlLinqer.Components.Where
             return pattern.Append("($|[^0-9A-z])").ToString();
         }
 
+        /// <inheritdoc/>
         public override void Render(WhereQuery query, ParameterCollection parameters, DbFlavor flavor, StringBuilder builder)
         {
             object hanldedValue = Value;
@@ -308,6 +319,7 @@ namespace SqlLinqer.Components.Where
             return glob.Append("[^0-9A-z]*").ToString();
         }
 
+        /// <inheritdoc/>
         public override IEnumerable<Column> GetColumnReferences()
         {
             yield return Column;

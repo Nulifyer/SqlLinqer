@@ -10,7 +10,7 @@ namespace SqlLinqer.Extensions.StringExtensions
     public static class StringExtensions
     {
         /// <summary>
-        /// Get a unique GUID for the current string
+        /// Returns the MD5 hash of the string in GUID format.
         /// </summary>
         /// <param name="str">The current string</param>
         public static string GetHashString(this string str)
@@ -31,7 +31,8 @@ namespace SqlLinqer.Extensions.StringExtensions
             return Guid.NewGuid().ToString("n");
         }
         /// <summary>
-        /// Wrap the string in the correct SQL characters given the flavor
+        /// Quotes a SQL identifier for the selected dialect, escaping embedded closing delimiters.
+        /// Existing delimiters are preserved for legacy server dialects.
         /// </summary>
         /// <param name="str">The current string</param>
         /// <param name="flavor">The type of SQL database</param>
@@ -61,10 +62,11 @@ namespace SqlLinqer.Extensions.StringExtensions
             if (str.StartsWith(begin.ToString()) && str.EndsWith(end.ToString()))
                 return str;
             else
-                return $"{begin}{str}{end}";
+                return $"{begin}{str.Replace(end.ToString(), new string(end, 2))}{end}";
         }
         /// <summary>
-        /// Wrap the string in the correct SQL characters given the flavor
+        /// Quotes a SQL string literal, escaping embedded apostrophes.
+        /// Existing quotes are preserved for legacy server dialects. Use parameters for application values.
         /// </summary>
         /// <param name="str">The current string</param>
         /// <param name="flavor">The type of SQL database</param>
@@ -89,7 +91,7 @@ namespace SqlLinqer.Extensions.StringExtensions
             if (str.StartsWith(begin.ToString()) && str.EndsWith(end.ToString()))
                 return str;
             else
-                return $"{begin}{str}{end}";
+                return $"{begin}{str.Replace("'", "''")}{end}";
         }
         /// <summary>
         /// Escape the string for use in a SQL like

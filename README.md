@@ -28,7 +28,7 @@ bash TestDBs/test-containers.sh --sudo
 
 The runner builds once, runs every suite in an isolated container environment, saves one result log, and removes its containers and volumes.
 It supports Docker or Podman. Use `--host` to run tests on the host with random localhost database ports.
-Failures remain nonzero, including the currently known generated-type TVP insert deadlock on SQL Server.
+Failures remain nonzero, including live database and cleanup failures.
 Direct Azure SQL testing is optional and uses the same shared server fixtures.
 
 `dotnet run --project SqlLinqer.Tests` runs local regression, SQLite, DuckDB, and offline provider checks without server connections.
@@ -39,7 +39,6 @@ The two compatibility test programs require the employee database described in t
 
 - [Sync and async execution](docs/EXECUTION.md)
 - [Query snapshots and compilation](docs/QUERY_COMPILATION.md)
-
 - [Publish a NuGet release](docs/RELEASING.md)
 - [Set up a connection](docs/SETUP_A_CONNECTION.md)
 - [Inject a connector](docs/SETUP_A_CONNECTION.md#inject-a-connector)

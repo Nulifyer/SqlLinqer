@@ -21,6 +21,7 @@ namespace SqlLinqer.Components.Render
         /// <summary>
         /// Add a parameter to the collection
         /// </summary>
+        /// <param name="name">The parameter name used by the stored procedure.</param>
         /// <param name="value">The value of the parameter</param>
         /// <param name="dbType">The <see cref="System.Data.DbType"/> of the parameter</param>
         public new void AddParameter(string name, object value, System.Data.DbType? dbType = null)
@@ -30,6 +31,7 @@ namespace SqlLinqer.Components.Render
         /// <summary>
         /// Add a TVP parameter to the collection
         /// </summary>
+        /// <param name="name">The parameter name used by the stored procedure.</param>
         /// <param name="value">The <see cref="System.Data.DataTable"/> value with the data</param>
         /// <param name="typeName">The Sql type name of the data</param>
         public new void AddTvpParameter(string name, System.Data.DataTable value, string typeName)

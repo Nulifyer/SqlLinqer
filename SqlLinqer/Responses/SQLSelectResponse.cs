@@ -4,12 +4,15 @@ using System.Collections.Generic;
 namespace SqlLinqer
 {
     /// <summary>
-    /// A response containing a total result count
+    /// Contains selected rows and the total root projection count before paging. Grouped and DISTINCT queries count their projected rows.
+    /// Failure clears rows and resets TotalResults to zero.
     /// </summary>
+    /// <typeparam name="T">The selected model or projection type.</typeparam>
     public class SqlSelectResponse<T> : SqlResponse<List<T>>
     {
         /// <summary>
-        /// The total number of results reguardless of paging, limits, or offsets.
+        /// The number of projected results before root TOP, limit, and offset. It counts grouped or distinct results rather than their input rows.
+        /// An empty page can have a positive total. Failure resets this value to zero.
         /// </summary>
         public long TotalResults { get; private set; }
 
@@ -21,10 +24,10 @@ namespace SqlLinqer
         }
 
         /// <summary>
-        /// Sets the state as VALID and the result. Clears the error.
+        /// Stores a successful selected page and its unpaged projection count, clearing any previous error.
         /// </summary>
-        /// <param name="result">The valid response result</param>
-        /// <param name="totalResults">The total number of results</param>
+        /// <param name="result">The selected page, which can be empty.</param>
+        /// <param name="totalResults">The total number of projected results before root paging.</param>
         public void SetResult(List<T> result, long totalResults)
         {
             SetResult(result);

@@ -125,10 +125,22 @@ SqlLinqer does not add automatic write retries. A connection failure can leave a
 
 Azure SQL uses SQL Server's `EXEC [schema].[procedure] @name = @P1` syntax. Named parameters retain `DbType`, typed nulls and TVP type names. The existing `StoredProcedureQuery` expects a JSON array for `ExecuteJson`, or rows for `ExecuteDataTable`. [Typed callable models](../../docs/CALLABLES.md) add ordinary typed rows, multiple result sets, output parameters, and return-code binding. Local checks verify their SQL syntax and native parameter metadata. The optional schema suite also tests typed callable execution, defaults, explicit NULL, and caller transactions. Tabular queries that select relationships return JSON-valued columns for those relationships.
 
-`ExecuteTvp`, `ExecuteTvpWithOutput` and returned-key TVP execution create a random database table type, insert through a Structured parameter, then drop the type on the same connection and transaction. Owned transactions commit all three operations or roll them back on failure. A usable caller transaction gets a best-effort type drop after an insert failure; if SQL Server marks it uncommittable, the caller must roll it back. The library never commits, rolls back or disposes caller transactions. These are real database types, not session-local types, so type-creation and schema permissions are required for every call. For an existing table type, use `StoredProcedureQuery.AddTvpParameter` instead.
+`ExecuteTvp`, `ExecuteTvpWithOutput`, and their asynchronous counterparts create a random table type, insert through a Structured parameter, then drop the type.
+Type creation and cleanup use separate autocommit connections. Creating the type inside the write transaction can self-deadlock on SQL Server `USER_TYPE` metadata with error `1205`.
+The insert still uses one owned or supplied write transaction. A successful owned operation drops the type before committing the inserted rows.
+
+After failure, owned writes attempt rollback and type cleanup. Caller transactions remain caller-owned, including after cancellation.
+Cleanup uses an independent connection even if SQL Server has aborted the caller transaction, and it does not use a cancelled request token.
+A later caller rollback does not restore the dropped type. If cleanup also fails, the original error retains that failure in `Exception.Data["TvpTypeCleanupError"]`.
+Connection loss or process termination can leave a generated type requiring manual cleanup.
+
+The connector must create fresh connections to the same server as the write connection, including when a caller transaction is supplied.
+Metadata commands switch to the write connection's database if the factory defaults to another database.
+These are real database types, so type-creation and schema permissions are required for every call.
+For an existing table type, use `StoredProcedureQuery.AddTvpParameter` instead.
 
 For ordinary parameters, the existing `DateTime` default remains `DbType.DateTime`. Annotate a model timestamp with `[SqlColumn(nameof(Stamp), DbType.DateTime2)]` to preserve its full `datetime2(7)` precision, as the live type-round-trip model does. `DateTimeOffset` parameters retain their offset.
 
-Generated TVP declarations use `DECIMAL(38,18)`, `DATETIME2(7)`, Unicode `NCHAR(1)`, `REAL` for `Single`, and SQL Server types for the remaining supported CLR values. Decimal values needing more than 18 fractional or 20 integral digits need a different table-type declaration; override `RenderTempType` for that shape or pass an existing type to a procedure. User-defined provider types, CLR enums and unsigned numeric types do not have complete automatic TVP mappings. Use supported CLR model types or an explicit DataTable/type with a procedure. SQL Server's ordinary parameter/VALUES limits still apply to non-TVP inserts; SqlLinqer does not automatically batch them.
+Generated TVP declarations use `DECIMAL(38,18)`, `DATETIME2(7)`, Unicode `NCHAR(1)`, `REAL` for `Single`, and SQL Server types for the remaining supported CLR values. Decimal values needing more than 18 fractional or 20 integral digits need a different table-type declaration; override `RenderTempType` for that shape or pass an existing type to a procedure. User-defined provider types, CLR enums and unsigned numeric types do not have complete automatic TVP mappings. Use supported CLR model types or an explicit DataTable/type with a procedure. Ordinary insert execution batches rows within the configured parameter budget and SQL Server's native parameter and VALUES limits.
 
 SQL Server/Azure count rendering retains Distinct and aggregate projections in a derived table, removes paging/order, and places any CTE before the outer count. This counts groups or aggregate result rows rather than input rows. Other database dialects retain their existing count behavior on this branch.

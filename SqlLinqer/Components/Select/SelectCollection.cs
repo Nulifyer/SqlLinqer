@@ -6,16 +6,20 @@ using SqlLinqer.Queries.Core;
 
 namespace SqlLinqer.Components.Select
 {
+    /// <summary>Indexes selected expressions by their output aliases.</summary>
     public class SelectCollection : KeyedComponentCollectionBase<string, SelectStatement>
     {
+        /// <summary>Adds or replaces a selected expression with the same output alias.</summary>
         public void AddStatement(SelectStatement statement)
         {
             AddComponentOverwrite(statement.Alias, statement);
         }
 
-        public void Clear()
+        /// <summary>Removes all selected expressions.</summary>
+        public new void Clear()
             => base.Clear();
 
+        /// <summary>Renders this component for the selected database dialect.</summary>
         public string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool forJson)
         {
             if (Count == 0)
@@ -28,6 +32,7 @@ namespace SqlLinqer.Components.Select
                 query.IsSubQuery && query.Table.ParentRelationship?.Type != Modeling.RelationshipType.OneToOne) : fields;
         }
 
+        /// <summary>Renders the grouping expressions required by the current projection.</summary>
         protected internal string RenderGroupBy(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
             var statements = GetAll();

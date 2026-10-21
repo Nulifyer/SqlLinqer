@@ -1,20 +1,20 @@
 namespace SqlLinqer.Components.Modeling
 {
     /// <summary>
-    /// Indicated the type of the relationship between <see cref="ModelConfig"/>
+    /// The cardinality of a relationship between mapped tables.
     /// </summary>
     public enum RelationshipType
     {
         /// <summary>
-        /// One to one realationship
+        /// One to one relationship
         /// </summary>
         OneToOne,
         /// <summary>
-        /// One to many realationship
+        /// One to many relationship
         /// </summary>
         OneToMany,
         /// <summary>
-        /// Many to many realationship
+        /// Many to many relationship
         /// </summary>
         ManyToMany,
     }

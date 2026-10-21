@@ -256,7 +256,7 @@ internal static partial class CallableRegressionTests
     public sealed class MissingAttribute : SqlLinqerCallable<MissingAttribute, ExternalArgs, ExternalResult> { }
     [SqlProcedure("Invalid")]
     public sealed class InvalidName : SqlLinqerCallable<InvalidName, InvalidName.Args, ExternalResult>
-    { public class Args { [SqlParameter("bad;name")] public int Value; } }
+    { public class Args { [SqlParameter("bad;name")] public int Value = 1; } }
     [SqlProcedure("Invalid")]
     public sealed class InvalidSets : SqlLinqerCallable<InvalidSets, ExternalArgs, InvalidSets.Result>
     { public class Result { [SqlResultSet(1)] public List<int> Rows { get; set; } } }

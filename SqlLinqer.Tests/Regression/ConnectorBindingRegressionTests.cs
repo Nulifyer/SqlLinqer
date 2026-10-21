@@ -74,8 +74,11 @@ internal static class ConnectorBindingRegressionTests
                     int connections = database.Connections.Count;
                     response = execute(transaction);
                     Check(response.State == ResponseState.Valid, response.Error?.ToString());
-                    Check(database.Connections.Count == connections && database.Executed.Count > 0
-                        && database.Executed.All(x => x.UsedTransaction == transaction), "Caller transaction was not forwarded");
+                    bool tvp = factory.Key.Contains("tvp");
+                    Check(database.Connections.Count == connections + (tvp ? 2 : 0) && database.Executed.Count > 0
+                        && database.Executed.Where(x => !tvp || x.CommandText.StartsWith("INSERT INTO"))
+                            .All(x => x.UsedTransaction == transaction), "Caller transaction was not forwarded");
+                    if (tvp) TvpRegressionTests.CheckTypeDdl(database);
                     Check(transaction.Commits == 0 && transaction.Rollbacks == 0 && !transaction.IsDisposed
                         && !connection.IsDisposed, "Execution took ownership of caller resources");
                 }

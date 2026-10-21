@@ -10,7 +10,8 @@ using SqlLinqer.Extensions.TypeExtensions;
 namespace SqlLinqer.Modeling
 {
     /// <summary>
-    /// Used to label many to many realtionships
+    /// Maps a related collection through a linking table that can connect the models in either key direction.
+    /// Select the relationship explicitly or include it with SqlAutoSelect. Persist relationship changes through foreign keys or linking rows.
     /// </summary>
     public sealed class SqlBiDirectionalManyToMany : RelationshipAttribute
     {
@@ -30,11 +31,11 @@ namespace SqlLinqer.Modeling
         public readonly string RightJoiningKey;
 
         /// <summary>
-        /// Used to label many to many realtionships
+        /// Maps a related collection through a linking table that can connect the models in either key direction.
         /// </summary>
-        /// <param name="joiningType">The type that models the relational table</param>
-        /// <param name="leftJoiningKey">The foreign key on the joining type the is the primary key of the left model</param>
-        /// <param name="rightJoiningKey">The foreign key on the joining type that is the primary key of the right model</param>
+        /// <param name="joiningType">The mapped linking model type. Its table and column attributes supply SQL names.</param>
+        /// <param name="leftJoiningKey">The linking model's CLR member referencing the root key.</param>
+        /// <param name="rightJoiningKey">The linking model's CLR member referencing the related key.</param>
         public SqlBiDirectionalManyToMany(Type joiningType, string leftJoiningKey, string rightJoiningKey) : base(RelationshipType.ManyToMany)
         {
             directTargets = false;
@@ -62,11 +63,11 @@ namespace SqlLinqer.Modeling
         public readonly string RightForeignKey;
 
         /// <summary>
-        /// Used to label many to many realtionships
+        /// Maps a related collection through a linking table that can connect the models in either key direction.
         /// </summary>
-        /// <param name="joiningTable">The name of the relational table</param>
-        /// <param name="leftForeignerKey">The foreign key on the relational table the is the primary key of the left model</param>
-        /// <param name="rightForeignerKey">The foreign key on the relational table the is the primary key of the right model</param>
+        /// <param name="joiningTable">The existing database linking table name.</param>
+        /// <param name="leftForeignerKey">The database column in the linking table referencing the root key.</param>
+        /// <param name="rightForeignerKey">The database column in the linking table referencing the related key.</param>
         public SqlBiDirectionalManyToMany(string joiningTable, string leftForeignerKey, string rightForeignerKey) : base(RelationshipType.ManyToMany)
         {
             directTargets = true;
@@ -76,18 +77,19 @@ namespace SqlLinqer.Modeling
             RightForeignKey = rightForeignerKey;
         }
         /// <summary>
-        /// Used to label many to many realtionships
+        /// Maps a related collection through a linking table that can connect the models in either key direction.
         /// </summary>
-        /// <param name="joiningTableSchema">The schema of the relational table</param>
-        /// <param name="joiningTable">The name of the relational table</param>
-        /// <param name="leftForeignerKey">The foreign key on the relational table the is the primary key of the left model</param>
-        /// <param name="rightForeignerKey">The foreign key on the relational table the is the primary key of the right model</param>>
+        /// <param name="joiningTableSchema">The explicit database schema of the linking table.</param>
+        /// <param name="joiningTable">The existing database linking table name.</param>
+        /// <param name="leftForeignerKey">The database column in the linking table referencing the root key.</param>
+        /// <param name="rightForeignerKey">The database column in the linking table referencing the related key.</param>
         public SqlBiDirectionalManyToMany(string joiningTableSchema, string joiningTable, string leftForeignerKey, string rightForeignerKey)
             : this(joiningTable, leftForeignerKey, rightForeignerKey)
         {
             JoiningSchema = joiningTableSchema;
         }
 
+        /// <inheritdoc/>
         public override Relationship ProcessRelationship(Table currentTable, UnprocessedRelationshipMember unprocessed)
         {
             Table parentTable = currentTable;

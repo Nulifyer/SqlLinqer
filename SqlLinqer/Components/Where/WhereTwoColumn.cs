@@ -8,12 +8,17 @@ using System.Collections.Generic;
 
 namespace SqlLinqer.Components.Where
 {
+    /// <summary>Compares two mapped columns.</summary>
     public class WhereTwoColumn : WhereStatement
     {
+        /// <summary>The left comparison column.</summary>
         public readonly Column Left;
+        /// <summary>The right comparison column.</summary>
         public readonly Column Right;
+        /// <summary>The comparison operator.</summary>
         public readonly SqlOp Operator;
 
+        /// <summary>Creates a comparison between two columns.</summary>
         public WhereTwoColumn(Column left, Column right, SqlOp op)
         {
             Left = left;
@@ -21,13 +26,16 @@ namespace SqlLinqer.Components.Where
             Operator = op;
         }
 
+        /// <summary>The preparation order used to sort predicates.</summary>
         public override int Order => 150;
 
+        /// <inheritdoc/>
         public override IWhereComponent Invert()
         {
             return new WhereTwoColumn(Left, Right, Operator.GetInvert());
         }
 
+        /// <inheritdoc/>
         public override IWhereComponent Finalize(WhereQuery query)
         {
             if (query?.Withs == null)
@@ -42,7 +50,6 @@ namespace SqlLinqer.Components.Where
             if (rel_many_left == null && rel_many_right == null)
                 return this;
             
-            Relationship rel_many;
             bool left_IsSameOrChildOf;
             bool right_IsSameOrChildOf;
                         
@@ -85,8 +92,10 @@ namespace SqlLinqer.Components.Where
             where_with.SubQuery.RootWhere.AddComponent(this);
             return where_with;
         }
+        /// <inheritdoc/>
         public override bool TryCombineInto(WhereCollection current_collection, IWhereComponent parent_component) => false;
 
+        /// <inheritdoc/>
         public override void Render(WhereQuery query, ParameterCollection parameters, DbFlavor flavor, StringBuilder builder)
         {
             query?.Joins.AddTable(Left.Table);
@@ -95,6 +104,7 @@ namespace SqlLinqer.Components.Where
             builder.Append($"{Left.Render(flavor)} {Operator.GetDescription()} {Right.Render(flavor)}");
         }
     
+        /// <inheritdoc/>
         public override IEnumerable<Column> GetColumnReferences()
         {
             yield return Left;

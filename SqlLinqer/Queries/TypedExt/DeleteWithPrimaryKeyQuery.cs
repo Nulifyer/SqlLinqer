@@ -13,10 +13,11 @@ using SqlLinqer.Components.Outputs;
 namespace SqlLinqer.Queries.TypedExt
 {
     /// <summary>
-    /// A DELETE query. Based around a type with a primary key.
+    /// Builds deletes that return affected-row counts and deleted primary keys. Add a WHERE condition to restrict the affected rows.
+    /// MySQL modified-row output is unsupported.
     /// </summary>
-    /// <typeparam name="T">The type serving as the root data model</typeparam>
-    /// <typeparam name="TPk">The type of the primary key</typeparam>
+    /// <typeparam name="T">The root model with a SqlPrimaryKey member.</typeparam>
+    /// <typeparam name="TPk">The primary key value type.</typeparam>
     public partial class DeleteWithPrimaryKeyQuery<T, TPk>
         : DeleteQuery<T>
         , IQueryTyped
@@ -27,13 +28,16 @@ namespace SqlLinqer.Queries.TypedExt
         where T : class
     {
         /// <summary>
-        /// A DELETE query. Based around a type with a primary key.
+        /// Creates a delete builder that captures affected primary keys. A primary-key mapping is required.
+        /// This constructor does not add a WHERE filter.
         /// </summary>
+        /// <param name="default_schema">The fallback schema for the cached model mapping.</param>
         public DeleteWithPrimaryKeyQuery(string default_schema = null) : this(Table.GetCached<T>(default_schema)) { }
         /// <summary>
-        /// A UPDATE query. Based around a type with a primary key.
+        /// Creates a delete builder that captures affected primary keys. A primary-key mapping is required.
+        /// This constructor does not add a WHERE filter.
         /// </summary>
-        /// <param name="table">The root table of the query</param>
+        /// <param name="table">The root mapping. It must define a primary key.</param>
         public DeleteWithPrimaryKeyQuery(Table table) : base(table)
         {
             if (table.PrimaryKey == null)
@@ -53,14 +57,18 @@ namespace SqlLinqer.Queries.TypedExt
         {
             return RootWhere.NewWhere(where_op);
         }
-        /// <inheritdoc/>
+        /// <summary>
+        /// Adds a nested condition group while preserving its AND/OR operator. NewWhere creates a detached group until this method adds it.
+        /// </summary>
+        /// <param name="sub_group">The condition group to combine with the root predicates.</param>
+        /// <returns>The same mutable query builder.</returns>
         public new DeleteWithPrimaryKeyQuery<T, TPk> Where(WhereCollection sub_group)
         {
             RootWhere.Where(sub_group);
             return this;
         }
         /// <inheritdoc/>
-        public DeleteWithPrimaryKeyQuery<T, TPk> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlNull value, SqlOp op)
+        public new DeleteWithPrimaryKeyQuery<T, TPk> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlNull value, SqlOp op)
         {
             RootWhere.Where<TProperty>(expression, value, op, SqlSubQueryOp.ANY);
             return this;
@@ -72,7 +80,7 @@ namespace SqlLinqer.Queries.TypedExt
             return this;
         }
         /// <inheritdoc/>
-        public DeleteWithPrimaryKeyQuery<T, TPk> Where<TProperty>(Expression<Func<T, TProperty>> expression, TProperty value, SqlOp op)
+        public new DeleteWithPrimaryKeyQuery<T, TPk> Where<TProperty>(Expression<Func<T, TProperty>> expression, TProperty value, SqlOp op)
         {
             RootWhere.Where<TProperty>(expression, value, op, SqlSubQueryOp.ANY);
             return this;

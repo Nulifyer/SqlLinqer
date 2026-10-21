@@ -10,11 +10,26 @@ namespace SqlLinqer.Queries.Typed
 {
     public sealed partial class CallableInvocation<TCallable, TArgs, TResult>
     {
-        /// <summary>Asynchronously executes using the current default connector.</summary>
+        /// <summary>
+        /// Asynchronously executes the procedure and buffers every declared result set before reading outputs and return code.
+        /// Uses the current default connector. Owned transactions commit after all results and outputs load; failures attempt rollback.
+        /// </summary>
+        /// <param name="transaction">An optional caller-owned transaction with an active connection.</param>
+        /// <param name="cancellationToken">Cancels opening, command execution, row reading, and result-set advancement. Requested cancellation throws.</param>
+        /// <returns>The populated result model and execution state. Empty result sets become empty collections.</returns>
+        /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         public Task<SqlResponse<TResult>> ExecuteAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default)
             => ExecuteAsync(Default.Connector, transaction, cancellationToken);
 
-        /// <summary>Asynchronously buffers result sets and outputs. Requested cancellation propagates to the caller.</summary>
+        /// <summary>
+        /// Asynchronously executes the procedure and buffers every declared result set before reading outputs and return code.
+        /// Owned transactions commit after all results and outputs load; failures attempt rollback.
+        /// </summary>
+        /// <param name="connector">The SQL Server or Azure SQL connector, including its fallback procedure schema.</param>
+        /// <param name="transaction">An optional caller-owned transaction with an active connection.</param>
+        /// <param name="cancellationToken">Cancels opening, command execution, row reading, and result-set advancement. Requested cancellation throws.</param>
+        /// <returns>The populated result model and execution state. Empty result sets become empty collections.</returns>
+        /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         public Task<SqlResponse<TResult>> ExecuteAsync(BaseConnector connector, DbTransaction transaction = null,
             CancellationToken cancellationToken = default)
         {

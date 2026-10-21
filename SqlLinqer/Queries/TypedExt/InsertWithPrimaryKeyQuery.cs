@@ -12,10 +12,11 @@ using SqlLinqer.Components.Outputs;
 namespace SqlLinqer.Queries.TypedExt
 {
     /// <summary>
-    /// A INSERT query. Based around a type with a primary key.
+    /// Builds inserts that return affected-row counts and inserted primary keys. Database-generated keys are omitted from automatic inputs.
+    /// MySQL modified-row output is unsupported.
     /// </summary>
-    /// <typeparam name="T">The type serving as the root data model</typeparam>
-    /// <typeparam name="TPk">The type of the primary key</typeparam>
+    /// <typeparam name="T">The root model with a SqlPrimaryKey member.</typeparam>
+    /// <typeparam name="TPk">The primary key value type.</typeparam>
     public partial class InsertWithPrimaryKeyQuery<T, TPk>
         : InsertQuery<T>
         , IQueryTyped
@@ -28,13 +29,14 @@ namespace SqlLinqer.Queries.TypedExt
         where T : class
     {
         /// <summary>
-        /// A INSERT query. Based around a type with a primary key.
+        /// Creates a insert builder that captures affected primary keys. A primary-key mapping is required.
         /// </summary>
+        /// <param name="default_schema">The fallback schema for the cached model mapping.</param>
         public InsertWithPrimaryKeyQuery(string default_schema = null) : this(Table.GetCached<T>(default_schema)) { }
         /// <summary>
-        /// A INSERT query. Based around a type with a primary key.
+        /// Creates a insert builder that captures affected primary keys. A primary-key mapping is required.
         /// </summary>
-        /// <param name="table">The root table of the query</param>
+        /// <param name="table">The root mapping. It must define a primary key.</param>
         public InsertWithPrimaryKeyQuery(Table table) : base(table)
         {
             if (table.PrimaryKey == null)

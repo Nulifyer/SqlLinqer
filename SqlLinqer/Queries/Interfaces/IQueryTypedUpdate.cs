@@ -10,37 +10,47 @@ namespace SqlLinqer.Queries.Interfaces
     public interface IQueryTypedUpdate<TQuery, TObj>
     {
         /// <summary>
-        /// Get the set of columns and values for the query from the object.
+        /// Adds non-primary-key assignments from the object, skipping nulls unless marked SqlUpdateDefaultAlways. Values such as zero and false are included.
+        /// Does not apply SqlAutoUpdate or SqlAutoUpdateExclude filtering.
         /// </summary>
-        /// <param name="obj">The object get the columns and values from</param>
+        /// <param name="obj">The instance whose current mapped values supply the assignments.</param>
+        /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
         TQuery UpdateNonDefaults(TObj obj);
         /// <summary>
-        /// Get the set of columns and values for the query from the object.
-        /// The updated columns are based off the <see cref="SqlLinqer.Modeling.SqlAutoUpdate"/> 
-        /// and <see cref="SqlLinqer.Modeling.SqlAutoUpdateExclude"/> attributes.
+        /// Adds assignments allowed by SqlAutoUpdate and SqlAutoUpdateExclude, including null values. Primary keys are never assigned automatically.
+        /// Without a WHERE filter, execution updates every root-table row.
         /// </summary>
-        /// <param name="obj">The object get the columns and values from</param>
+        /// <param name="obj">The model instance supplying the assignment values.</param>
+        /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
         TQuery UpdateAuto(TObj obj);
         /// <summary>
-        /// Add an update statement of a column to a value
+        /// Assigns a value, including SQL NULL, to a mapped root-table column.
+        /// Without a WHERE filter, execution updates every root-table row.
         /// </summary>
-        /// <typeparam name="TProperty">The type of the targeted property</typeparam>
-        /// <param name="expression">The expression target of the column</param>
-        /// <param name="value">The value to set</param>
+        /// <typeparam name="TProperty">The target member type.</typeparam>
+        /// <param name="expression">The column to assign. It must belong to the root model.</param>
+        /// <param name="value">The value to bind as a parameter. Pass null to clear a nullable column.</param>
+        /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
+        /// <exception cref="System.FormatException">The target expression refers to a related table rather than the root table.</exception>
         TQuery Update<TProperty>(Expression<Func<TObj, TProperty>> expression, TProperty value);
         /// <summary>
-        /// Add an update statement of a column to the result of an operation
+        /// Assigns the result of an update operation to a mapped root-table column.
+        /// Without a WHERE filter, execution updates every root-table row.
         /// </summary>
-        /// <typeparam name="TProperty">The type of the targeted property</typeparam>
-        /// <param name="expression">The expression target of the column</param>
-        /// <param name="operation">The operation to perform and set</param>
+        /// <typeparam name="TProperty">The target member type.</typeparam>
+        /// <param name="expression">The column to assign. It must belong to the root model.</param>
+        /// <param name="operation">The SQL assignment operation, such as BasicMathOperation.</param>
+        /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
+        /// <exception cref="System.FormatException">The target expression refers to a related table rather than the root table.</exception>
         TQuery Update<TProperty>(Expression<Func<TObj, TProperty>> expression, UpdateOperation operation);
         /// <summary>
-        /// Add an update statement of a column to the value of another column
+        /// Assigns the value of another mapped column to a root-table column, resolving joins for the source expression.
+        /// DuckDB requires a mapped target primary key and rejects multiple source matches for one target key.
         /// </summary>
-        /// <typeparam name="TProperty">The type of the targeted property</typeparam>
-        /// <param name="expression_update_column">The left expression target of the column</param>
-        /// <param name="expression_value_column">The right expression target of the column</param>
+        /// <typeparam name="TProperty">The common member type.</typeparam>
+        /// <param name="expression_update_column">The root-table column to assign.</param>
+        /// <param name="expression_value_column">The source column on the root or a related model.</param>
+        /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
         TQuery Update<TProperty>(Expression<Func<TObj, TProperty>> expression_update_column, Expression<Func<TObj, TProperty>> expression_value_column);
 
     }

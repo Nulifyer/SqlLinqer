@@ -12,10 +12,11 @@ using SqlLinqer.Extensions.MemberExpressionExtensions;
 namespace SqlLinqer.Queries.Typed
 {
     /// <summary>
-    /// A SELECT Aggregate query. Based around a type.
+    /// Executes a SQL projection into an anonymous or declared result type, including aggregate expressions and grouped totals.
+    /// Where expressions use TBase; typed ordering uses projected TReturn members. Total-count execution counts projected DISTINCT rows or groups before root paging.
     /// </summary>
-    /// <typeparam name="TBase">The type serving as the root data model</typeparam>
-    /// <typeparam name="TReturn">The type serving as the data return model</typeparam>
+    /// <typeparam name="TBase">The root mapped model used in predicates.</typeparam>
+    /// <typeparam name="TReturn">The result type defined by the projection.</typeparam>
     public partial class SelectAnonymousQuery<TBase, TReturn>
         : Core.SelectQuery
         , IQueryTyped
@@ -34,6 +35,7 @@ namespace SqlLinqer.Queries.Typed
         /// The root where group
         /// </summary>
         protected readonly new TableWhereCollection<TBase> RootWhere;
+        /// <summary>The table mapping for the projected result type.</summary>
         protected readonly Table ReturnTable;
 
         /// <summary>
@@ -122,7 +124,11 @@ namespace SqlLinqer.Queries.Typed
         {
             return RootWhere.NewWhere(where_op);
         }
-        /// <inheritdoc/>
+        /// <summary>
+        /// Adds a nested condition group while preserving its AND/OR operator. NewWhere creates a detached group until this method adds it.
+        /// </summary>
+        /// <param name="sub_group">The condition group to combine with the root predicates.</param>
+        /// <returns>The same mutable query builder.</returns>
         public SelectAnonymousQuery<TBase, TReturn> Where(WhereCollection sub_group)
         {
             RootWhere.Where(sub_group);
@@ -186,7 +192,7 @@ namespace SqlLinqer.Queries.Typed
         public SqlResponse<List<TReturn>> Execute(BaseConnector connector, DbTransaction transaction = null)
         {
             if (connector == null)
-                throw new ArgumentNullException("Either pass a connector or set the default connector.", nameof(connector));
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
 
             var rendered = this.Render(connector);
             var response = connector.ExecuteReaderJson<TReturn>(rendered, transaction);

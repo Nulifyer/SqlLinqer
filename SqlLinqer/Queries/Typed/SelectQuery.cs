@@ -13,9 +13,9 @@ using SqlLinqer.Components.Joins;
 namespace SqlLinqer.Queries.Typed
 {
     /// <summary>
-    /// A SELECT query. Based around a type.
+    /// Builds a mutable SELECT over a mapped model, with typed columns, nested relationships, filters, ordering, and paging.
     /// </summary>
-    /// <typeparam name="T">The type serving as the root data model</typeparam>
+    /// <typeparam name="T">The mapped root model type.</typeparam>
     public partial class SelectQuery<T>
         : Core.SelectQuery
         , IQueryTyped
@@ -37,13 +37,14 @@ namespace SqlLinqer.Queries.Typed
         protected readonly new TableWhereCollection<T> RootWhere;
 
         /// <summary>
-        /// A SELECT query. Based around a type.
+        /// Creates a SELECT builder for the supplied or cached model mapping.
         /// </summary>
+        /// <param name="default_schema">The fallback schema for models without an explicit SqlTable schema. This does not bind an execution connector.</param>
         public SelectQuery(string default_schema = null) : this(Table.GetCached<T>(default_schema)) { }
         /// <summary>
-        /// A SELECT query. Based around a type.
+        /// Creates a SELECT builder for the supplied or cached model mapping.
         /// </summary>
-        /// <param name="table">The root table of the query</param>
+        /// <param name="table">The root table mapping, whose database objects must already exist.</param>
         public SelectQuery(Table table) : base(table)
         {
             base.RootWhere = RootWhere = new TableWhereCollection<T>(table, SqlWhereOp.AND);
@@ -168,7 +169,11 @@ namespace SqlLinqer.Queries.Typed
         {
             return RootWhere.NewWhere(where_op);
         }
-        /// <inheritdoc/>
+        /// <summary>
+        /// Adds a nested condition group while preserving its AND/OR operator. NewWhere creates a detached group until this method adds it.
+        /// </summary>
+        /// <param name="sub_group">The condition group to combine with the root predicates.</param>
+        /// <returns>The same mutable query builder.</returns>
         public SelectQuery<T> Where(WhereCollection sub_group)
         {
             RootWhere.Where(sub_group);
@@ -232,7 +237,7 @@ namespace SqlLinqer.Queries.Typed
         public SqlResponse<List<T>> Execute(BaseConnector connector, DbTransaction transaction = null)
         {
             if (connector == null)
-                throw new ArgumentNullException("Either pass a connector or set the default connector.", nameof(connector));
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
 
             var rendered = this.Render(connector);
             var response = connector.ExecuteReaderJson<T>(rendered, transaction);

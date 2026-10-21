@@ -19,8 +19,8 @@ The full run includes:
 - Shared SQL Server/Azure SQL provider checks and live SQL Server fixtures, including typed callables.
 - PostgreSQL and MySQL integration fixtures.
 
-The current SQL Server fixtures expose error `1205` in the existing generated-type `ExecuteTvp` insert path.
-That remains a failure in the full result. Typed callable and existing-table-type procedure checks run before it.
+SQL Server TVP checks cover synchronous and asynchronous inserts, returned keys, output values, and generated-type cleanup.
+They also verify caller rollback, server-aborted transactions, cancellation after type creation, and caller database overrides.
 
 ## Container options
 

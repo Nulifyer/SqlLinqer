@@ -5,12 +5,16 @@ using SqlLinqer.Queries.Core;
 
 namespace SqlLinqer.Components.Ordering
 {
+    /// <summary>An ordered list of sorting expressions.</summary>
     public class OrderByCollection : ComponentCollectionBase<IOrderByStatement>
     {
+        /// <summary>Appends a sorting expression.</summary>
         public void AddStatement(IOrderByStatement statement)
             => base.AddComponent(statement);
-        public void Clear()
+        /// <summary>Removes all sorting expressions.</summary>
+        public new void Clear()
             => base.Clear();
+        /// <summary>Renders this component for the selected database dialect.</summary>
         public string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
             if (Count == 0)

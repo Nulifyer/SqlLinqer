@@ -115,5 +115,5 @@ See [transactions](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/TRANSA
 and [relationship updates](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/QUERY_RELATIONSHIPS.md) to assign managers or change permissions.
 
 
-- [Sync and async execution](../docs/EXECUTION.md)
-- [Query snapshots and compilation](../docs/QUERY_COMPILATION.md)
+- [Sync and async execution](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/EXECUTION.md)
+- [Query snapshots and compilation](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/QUERY_COMPILATION.md)

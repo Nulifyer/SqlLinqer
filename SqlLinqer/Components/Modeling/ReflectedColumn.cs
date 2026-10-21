@@ -10,10 +10,14 @@ namespace SqlLinqer.Components.Modeling
     /// </summary>
     public class ReflectedColumn : Column
     {
+        /// <summary>Whether the mapped member is the table's primary key.</summary>
         public readonly bool PrimaryKey;
+        /// <summary>The CLR field or property mapped to this column.</summary>
         public readonly MemberInfo CodeMember;
+        /// <summary>Automatic-operation settings for the mapped member.</summary>
         public readonly AutoOptions AutoOptions;
 
+        /// <summary>Creates a column mapping from reflected member metadata.</summary>
         public ReflectedColumn(Table table, UnprocessedColumnMember unprocessed_column) 
             : base(table, unprocessed_column.Member.Name, unprocessed_column.Member.Name)
         {
@@ -54,6 +58,7 @@ namespace SqlLinqer.Components.Modeling
         /// <param name="value">The value to set</param>
         public void SetValue(object obj, object value) => CodeMember?.SetFieldOrPropValue(obj, value);
 
+        /// <summary>Returns a diagnostic description of this mapping.</summary>
         public override string ToString()
         {
             return $"{Table}.{CodeMember.Name}";

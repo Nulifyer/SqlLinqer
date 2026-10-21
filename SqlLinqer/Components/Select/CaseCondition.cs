@@ -6,26 +6,33 @@ using SqlLinqer.Queries.Core;
 
 namespace SqlLinqer.Components.Select
 {
+    /// <summary>A conditional CASE branch, or an ELSE branch when its condition is null.</summary>
     public class CaseCondition
     {
+        /// <summary>The WHEN predicate, or null for an ELSE branch.</summary>
         public WhereCollection Condition { get; protected set; }
+        /// <summary>The column, expression, or value returned by this branch.</summary>
         public readonly object ReturnValue;
 
+        /// <summary>Creates a CASE branch with an optional condition.</summary>
         public CaseCondition(Column column)
         {
             Condition = null;
             ReturnValue = column;
         }
+        /// <summary>Creates a CASE branch with an optional condition.</summary>
         public CaseCondition(object return_value)
         {
             Condition = null;
             ReturnValue = return_value;
         }
+        /// <summary>Creates a CASE branch with an optional condition.</summary>
         public CaseCondition(WhereCollection condition, Column column)
         {
             Condition = condition;
             ReturnValue = column;
         }
+        /// <summary>Creates a CASE branch with an optional condition.</summary>
         public CaseCondition(WhereCollection condition, object return_value)
         {
             Condition = condition;
@@ -35,7 +42,7 @@ namespace SqlLinqer.Components.Select
         /// <summary>
         /// Renders the object into a string.
         /// </summary>
-        /// <param name="query">The query current query</param>
+        /// <param name="query">The current query</param>
         /// <param name="parameters">The parameter collection to use</param>
         /// <param name="flavor">The type of Sql database being used</param>
         /// <param name="builder">The string builder to render to</param>

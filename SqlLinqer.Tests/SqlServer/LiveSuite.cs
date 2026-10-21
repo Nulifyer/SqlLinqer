@@ -288,8 +288,6 @@ internal static class LiveSuite
                 var failed = connector.ExecuteNonQuery(new RenderedQuery($"INSERT INTO [{schema}].[Rows] (Name, Amount) VALUES (N'before error', 2); THROW 51002, 'intentional test failure', 1;"));
                 Require(failed.State == ResponseState.Error && RowCount() == 1, "Owned batch failure did not roll back");
             });
-            // Callables have their own contract and must be exercised even if a later
-            // generated-type TVP insert fails.
             CallableChecks.RunLive(connector, connection, live);
             live("existing table type procedure input and caller transaction", () =>
             {
@@ -363,6 +361,7 @@ internal static class LiveSuite
                 ids.Clear();
                 Require(Valid(new StoredProcedureQuery<ProcedureRow>("ReadJson", schema).AddTvpParameter("Ids", ids, $"{schema}.IdList").ExecuteJson(connector)).Count == 0, "Empty procedure TVP differs");
             });
+            TvpChecks.RunLive(connector, connection, connectionString, schema, live);
             live("owned truncate commits", () =>
             {
                 Valid(new TruncateQuery<ScopedRow>(schema).Execute(connector));

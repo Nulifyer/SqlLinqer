@@ -5,13 +5,16 @@ using SqlLinqer.Queries.Core.Abstract;
 
 namespace SqlLinqer.Components.Withs
 {
+    /// <summary>Indexes common table expressions and renders them in dependency order.</summary>
     public class WithCollection : KeyedComponentCollectionBase<string, With>
     {
+        /// <summary>Creates an empty common table expression collection.</summary>
         public WithCollection() : base()
         {
 
         }
 
+        /// <summary>Adds a common table expression and its dependencies if absent.</summary>
         public void AddWith(With with)
         {
             AddComponentOverwrite(with.Alias, with);
@@ -26,6 +29,7 @@ namespace SqlLinqer.Components.Withs
             return alias;
         }
 
+        /// <summary>Renders this component for the selected database dialect.</summary>
         public string Render(JoinQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
             if (Count == 0)

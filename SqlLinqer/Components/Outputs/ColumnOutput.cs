@@ -8,9 +8,12 @@ namespace SqlLinqer.Components.Outputs
     /// </summary>
     public class ColumnOutput : IOutputStatement
     {
+        /// <summary>The SQL Server output table alias, such as inserted or deleted.</summary>
         public readonly string PseudoTable;
+        /// <summary>The modified column to return.</summary>
         public readonly Column Column;
 
+        /// <summary>Creates a modified-column output expression.</summary>
         public ColumnOutput(Column column, string pseudo_table)
         {
             PseudoTable = pseudo_table;

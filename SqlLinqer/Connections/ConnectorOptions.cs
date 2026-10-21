@@ -3,29 +3,33 @@ using System;
 namespace SqlLinqer.Connections
 {
     /// <summary>
-    /// A set of options to configure a <see cref="BaseConnector"/>
+    /// Configures schema fallback, insert batching, command timeouts, and SQL JSON loading for a connector.
+    /// The connector retains this options object; configure it before sharing the connector.
     /// </summary>
     public class ConnectorOptions
     {
         /// <summary>
-        /// The default schema to use if not set on the model
+        /// The fallback schema for model mappings that do not specify SqlTable.Schema. Defaults to null.
+        /// Model queries resolve this at construction; typed callables resolve it at rendering or execution.
         /// </summary>
         public string DefaultSchema { get; set; }
         /// <summary>
-        /// The insert parameter budget. Non-positive values disable this budget; native SQL Server limits still apply.
+        /// The ordinary insert batching budget, defaulting to 2,100 parameters. Non-positive values disable this configured budget.
+        /// SQL Server and Azure SQL still cap commands at 2,100 parameters and 1,000 VALUES rows. Batches share one write transaction; Render does not apply execution batching.
         /// </summary>
         public int ParameterLimit { get; set; }
         /// <summary>
-        /// Load SQL JSON using only SqlLinqer mappings, ignoring API JSON attributes and converters.
-        /// Defaults to false to preserve existing JSON loading behavior in the current major version.
+        /// Loads SQL JSON using SqlLinqer mappings while ignoring API JSON attributes and converters. Defaults to false for legacy loading behavior.
+        /// Uses a public or private parameterless constructor, or one public constructor matching mapped member names and types. SqlIgnore excludes SQL members. Typed callable row mapping is independent of this setting.
         /// </summary>
         public bool UseSqlModelJsonContract { get; set; }
         /// <summary>
-        /// The timeout for making a connection to the database
+        /// The server login timeout used by ReplicatorConnector, defaulting to 15 seconds. It does not rewrite factory or embedded-provider connections.
         /// </summary>
         public TimeSpan ConnectionTimeout { get; set; }
         /// <summary>
-        /// The timeout for completing a command to the database
+        /// The command execution timeout, defaulting to 15 seconds. Zero disables the timeout.
+        /// DuckDB applies a deadline to execution and result loading, with a supported range of zero through 4294967294 milliseconds. Deadline failures return an error containing TimeoutException.
         /// </summary>
         public TimeSpan CommandTimeout { get; set; }
 

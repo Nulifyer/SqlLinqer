@@ -10,19 +10,24 @@ using SqlLinqer.Queries.Core;
 
 namespace SqlLinqer.Components.Select
 {
+    /// <summary>A SQL CASE expression with an output alias.</summary>
     public class CaseStatement : SelectStatement
     {
+        /// <summary>The CASE branches in evaluation order.</summary>
         public List<CaseCondition> Conditions { get; protected set; }
 
         private readonly string _alias;
+        /// <inheritdoc/>
         public override string Alias => _alias;
 
+        /// <summary>Creates a CASE expression with the supplied output alias.</summary>
         public CaseStatement(string alias) : base()
         {
             _alias = alias;
             Conditions = new List<CaseCondition>();
         }
 
+        /// <inheritdoc/>
         public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool for_json, bool include_alias)
         {
             var builder = new StringBuilder();
@@ -63,8 +68,10 @@ namespace SqlLinqer.Components.Select
             }
         }
 
+        /// <inheritdoc/>
         public override bool DoGroupBy() => true;
 
+        /// <inheritdoc/>
         public override IEnumerable<string> RenderForGroupBy(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
             if (flavor == DbFlavor.Sqlite)

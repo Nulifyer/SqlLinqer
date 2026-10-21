@@ -3,13 +3,13 @@
 namespace SqlLinqer.Modeling
 {
     /// <summary>
-    /// Defines the target property or field to be always be updated on default.
+    /// Includes the target property or field in UpdateNonDefaults even when its value is null.
     /// </summary>
     [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false)]
     public sealed class SqlUpdateDefaultAlways : Attribute
     {
         /// <summary>
-        /// Defines the target property or field to be always be updated on default.
+        /// Creates an attribute that includes null values in UpdateNonDefaults assignments.
         /// </summary>
         public SqlUpdateDefaultAlways()
         {

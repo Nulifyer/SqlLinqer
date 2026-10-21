@@ -9,16 +9,22 @@ using System;
 
 namespace SqlLinqer.Components.Select
 {
+    /// <summary>A SQL function expression and its output alias.</summary>
     public class SelectFuncStatement : SelectStatement
     {
+        /// <summary>The SQL function to render.</summary>
         public readonly SqlFunc Func;
+        /// <summary>The column, expression, and value arguments supplied to the function.</summary>
         public readonly object[] Args;
+        /// <summary>An argument modifier such as DISTINCT.</summary>
         public string ArgPrefix { get; protected set; }
 
         private string _alias;
+        /// <inheritdoc/>
         public override string Alias => _alias;
 
 
+        /// <summary>Creates a SQL function expression from its arguments.</summary>
         public SelectFuncStatement(SqlFunc func, string alias, params object[] args)
         {
             if (alias == null)

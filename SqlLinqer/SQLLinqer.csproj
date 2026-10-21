@@ -4,12 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <Authors>Kyle Leddy</Authors>
     <Company></Company>
-    <Description>
-    This library is used to create application using a type of SQL database without the need to write queries as strings 
-    and maintain a strong set of data models that represent the data. This makes it much easier to develope complex database 
-    queries without the need of the developer to perform complex operations and it easier to update the code as all the 
-    developer needs to do is update the one data model and all queries will be updated.
-    </Description>
+    <Description>Build parameterized SQL queries from C# model mappings and expressions. Supports typed selects, nested relationships, aggregates, writes, and synchronous or asynchronous execution.</Description>
     <Copyright></Copyright>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -17,12 +12,11 @@
     <PackageId>SqlLinqer</PackageId>
     <Product>SqlLinqer</Product>
     <Version>2.1.0</Version>
-    <AssemblyVersion>$(Package Version)</AssemblyVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <WarningsAsErrors>$(WarningsAsErrors);CS1570;CS1571;CS1572;CS1573;CS1574;CS1580;CS1581;CS1584;CS1587;CS1591;CS1658;CS1711;CS1712;CS1734;CS1735</WarningsAsErrors>
     <RepositoryUrl>https://github.com/Nulifyer/SqlLinqer</RepositoryUrl>
     <RepositoryType>GitHub</RepositoryType>
     <PackageTags>mysql sql csharp postgresql database-connector</PackageTags>
-    <FileVersion>$(Package Version)</FileVersion>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

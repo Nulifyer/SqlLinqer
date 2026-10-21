@@ -14,9 +14,10 @@ using System.Data;
 namespace SqlLinqer.Queries.Typed
 {
     /// <summary>
-    /// A UPDATE query. Based around a type.
+    /// Builds root-table assignments and filters for an UPDATE. Without a WHERE condition, execution updates every root row.
+    /// UpdateAuto applies automatic-update attributes; UpdateNonDefaults skips nulls and includes zero and false.
     /// </summary>
-    /// <typeparam name="T">The type serving as the root data model</typeparam>
+    /// <typeparam name="T">The mapped root model type.</typeparam>
     public partial class UpdateQuery<T>
         : Core.UpdateQuery
         , IQueryTyped
@@ -35,13 +36,14 @@ namespace SqlLinqer.Queries.Typed
         public readonly new TableWhereCollection<T> RootWhere;
 
         /// <summary>
-        /// A UPDATE query. Based around a type.
+        /// Creates a UPDATE builder for the supplied or cached model mapping.
         /// </summary>
+        /// <param name="default_schema">The fallback schema for models without an explicit SqlTable schema. This does not bind an execution connector.</param>
         public UpdateQuery(string default_schema = null) : this(Table.GetCached<T>(default_schema)) { }
         /// <summary>
-        /// A UPDATE query. Based around a type.
+        /// Creates a UPDATE builder for the supplied or cached model mapping.
         /// </summary>
-        /// <param name="table">The root table of the query</param>
+        /// <param name="table">The root table mapping, whose database objects must already exist.</param>
         public UpdateQuery(Table table) : base(table)
         {
             base.RootWhere = RootWhere = new TableWhereCollection<T>(table, SqlWhereOp.AND);
@@ -149,7 +151,11 @@ namespace SqlLinqer.Queries.Typed
         {
             return RootWhere.NewWhere(where_op);
         }
-        /// <inheritdoc/>
+        /// <summary>
+        /// Adds a nested condition group while preserving its AND/OR operator. NewWhere creates a detached group until this method adds it.
+        /// </summary>
+        /// <param name="sub_group">The condition group to combine with the root predicates.</param>
+        /// <returns>The same mutable query builder.</returns>
         public UpdateQuery<T> Where(WhereCollection sub_group)
         {
             RootWhere.Where(sub_group);
@@ -224,7 +230,7 @@ namespace SqlLinqer.Queries.Typed
         public SqlResponse<DataTable> ExecuteWithOutput(BaseConnector connector, DbTransaction transaction = null)
         {
             if (connector == null)
-                throw new ArgumentNullException("Either pass a connector or set the default connector.", nameof(connector));
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
             var rendered = this.Render(connector);
             return connector.ExecuteReaderDataTable(rendered, transaction);
         }
@@ -233,13 +239,13 @@ namespace SqlLinqer.Queries.Typed
         /// Executes the query. Returning the results and capturing any errors.
         /// </summary>
         /// <param name="connector">The connector used to execute the query.</param>
-        /// <param name="existingTransaction">An existing database transactiong with the connection property set to the open connection.</param>
+        /// <param name="existingTransaction">An optional caller-owned transaction with an open connection. The caller commits, rolls back, and disposes it.</param>
         /// <param name="primaryKeys">If a list is passed, the updated primary keys will be captured in this list.</param>
-        /// <returns>The retult of the query in a state based wrapper including the inserted primary keys.</returns>
+        /// <returns>The result of the query in a state based wrapper including the affected primary keys.</returns>
         protected SqlResponse<int> ExecuteAndCapturePrimaryKeys(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null)
         {
             if (connector == null)
-                throw new ArgumentNullException("Either pass a connector or set the default connector.", nameof(connector));
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
 
             var rendered = this.Render(connector);
 

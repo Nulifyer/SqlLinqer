@@ -10,7 +10,13 @@ using SqlLinqer.Modeling;
 
 namespace SqlLinqer.Queries.Typed
 {
-    /// <summary>An invocation of a typed SQL Server or Azure SQL procedure.</summary>
+    /// <summary>
+    /// A typed procedure call with captured input member values and buffered result-set, output-parameter, and return-code mapping.
+    /// Missing or extra tabular result sets return mapping errors. A nonzero procedure return code does not automatically fail the response.
+    /// </summary>
+    /// <typeparam name="TCallable">The procedure definition carrying SqlProcedure.</typeparam>
+    /// <typeparam name="TArgs">The input model.</typeparam>
+    /// <typeparam name="TResult">The writable result model with a public parameterless constructor.</typeparam>
     public sealed partial class CallableInvocation<TCallable, TArgs, TResult>
         where TCallable : SqlLinqerCallable<TCallable, TArgs, TResult>
         where TArgs : class
@@ -41,20 +47,41 @@ namespace SqlLinqer.Queries.Typed
             }
         }
 
-        /// <summary>Renders a parameterized EXEC command for SQL Server or Azure SQL.</summary>
+        /// <summary>
+        /// Renders a parameterized EXEC command with typed input, output, and return-code binding metadata, without opening a connection.
+        /// Use Execute or ExecuteAsync to map result sets and outputs.
+        /// </summary>
+        /// <param name="flavor">SQL Server or Azure SQL. Other dialects are unsupported.</param>
+        /// <returns>The SQL call and its provider bindings.</returns>
         public RenderedQuery Render(DbFlavor flavor) => Build(flavor, null).Query;
 
-        /// <summary>Renders using the connector's flavor and default schema.</summary>
+        /// <summary>
+        /// Renders a parameterized EXEC command with typed input, output, and return-code binding metadata, without opening a connection.
+        /// Use Execute or ExecuteAsync to map result sets and outputs.
+        /// </summary>
+        /// <param name="connector">The connector supplying the SQL dialect and fallback procedure schema.</param>
+        /// <returns>The SQL call and its provider bindings.</returns>
         public RenderedQuery Render(BaseConnector connector)
         {
             if (connector == null) throw new ArgumentNullException(nameof(connector));
             return Build(connector.DbFlavor, connector.Options.DefaultSchema).Query;
         }
 
-        /// <summary>Executes using the default connector. Caller-owned transactions remain caller-owned.</summary>
+        /// <summary>
+        /// Executes the procedure and buffers every declared result set before reading outputs and return code.
+        /// Uses the current default connector. Owned transactions commit after all results and outputs load; failures attempt rollback.
+        /// </summary>
+        /// <param name="transaction">An optional caller-owned transaction with an active connection.</param>
+        /// <returns>The populated result model and execution state. Empty result sets become empty collections.</returns>
         public SqlResponse<TResult> Execute(DbTransaction transaction = null) => Execute(Default.Connector, transaction);
 
-        /// <summary>Executes and buffers typed rows and output values before returning.</summary>
+        /// <summary>
+        /// Executes the procedure and buffers every declared result set before reading outputs and return code.
+        /// Owned transactions commit after all results and outputs load; failures attempt rollback.
+        /// </summary>
+        /// <param name="connector">The SQL Server or Azure SQL connector, including its fallback procedure schema.</param>
+        /// <param name="transaction">An optional caller-owned transaction with an active connection.</param>
+        /// <returns>The populated result model and execution state. Empty result sets become empty collections.</returns>
         public SqlResponse<TResult> Execute(BaseConnector connector, DbTransaction transaction = null)
         {
             if (connector == null) throw new ArgumentNullException(nameof(connector));

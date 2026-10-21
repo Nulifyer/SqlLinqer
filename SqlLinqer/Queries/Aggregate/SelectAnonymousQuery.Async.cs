@@ -15,19 +15,19 @@ namespace SqlLinqer.Queries.Typed
 {
     public partial class SelectAnonymousQuery<TBase, TReturn>
     {
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <inheritdoc/>
         public async Task<SqlResponse<List<TReturn>>> ExecuteAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return await ExecuteAsync(ExecutionConnector, transaction, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <inheritdoc/>
         public async Task<SqlResponse<List<TReturn>>> ExecuteAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (connector == null)
-                throw new ArgumentNullException("Either pass a connector or set the default connector.", nameof(connector));
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
 
             var rendered = this.Render(connector);
             var response = await connector.ExecuteReaderJsonAsync<TReturn>(rendered, transaction, cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -35,14 +35,14 @@ namespace SqlLinqer.Queries.Typed
             return response;
         }
 
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <inheritdoc/>
         public async Task<SqlSelectResponse<TReturn>> ExecuteWithTotalCountAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return await ExecuteWithTotalCountAsync(ExecutionConnector, transaction, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        /// <summary>Asynchronously executes the query. Requested cancellation propagates to the caller.</summary>
+        /// <inheritdoc/>
         public async Task<SqlSelectResponse<TReturn>> ExecuteWithTotalCountAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

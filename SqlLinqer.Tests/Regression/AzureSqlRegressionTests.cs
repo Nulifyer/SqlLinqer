@@ -153,14 +153,15 @@ internal static class AzureSqlRegressionTests
                 Check(query.Render(flavor).Text.Contains("OFFSET 1 ROWS FETCH NEXT 1 ROWS ONLY"), "Count changed paging");
             });
             foreach (bool fail in new[] { false, true })
-                test($"{flavor} TVP output uses one owned connection and transaction, fail={fail}", () =>
+                test($"{flavor} TVP output uses one write transaction and autocommit type DDL, fail={fail}", () =>
                 {
-                    var db = new FakeDatabase { FailAt = fail ? "execute" : null };
+                    var db = new FakeDatabase { FailSql = fail ? "INSERT INTO" : null };
                     var result = new InsertQuery<Item>().InsertAuto(new Item()).Output(x => x.Id)
                         .ExecuteTvpWithOutput(new FakeConnector(db, flavor));
-                    var connection = db.Connections.Single(); var tx = connection.Transactions.Single();
+                    var connection = db.Connections.First(); var tx = connection.Transactions.Single();
                     Check(result.State == (fail ? ResponseState.Error : ResponseState.Valid), "Wrong TVP output state");
-                    Check(db.Executed.All(x => x.UsedTransaction == tx), "TVP output crosses transactions");
+                    Check(db.Executed.Where(x => x.CommandText.StartsWith("INSERT INTO")).All(x => x.UsedTransaction == tx), "TVP output crosses transactions");
+                    TvpRegressionTests.CheckTypeDdl(db);
                     Check(tx.Commits == (fail ? 0 : 1) && tx.Rollbacks == (fail ? 1 : 0)
                         && tx.IsDisposed && connection.IsDisposed, "TVP output leaked resources");
                     if (!fail) Check(db.Executed.Count == 3 && result.Result.Rows.Count == 1, "Missing create/insert/drop or output");
@@ -181,14 +182,22 @@ internal static class AzureSqlRegressionTests
                         if (caller)
                         {
                             Check(tx.Commits == 0 && tx.Rollbacks == 0 && !tx.IsDisposed && !conn.IsDisposed, "Caller TVP completed caller resources");
-                            Check(db.Executed.All(x => x.UsedTransaction == tx), "Caller TVP changed transaction");
+                            Check(db.Executed.Where(x => x.CommandText.StartsWith("INSERT INTO")).All(x => x.UsedTransaction == tx), "Caller TVP changed transaction");
                             if (stage == "INSERT INTO") Check(db.Executed.Any(x => x.CommandText.StartsWith("DROP TYPE")), "Caller failure never attempted type cleanup");
                         }
                         else
                         {
-                            var owned = db.Connections.Single(); var ownedTx = owned.Transactions.Single();
-                            Check(ownedTx.Commits == 0 && ownedTx.Rollbacks == 1 && ownedTx.IsDisposed && owned.IsDisposed, "Failed owned TVP did not roll back/dispose");
+                            var owned = db.Connections.First();
+                            if (stage == "CREATE TYPE") Check(owned.Transactions.Count == 0, "Write transaction began before type creation succeeded");
+                            else
+                            {
+                                var ownedTx = owned.Transactions.Single();
+                                Check(ownedTx.Commits == 0 && ownedTx.Rollbacks == 1 && ownedTx.IsDisposed, "Failed owned TVP did not roll back/dispose");
+                            }
+                            Check(db.Connections.All(x => x.IsDisposed), "Failed TVP leaked an owned connection");
                         }
+                        TvpRegressionTests.CheckTypeDdl(db);
+                        if (stage == "DROP TYPE") Check(response.Error.Data["TvpTypeCleanupError"] is Exception, "Cleanup failure was lost");
                     });
 
         test("CTE output columns retain projection aliases and typed lookup", () =>
@@ -297,7 +306,7 @@ internal static class AzureSqlRegressionTests
                 foreach (bool tvp in new[] { false, true })
                     test($"Azure write ownership, fail={fail}, caller={caller}, TVP={tvp}", () =>
                     {
-                        var db = new FakeDatabase { FailAt = fail ? "execute" : null };
+                        var db = new FakeDatabase { FailSql = fail ? "INSERT INTO" : null };
                         var connector = new FakeConnector(db, DbFlavor.AzureSql);
                         using var connection = caller ? new FakeConnection(db) : null;
                         connection?.Open();
@@ -308,17 +317,19 @@ internal static class AzureSqlRegressionTests
                         Check(result.State == (fail ? ResponseState.Error : ResponseState.Valid), "Wrong write result");
                         if (caller)
                         {
-                            Check(connector.Created == 0 && db.Executed.All(x => x.UsedTransaction == transaction), "Caller transaction lost");
+                            Check(connector.Created == (tvp ? 2 : 0) && db.Executed.Where(x => !tvp || x.CommandText.StartsWith("INSERT INTO"))
+                                .All(x => x.UsedTransaction == transaction), "Caller transaction lost");
                             Check(!transaction.IsDisposed && transaction.Commits == 0 && transaction.Rollbacks == 0
                                 && connection.State == ConnectionState.Open, "Caller ownership changed");
                         }
                         else
                         {
-                            var owned = db.Connections.Single(); var tx = owned.Transactions.Single();
+                            var owned = db.Connections.First(); var tx = owned.Transactions.Single();
                             Check(tx.IsolationLevel == IsolationLevel.ReadCommitted, "SQL Server isolation changed");
                             Check(tx.Commits == (fail ? 0 : 1) && tx.Rollbacks == (fail ? 1 : 0)
                                 && tx.IsDisposed && owned.IsDisposed, "Owned resources not completed");
                         }
+                        if (tvp) TvpRegressionTests.CheckTypeDdl(db);
                     });
 
         foreach (string operation in new[] { "insert", "update", "delete", "output", "select", "count", "exists", "procedure" })

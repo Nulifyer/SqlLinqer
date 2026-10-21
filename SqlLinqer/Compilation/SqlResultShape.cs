@@ -19,14 +19,19 @@ namespace SqlLinqer.Compilation
         Collection
     }
 
-    /// <summary>An immutable description of one selected member.</summary>
+    /// <summary>
+    /// Describes one scalar, optional object, or collection in a logical SELECT result.
+    /// Missing related objects use null; empty related collections use empty arrays.
+    /// </summary>
     public sealed class SqlResultMember
     {
         /// <summary>The mapped output name.</summary>
         public string Name { get; }
         /// <summary>The logical result kind. Collections use empty arrays when there are no related rows.</summary>
         public SqlResultMemberKind Kind { get; }
-        /// <summary>The mapped CLR type, or object when a SQL expression has no declared CLR type.</summary>
+        /// <summary>
+        /// The mapped CLR member type, or object when a SQL expression has no declared CLR type. It does not describe the transport encoding.
+        /// </summary>
         public Type ClrType { get; }
         /// <summary>The selected members of a nested result.</summary>
         public IReadOnlyList<SqlResultMember> Members { get; }
@@ -34,7 +39,10 @@ namespace SqlLinqer.Compilation
         { Name = name; Kind = kind; ClrType = clrType; Members = Array.AsReadOnly(members); }
     }
 
-    /// <summary>The selected object structure, independent of the database's result encoding.</summary>
+    /// <summary>
+    /// Immutable metadata describing selected members independently of the database JSON transport format.
+    /// Typed loading still uses the connector's configured JSON model contract.
+    /// </summary>
     public sealed class SqlResultShape
     {
         /// <summary>The selected members.</summary>

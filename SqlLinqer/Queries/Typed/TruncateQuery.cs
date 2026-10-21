@@ -7,9 +7,10 @@ using SqlLinqer.Queries.Interfaces;
 namespace SqlLinqer.Queries.Typed
 {
     /// <summary>
-    /// A TRUNCATE query. Based around a type.
+    /// Builds TRUNCATE for the mapped table, removing every row without a WHERE filter. SQLite TRUNCATE is unsupported.
+    /// DuckDB deletes all rows without resetting sequences. Affected-row reporting follows the provider.
     /// </summary>
-    /// <typeparam name="T">The type serving as the root data model</typeparam>
+    /// <typeparam name="T">The mapped root model type.</typeparam>
     public partial class TruncateQuery<T>
         : Core.TruncateQuery
         , IQueryTyped
@@ -19,13 +20,16 @@ namespace SqlLinqer.Queries.Typed
     {
         
         /// <summary>
-        /// A TRUNCATE query. Based around a type.
+        /// Creates a TRUNCATE builder for the supplied or cached model mapping.
+        /// DuckDB deletes all rows without resetting sequences.
         /// </summary>
+        /// <param name="default_schema">The fallback schema for models without an explicit SqlTable schema. This does not bind an execution connector.</param>
         public TruncateQuery(string default_schema = null) : this(Table.GetCached<T>(default_schema)) { }
         /// <summary>
-        /// A TRUNCATE query. Based around a type.
+        /// Creates a TRUNCATE builder for the supplied or cached model mapping.
+        /// DuckDB deletes all rows without resetting sequences.
         /// </summary>
-        /// <param name="table">The root table of the query</param>
+        /// <param name="table">The root table mapping, whose database objects must already exist.</param>
         public TruncateQuery(Table table) : base(table) { }
 
         /// <inheritdoc/>
@@ -37,7 +41,7 @@ namespace SqlLinqer.Queries.Typed
         public SqlResponse<int> Execute(BaseConnector connector, DbTransaction existingTransaction = null)
         {
             if (connector == null)
-                throw new ArgumentNullException("Either pass a connector or set the default connector.", nameof(connector));
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
 
             var rendered = this.Render(connector);
             var response = connector.ExecuteNonQuery(rendered, existingTransaction);

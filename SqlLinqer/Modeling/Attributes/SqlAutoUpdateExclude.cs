@@ -3,15 +3,14 @@
 namespace SqlLinqer.Modeling
 {
     /// <summary>
-    /// Defines the target class to NOT have all columns updated on auto.
-    /// Defines the target property or field to NOT be updated on auto.
+    /// Omits a mapped member from UpdateAuto without affecting explicit Update or UpdateNonDefaults assignments.
+    /// On a model class, sets the member default; member attributes can override it.
     /// </summary>
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false)]
     public sealed class SqlAutoUpdateExclude : Attribute
     {
         /// <summary>
-        /// Defines the target class to NOT have all columns updated on auto.
-        /// Defines the target property or field to NOT be updated on auto.
+        /// Omits a mapped member from UpdateAuto without affecting explicit Update or UpdateNonDefaults assignments.
         /// </summary>
         public SqlAutoUpdateExclude()
         {

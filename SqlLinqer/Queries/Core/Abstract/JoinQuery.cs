@@ -28,6 +28,7 @@ namespace SqlLinqer.Queries.Core.Abstract
             Withs = new WithCollection();
         }
 
+        /// <summary>Disables common table expressions for this query.</summary>
         protected internal void DisableWiths()
         {
             Withs = null;

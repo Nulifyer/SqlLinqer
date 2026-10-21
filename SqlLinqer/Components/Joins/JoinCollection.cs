@@ -9,29 +9,37 @@ using SqlLinqer.Extensions.TypeExtensions;
 
 namespace SqlLinqer.Components.Joins
 {
+    /// <summary>Collects explicit and relationship joins required by a query.</summary>
     public class JoinCollection : KeyedComponentCollectionBase<string, Table>
     {
+        /// <summary>Explicit joins supplied to the query.</summary>
         protected DirectJoinCollection DirectJoins;
+        /// <summary>The root table from which relationship joins are discovered.</summary>
         protected Table Root;
 
+        /// <summary>Creates an empty join collection.</summary>
         public JoinCollection() : base()
         {
             DirectJoins = new DirectJoinCollection();
         }
 
+        /// <summary>Adds an explicit join.</summary>
         public void AddJoinDirect(Join join)
         {
             DirectJoins.AddJoin(join);
         }
+        /// <summary>Adds the supplied explicit joins.</summary>
         public void AddJoinsDirect(IEnumerable<Join> joins)
         {
             DirectJoins.AddJoins(joins);
         }
+        /// <summary>Sets the root table used to discover relationship joins.</summary>
         public void AddRootTable(Table root)
         {
             Root = root;
             AddTable(Root);
         }
+        /// <summary>Registers a table and the parent tables needed to join it.</summary>
         public void AddTable(Table table)
         {
             var current = table;
@@ -51,6 +59,7 @@ namespace SqlLinqer.Components.Joins
                 || DirectJoins.GetAll().Any(x => x.Child.UUID != root.UUID);
         }
 
+        /// <summary>Renders this component for the selected database dialect.</summary>
         public string Render(JoinQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
             var joins = GetAll()
@@ -87,6 +96,7 @@ namespace SqlLinqer.Components.Joins
             return builder.ToString();
         }
 
+        /// <inheritdoc/>
         public override bool Stash()
         {
             if (base.Stash())
@@ -96,6 +106,7 @@ namespace SqlLinqer.Components.Joins
             }
             return false;
         }
+        /// <inheritdoc/>
         public override bool Unstash()
         {
             if (base.Unstash())

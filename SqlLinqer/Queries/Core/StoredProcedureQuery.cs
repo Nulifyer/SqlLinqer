@@ -8,12 +8,17 @@ using SqlLinqer.Extensions.StringExtensions;
 
 namespace SqlLinqer.Queries.Core
 {
+    /// <summary>Builds a legacy stored-procedure call with named parameters.</summary>
     public class StoredProcedureQuery : BaseQuery
     {
+        /// <summary>The procedure schema, or null when unqualified.</summary>
         protected internal string Schema;
+        /// <summary>The stored procedure name.</summary>
         protected internal string Procedure;
+        /// <summary>The named procedure parameters.</summary>
         protected internal NamedParameterCollection Parameters;
 
+        /// <summary>Creates a named stored-procedure query with an optional schema.</summary>
         public StoredProcedureQuery(string procedure, string schema = null) : base()
         {
             Schema = schema;
@@ -21,6 +26,7 @@ namespace SqlLinqer.Queries.Core
             Parameters = new NamedParameterCollection();
         }
 
+        /// <inheritdoc/>
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
             if (flavor == DbFlavor.Sqlite)

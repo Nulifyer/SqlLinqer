@@ -4,13 +4,16 @@ using SqlLinqer.Components.Modeling;
 
 namespace SqlLinqer.Queries.Core
 {
+    /// <summary>Builds a TRUNCATE command for a mapped table.</summary>
     public class TruncateQuery : TableQuery
     {
+        /// <summary>Creates a TRUNCATE query for the supplied table.</summary>
         public TruncateQuery(Table table) : base(table)
         {
             
         }
 
+        /// <inheritdoc/>
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
             var working = IsCompilationCopy ? this : SqlLinqer.Compilation.SnapshotGraph.Capture(this);

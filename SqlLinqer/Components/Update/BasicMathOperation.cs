@@ -5,17 +5,22 @@ using SqlLinqer.Queries.Core;
 
 namespace SqlLinqer.Components.Update
 {
+    /// <summary>An arithmetic operation applied to an update assignment.</summary>
     public class BasicMathOperation : UpdateOperation
     {
+        /// <summary>The arithmetic operator to apply.</summary>
         public readonly MathOp Operator;
+        /// <summary>The operand applied to the current assignment value.</summary>
         public readonly object Value;
         
+        /// <summary>Creates an arithmetic update operation.</summary>
         public BasicMathOperation(MathOp op, object value)
         {
             Operator = op;
             Value = value;
         }
         
+        /// <inheritdoc/>
         public override string Render(UpdateQuery query, UpdateStatement statement, ParameterCollection parameters, DbFlavor flavor)
         {
             string placeholder = parameters.AddParameter(this.Value);

@@ -7,10 +7,13 @@ using SqlLinqer.Components.Outputs;
 
 namespace SqlLinqer.Queries.Core
 {
+    /// <summary>Builds a DELETE command for a mapped table.</summary>
     public class DeleteQuery : WhereQuery
     {
+        /// <summary>The modified-row output projection.</summary>
         protected internal OutputsCollection Outputs;
         
+        /// <summary>Creates a DELETE query for the supplied table.</summary>
         public DeleteQuery(Table table) : base(table)
         {
             Outputs = new OutputsCollection();

@@ -4,7 +4,8 @@ using SqlLinqer.Components.Render;
 namespace SqlLinqer.Exceptions
 {
     /// <summary>
-    /// An exception that occurs while executing a query
+    /// Retains the rendered command and original exception for a database execution or result-mapping failure.
+    /// InnerException retains provider details; Query retains SQL text and bindings. Validation can throw before execution creates this wrapper.
     /// </summary>
     public sealed class SqlResponseException : Exception
     {
@@ -23,6 +24,10 @@ namespace SqlLinqer.Exceptions
             Query = query;
         }
 
+        /// <summary>
+        /// Returns diagnostic SQL with input parameter values substituted. Output bindings remain placeholders.
+        /// </summary>
+        /// <returns>The failed command's diagnostic text.</returns>
         public string GetQueryAsString()
         {
             return Query.ToString();

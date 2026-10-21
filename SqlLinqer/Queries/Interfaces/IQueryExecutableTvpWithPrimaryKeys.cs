@@ -4,26 +4,27 @@ using SqlLinqer.Connections;
 namespace SqlLinqer.Queries.Interfaces
 {
     /// <summary>
-    /// A <see cref="IQueryTyped"/> that can be executed with tvp
+    /// Executes generated-type TVP inserts and collects inserted primary keys.
     /// </summary>
-    /// <typeparam name="T">The return type of the execution result</typeparam>
-    /// <typeparam name="TPk">The primary key type</typeparam>
+    /// <typeparam name="T">The declared query result type.</typeparam>
+    /// <typeparam name="TPk">The primary key type.</typeparam>
     public interface IQueryExecutableTvpWithPrimaryKeys<T, TPk>
     {
         /// <summary>
-        /// Executes the query. Returning the results and capturing any errors.
-        /// Uses the connector supplied at query creation, or <see cref="SqlLinqer.Default.Connector"/> if none was supplied.
+        /// Inserts through a SQL Server or Azure SQL table-valued parameter and returns affected-row count and inserted primary keys. Check the response State before reading its Result.
+        /// Uses the retained connector or the current default. Type creation and cleanup use separate autocommit connections in the write database, requiring type-creation and schema permissions.
         /// </summary>
-        /// <param name="transaction">An existing database transactiong with the connection property set to the open connection.</param>
-        /// <returns>The retult of the query in a state based wrapper.</returns>
+        /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
+        /// <returns>The inserted-row count and captured primary keys, or an error response.</returns>
         SqlPrimaryKeysResponse<int, TPk> ExecuteTvp(DbTransaction transaction = null);
         
         /// <summary>
-        /// Executes the query. Returning the results and capturing any errors.
+        /// Inserts through a SQL Server or Azure SQL table-valued parameter and returns affected-row count and inserted primary keys. Check the response State before reading its Result.
+        /// Type creation and cleanup use separate autocommit connections in the write database, requiring type-creation and schema permissions.
         /// </summary>
-        /// <param name="connector">The connector used to render and execute this call, without changing the query's retained connector.</param>
-        /// <param name="transaction">An existing database transactiong with the connection property set to the open connection.</param>
-        /// <returns>The retult of the query in a state based wrapper.</returns>
+        /// <param name="connector">The connector used for this call. It does not replace the retained connector or rebuild the query model mappings and schema.</param>
+        /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
+        /// <returns>The inserted-row count and captured primary keys, or an error response.</returns>
         SqlPrimaryKeysResponse<int, TPk> ExecuteTvp(BaseConnector connector, DbTransaction transaction = null);
     }
 }

@@ -12,13 +12,19 @@ using SqlLinqer.Extensions.IEnumerableExtentions;
 
 namespace SqlLinqer.Components.Where
 {
+    /// <summary>Filters parent rows through a subquery over related tables.</summary>
     public class WhereWithJoinBack : WhereStatement
     {
+        /// <summary>Whether the relationship subquery excludes matching parent rows.</summary>
         public readonly bool Inverted;
+        /// <summary>The parent query filtered by the subquery.</summary>
         public readonly WhereQuery ParentQuery;
+        /// <summary>The column connecting subquery results back to the parent.</summary>
         public readonly Column ReturnColumn;
+        /// <summary>The relationship subquery used to filter parent rows.</summary>
         public readonly SelectQuery SubQuery;
 
+        /// <summary>Creates a relationship subquery that includes or excludes matching parent rows.</summary>
         public WhereWithJoinBack(WhereQuery parent_query, Relationship relationship, bool inverted)
         {
             // setup the stuff needed for the with
@@ -29,6 +35,7 @@ namespace SqlLinqer.Components.Where
 
             Setup();
         }
+        /// <summary>Creates a relationship subquery that includes or excludes matching parent rows.</summary>
         public WhereWithJoinBack(WhereQuery parent_query, Table table, bool invert)
         {
             if (table.PrimaryKey == null)
@@ -94,10 +101,15 @@ namespace SqlLinqer.Components.Where
 
         internal WhereWithJoinBack CopyForFinalize() => new WhereWithJoinBack(this);
 
+        /// <summary>The preparation order used to sort predicates.</summary>
         public override int Order => 150;
 
+        /// <summary>Throws because join-back predicates do not support direct inversion.</summary>
+        /// <exception cref="System.NotSupportedException">Always thrown.</exception>
         public override IWhereComponent Invert() => throw new System.NotSupportedException();
+        /// <inheritdoc/>
         public override IWhereComponent Finalize(WhereQuery query) => this;
+        /// <inheritdoc/>
         public override bool TryCombineInto(WhereCollection current_collection, IWhereComponent parent_component)
         {
             if (
@@ -115,6 +127,7 @@ namespace SqlLinqer.Components.Where
             return false;
         }
 
+        /// <inheritdoc/>
         public override void Render(WhereQuery query, ParameterCollection parameters, DbFlavor flavor, StringBuilder builder)
         {
             var withQuery = SubQuery;
@@ -137,6 +150,7 @@ namespace SqlLinqer.Components.Where
             newCondition.Render(query, parameters, flavor, builder);
         }
 
+        /// <inheritdoc/>
         public override IEnumerable<Column> GetColumnReferences()
         {
             yield break;
