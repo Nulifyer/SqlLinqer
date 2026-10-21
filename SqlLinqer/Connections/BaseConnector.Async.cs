@@ -120,7 +120,7 @@ namespace SqlLinqer.Connections
             => ExecuteOnConnectionAsync(query, transaction, true, action, cancellationToken);
 
         /// <summary>
-        /// Asynchronously executes database JSON and buffers it into typed rows using the configured SQL JSON contract. Requested cancellation throws.
+        /// Asynchronously executes database JSON and buffers it into typed rows using SqlLinqer's SQL model contract. Requested cancellation throws.
         /// The command must return JSON in the dialect's transport format.
         /// </summary>
         /// <typeparam name="T">The mapped row type.</typeparam>

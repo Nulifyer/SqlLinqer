@@ -175,7 +175,7 @@ Row construction uses a parameterless constructor or one public constructor whos
 Members not supplied by the constructor must be writable.
 Relationship members are not loaded from these flat result sets. Use a dedicated row model when the procedure returns a projection.
 
-Row loading uses SqlLinqer mappings directly and ignores API JSON attributes, regardless of `UseSqlModelJsonContract`.
+Row loading uses SqlLinqer mappings directly and ignores API JSON attributes, as all SQL result loading does.
 Existing `BeginStoredProcedure`, `ExecuteJson`, and `ExecuteDataTable` calls retain their previous behavior.
 
 `call.Render(connector)` returns parameterized SQL and binding metadata without opening a connection.

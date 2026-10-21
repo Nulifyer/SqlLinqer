@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace SqlLinqer.Components.Json
 {
     // The result transport is independent of connection and transaction ownership.
-    // Both execution styles use the same SQL/API contract selection and decoding.
+    // Both execution styles use the same library-owned SQL model contract and decoding.
     internal sealed class JsonResultMapper<T> where T : class
     {
         private readonly JsonSerializerOptions options;

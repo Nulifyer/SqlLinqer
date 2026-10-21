@@ -76,13 +76,11 @@ internal static class CompatibleDatabaseTests
                     Check(Result(result).Select(x => x.Id).Order().SequenceEqual(expected) && result.TotalResults == expected.Length, "Relationship predicate or total changed");
                 }
             });
-        test("compatible: JSON isolation is opt-in and API attributes still serialize normally", () =>
+        foreach (bool asynchronous in new[] { false, true })
+        test($"compatible: SQL loading ignores API attributes and preserves API serialization, async={asynchronous}", () =>
         {
-            var legacy = Result(new SelectQuery<ApiAddress>().SelectRootColumns().Where(x => x.Id, 1, SqlOp.EQ).Execute(connector)).Single();
-            Check(legacy.Id == 0 && legacy.Name == null, "Default loading stopped honoring API attributes");
-            var isolated = new ConnectionFactoryConnector(connector.CreateConnection, connector.DbFlavor,
-                new ConnectorOptions { UseSqlModelJsonContract = true });
-            var model = Result(new SelectQuery<ApiAddress>().SelectRootColumns().Where(x => x.Id, 1, SqlOp.EQ).Execute(isolated)).Single();
+            var query = new SelectQuery<ApiAddress>().SelectRootColumns().Where(x => x.Id, 1, SqlOp.EQ);
+            var model = Result(asynchronous ? query.ExecuteAsync(connector).GetAwaiter().GetResult() : query.Execute(connector)).Single();
             Check(model.Id == 1 && model.Name == "billing", "SQL-isolated loading lost mapped values");
             using var api = JsonDocument.Parse(JsonSerializer.Serialize(model));
             Check(!api.RootElement.TryGetProperty("Id", out _) && api.RootElement.GetProperty("displayName").GetString() == "billing", "API behavior changed");

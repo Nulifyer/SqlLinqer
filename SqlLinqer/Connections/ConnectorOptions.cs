@@ -3,7 +3,7 @@ using System;
 namespace SqlLinqer.Connections
 {
     /// <summary>
-    /// Configures schema fallback, insert batching, command timeouts, and SQL JSON loading for a connector.
+    /// Configures schema fallback, insert batching, and command timeouts for a connector.
     /// The connector retains this options object; configure it before sharing the connector.
     /// </summary>
     public class ConnectorOptions
@@ -18,11 +18,6 @@ namespace SqlLinqer.Connections
         /// SQL Server and Azure SQL still cap commands at 2,100 parameters and 1,000 VALUES rows. Batches share one write transaction; Render does not apply execution batching.
         /// </summary>
         public int ParameterLimit { get; set; }
-        /// <summary>
-        /// Loads SQL JSON using SqlLinqer mappings while ignoring API JSON attributes and converters. Defaults to false for legacy loading behavior.
-        /// Uses a public or private parameterless constructor, or one public constructor matching mapped member names and types. SqlIgnore excludes SQL members. Typed callable row mapping is independent of this setting.
-        /// </summary>
-        public bool UseSqlModelJsonContract { get; set; }
         /// <summary>
         /// The server login timeout used by ReplicatorConnector, defaulting to 15 seconds. It does not rewrite factory or embedded-provider connections.
         /// </summary>

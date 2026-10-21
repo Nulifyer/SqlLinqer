@@ -490,6 +490,7 @@ internal static class DuckDbSuite
                 transaction.Rollback();
             });
             SqlLinqer.Tests.Regression.CompatibleDatabaseTests.Run(connector, Test);
+            SqlLinqer.Tests.Regression.SqlJsonContractChecks.Run(connector, Test);
             // Optional diagnostic only: elapsed time depends on the host and is not a regression assertion.
             if (Environment.GetEnvironmentVariable("SQLLINQER_DUCKDB_TIMEOUT_PROBE") == "1")
             {

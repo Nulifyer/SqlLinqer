@@ -41,7 +41,7 @@ namespace SqlLinqer.Compilation
 
     /// <summary>
     /// Immutable metadata describing selected members independently of the database JSON transport format.
-    /// Typed loading still uses the connector's configured JSON model contract.
+    /// Typed loading uses SqlLinqer's SQL model contract independently of application JSON configuration.
     /// </summary>
     public sealed class SqlResultShape
     {

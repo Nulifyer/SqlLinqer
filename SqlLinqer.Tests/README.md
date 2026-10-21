@@ -107,5 +107,10 @@ It also checks asynchronous command contracts, cancellation, caller transaction 
 Async checks execute CRUD, JSON results, binary values, nested collections, aggregates, and rollback against temporary SQLite and DuckDB databases.
 The integration suite includes asynchronous PostgreSQL/MySQL checks when its disposable endpoints are configured.
 
+The native SQLite, DuckDB, SQL Server, PostgreSQL, and MySQL suites share SQL JSON contract checks.
+They compare plain models with API-attributed models against the same rows, including nested objects, collections, nulls, and escaped text.
+The checks exercise API names, ignores, constructors, required members, converters, serializer policies, and metadata caches without changing SQL loading.
+They also verify captured queries, concurrent API serialization and SQL loading, and writes through API-attributed models.
+
 The render benchmark reports ordinary rendering allocations, snapshot capture allocations, and rendering allocations from a reused snapshot.
 See [query compilation](../docs/QUERY_COMPILATION.md) and [execution](../docs/EXECUTION.md) for the supported interfaces and ownership rules.

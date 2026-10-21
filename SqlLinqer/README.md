@@ -3,8 +3,8 @@
 SqlLinqer builds SQL queries from C# model mappings and expressions. It supports typed selects, nested relationships, aggregates, and writes.
 The library targets .NET Standard 2.0. Install the database provider in your application and create the database schema before querying.
 
-Set `ConnectorOptions.UseSqlModelJsonContract = true` to load SQL results independently of API JSON attributes and converters.
-This opt-in mode lets one class use SqlLinqer attributes for database mappings and JSON attributes for API serialization. The default preserves existing JSON loading behavior.
+SQL result loading always uses SqlLinqer's model contract and ignores API JSON attributes and converters.
+One class can use SqlLinqer attributes for database mappings and JSON attributes for API serialization without either configuration interfering with the other.
 
 ## Define a model
 

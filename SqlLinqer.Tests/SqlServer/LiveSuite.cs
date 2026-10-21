@@ -362,6 +362,7 @@ internal static class LiveSuite
                 Require(Valid(new StoredProcedureQuery<ProcedureRow>("ReadJson", schema).AddTvpParameter("Ids", ids, $"{schema}.IdList").ExecuteJson(connector)).Count == 0, "Empty procedure TVP differs");
             });
             TvpChecks.RunLive(connector, connection, connectionString, schema, live);
+            SqlLinqer.Tests.Regression.SqlJsonContractChecks.Run(connector, live);
             live("owned truncate commits", () =>
             {
                 Valid(new TruncateQuery<ScopedRow>(schema).Execute(connector));

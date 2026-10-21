@@ -17,14 +17,12 @@ namespace SqlLinqer.Connections
     /// </summary>
     public abstract partial class BaseConnector
     {
-        private static readonly JsonSerializerOptions JsonOptions = LegacyModelConfigResolver.CreateOptions();
-        private static readonly JsonSerializerOptions SqliteJsonOptions = CreateSqliteJsonOptions(false);
-        private static readonly JsonSerializerOptions SqlModelJsonOptions = ModelConfigResolver.CreateOptions();
-        private static readonly JsonSerializerOptions SqliteSqlModelJsonOptions = CreateSqliteJsonOptions(true);
+        private static readonly JsonSerializerOptions JsonOptions = ModelConfigResolver.CreateOptions();
+        private static readonly JsonSerializerOptions SqliteJsonOptions = CreateSqliteJsonOptions();
 
-        private static JsonSerializerOptions CreateSqliteJsonOptions(bool useSqlModelContract)
+        private static JsonSerializerOptions CreateSqliteJsonOptions()
         {
-            var options = useSqlModelContract ? ModelConfigResolver.CreateOptions() : LegacyModelConfigResolver.CreateOptions();
+            var options = ModelConfigResolver.CreateOptions();
             options.Converters.Add(new DatabaseHexBytesConverter());
             return options;
         }
@@ -193,7 +191,7 @@ namespace SqlLinqer.Connections
         }
 
         /// <summary>
-        /// Executes database JSON and buffers it into typed rows using the configured SQL JSON contract.
+        /// Executes database JSON and buffers it into typed rows using SqlLinqer's SQL model contract.
         /// The command must return JSON in the dialect's transport format.
         /// </summary>
         /// <typeparam name="T">The mapped row type.</typeparam>
@@ -212,9 +210,7 @@ namespace SqlLinqer.Connections
 
         private JsonResultMapper<T> CreateJsonMapper<T>() where T : class
         {
-            var options = Options.UseSqlModelJsonContract
-                ? (DbFlavor == DbFlavor.Sqlite ? SqliteSqlModelJsonOptions : SqlModelJsonOptions)
-                : (DbFlavor == DbFlavor.Sqlite ? SqliteJsonOptions : JsonOptions);
+            var options = DbFlavor == DbFlavor.Sqlite ? SqliteJsonOptions : JsonOptions;
             return new JsonResultMapper<T>(options, JsonResultsRowByRow());
         }
 

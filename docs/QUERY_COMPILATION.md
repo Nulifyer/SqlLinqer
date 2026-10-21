@@ -94,7 +94,7 @@ foreach (var member in rendered.ResultShape.Members)
 ```
 
 The shape is immutable metadata. Current typed loading still uses the existing JSON model contract and converters.
-It does not add a direct reader mapper or change the default `UseSqlModelJsonContract` setting.
+It does not add a direct reader mapper. SQL loading always uses SqlLinqer's model contract and ignores API JSON attributes and converters.
 The database compiler determines the transport encoding independently of that logical structure.
 
 ## Verification

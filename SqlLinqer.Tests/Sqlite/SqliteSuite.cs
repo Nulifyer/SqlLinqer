@@ -469,6 +469,7 @@ internal static class SqliteSuite
                     Expect((string)output.Rows[0][0] == "third");
                 });
                 SqlLinqer.Tests.Regression.CompatibleDatabaseTests.Run(connector, (name, action) => Test($"{label}: {name}", action));
+                SqlLinqer.Tests.Regression.SqlJsonContractChecks.Run(connector, (name, action) => Test($"{label}: {name}", action));
                 Test($"{label}: attached schema remains qualified and missing schemas fail", () =>
                 {
                     using var transaction = keeper.BeginTransaction();

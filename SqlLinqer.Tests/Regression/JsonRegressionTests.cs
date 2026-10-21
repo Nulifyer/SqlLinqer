@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using SqlLinqer.Components.Render;
-using SqlLinqer.Connections;
+using SqlLinqer.Extensions.TypeExtensions;
 using SqlLinqer.Modeling;
 using SqlLinqer.Queries.Typed;
 
@@ -12,6 +12,12 @@ internal static class JsonRegressionTests
 {
     internal static void Run(Action<string, Action> test)
     {
+        test("relationship collection types use their enumerable element rather than their own generic arguments", () =>
+        {
+            foreach (var type in new[] { typeof(ChildModel[]), typeof(List<ChildModel>), typeof(IEnumerable<ChildModel>),
+                typeof(AttributedChildren), typeof(TaggedChildren<string>) })
+                Expect(type.GetItemTypeFromIEnumerable() == typeof(ChildModel), "Wrong relationship element type for " + type);
+        });
         foreach (DbFlavor flavor in Enum.GetValues<DbFlavor>())
         {
             test($"JSON loads fields, private setters and getter-only properties for {flavor}", () =>
@@ -62,17 +68,6 @@ internal static class JsonRegressionTests
                 var model = Read<JsonModel>("""{"When":"2025-06-15T13:14:15Z","Offset":"2025-06-15T13:14:15Z"} """, flavor);
                 Expect(model.When.Kind == DateTimeKind.Utc && model.Offset.Offset == TimeSpan.Zero, "UTC dates lost timezone information");
             });
-            test($"default JSON loading preserves API member attributes for {flavor}", () =>
-            {
-                var model = Read<AttributeModel>("""{"db_name":"loaded","Ignored":"changed","IgnoredOnRead":"changed","Secret":"included"}""", flavor, false);
-                Expect(model.Name == "loaded" && model.Ignored == "initial" && model.IgnoredOnRead == "initial" && model.ReadSecret() == "included", "Legacy attribute behavior changed");
-                Expect(!new ConnectorOptions().UseSqlModelJsonContract, "SQL isolation became the default");
-            });
-            test($"default JSON loading preserves annotated constructors for {flavor}", () =>
-            {
-                var model = Read<AnnotatedConstructorModel>("""{"Id":9}""", flavor, false);
-                Expect(model.Id == 9 && model.Source == "annotated", "Legacy constructor behavior changed");
-            });
             test($"SQL JSON ignores API member attributes for {flavor}", () =>
             {
                 var model = Read<AttributeModel>("""{"Name":"loaded","Ignored":"changed","IgnoredOnRead":"changed","Secret":"ignored"} """, flavor);
@@ -88,25 +83,30 @@ internal static class JsonRegressionTests
                 var duplicate = Read<DuplicateConstructorModel>("""{"Id":10} """, flavor);
                 Expect(duplicate.Id == 10 && duplicate.Source == "private", "API constructor metadata was inspected");
             });
-            test($"one model supports independent SQL and API contracts for {flavor}", () =>
+            foreach (bool asynchronous in new[] { false, true })
             {
-                const string json = """{"Id":7,"Name":"loaded","ApiOnly":"not a database member"}""";
-                var database = new FakeDatabase { JsonRows = flavor is DbFlavor.SqlServer or DbFlavor.AzureSql ? new[] { "[", json, "]" } : new[] { json } };
-                var response = new SelectQuery<SharedApiModel>().SelectRootColumns().Execute(IsolatedConnector(database, flavor));
-                Expect(response.State == ResponseState.Valid, response.Error?.ToString());
-                var model = response.Result.Single();
-                Expect(model.Id == 7 && model.Name == "loaded" && model.ApiOnly == "api", "SQL contract did not follow model members");
-                string sql = database.Executed.Single().CommandText;
-                Expect(sql.Contains("user_name") && !sql.Contains("displayName") && !sql.Contains("ApiOnly"), "API names influenced SQL projection");
-                using var api = JsonDocument.Parse(JsonSerializer.Serialize(model));
-                Expect(api.RootElement.GetProperty("displayName").GetString() == "loaded" && !api.RootElement.TryGetProperty("Id", out _)
-                    && api.RootElement.GetProperty("ApiOnly").GetString() == "api", "API serialization no longer honors its own attributes");
-            });
-            test($"SQL JSON bypasses API converters on models and members for {flavor}", () =>
-            {
-                var model = Read<ConvertedModel>("""{"Id":1,"Name":"root","Child":{"Id":2,"Name":"child"},"Children":[{"Id":3,"Name":"list"}]}""", flavor);
-                Expect(model.Name == "root" && model.Child.Name == "child" && model.Children.Single().Id == 3, "API converter changed root or nested loading");
-            });
+                test($"SQL loading supports independent SQL and API contracts for {flavor}, async={asynchronous}", () =>
+                {
+                    const string json = """{"Id":7,"Name":"loaded","ApiOnly":"not a database member"}""";
+                    var database = new FakeDatabase { JsonRows = flavor is DbFlavor.SqlServer or DbFlavor.AzureSql ? new[] { "[", json, "]" } : new[] { json } };
+                    var connector = new FakeConnector(database, flavor);
+                    var query = new SelectQuery<SharedApiModel>().SelectRootColumns();
+                    var response = asynchronous ? query.ExecuteAsync(connector).GetAwaiter().GetResult() : query.Execute(connector);
+                    Expect(response.State == ResponseState.Valid, response.Error?.ToString());
+                    var model = response.Result.Single();
+                    Expect(model.Id == 7 && model.Name == "loaded" && model.ApiOnly == "api", "SQL contract did not follow model members");
+                    string sql = database.Executed.Single().CommandText;
+                    Expect(sql.Contains("user_name") && !sql.Contains("displayName") && !sql.Contains("ApiOnly"), "API names influenced SQL projection");
+                    using var api = JsonDocument.Parse(JsonSerializer.Serialize(model));
+                    Expect(api.RootElement.GetProperty("displayName").GetString() == "loaded" && !api.RootElement.TryGetProperty("Id", out _)
+                        && api.RootElement.GetProperty("ApiOnly").GetString() == "api", "API serialization no longer honors its own attributes");
+                });
+                test($"SQL loading bypasses API converters on models and members for {flavor}, async={asynchronous}", () =>
+                {
+                    var model = Read<ConvertedModel>("""{"Id":1,"Name":"root","Child":{"Id":2,"Name":"child"},"Children":[{"Id":3,"Name":"list"}]}""", flavor, asynchronous: asynchronous);
+                    Expect(model.Name == "root" && model.Child.Name == "child" && model.Children.Single().Id == 3, "API converter changed root or nested loading");
+                });
+            }
             test($"SQL JSON bypasses API validation and object creation rules for {flavor}", () =>
             {
                 var model = Read<ApiRulesModel>("""{"Number":"12","Unknown":{"items":[1,2]},"Children":[{"Id":3}]}""", flavor);
@@ -136,43 +136,36 @@ internal static class JsonRegressionTests
             {
                 const string json = """{"Id":7,"Name":"loaded"}""";
                 var database = new FakeDatabase { JsonRows = flavor is DbFlavor.SqlServer or DbFlavor.AzureSql ? new[] { "[", json, "]" } : new[] { json } };
-                var response = IsolatedConnector(database, flavor).ExecuteReaderJson<AmbiguousConstructorModel>(new RenderedQuery("SELECT json"));
+                var response = new FakeConnector(database, flavor).ExecuteReaderJson<AmbiguousConstructorModel>(new RenderedQuery("SELECT json"));
                 Expect(response.State == ResponseState.Error && response.Error != null, "Invalid SQL constructor selection escaped error-as-value handling");
                 Expect(database.Connections.Single().IsDisposed && database.Executed.Single().IsDisposed, "SQL contract failure leaked resources");
             });
             test($"JSON returns an empty collection for no rows for {flavor}", () =>
             {
                 var database = new FakeDatabase { JsonRows = Array.Empty<string>() };
-                var response = IsolatedConnector(database, flavor).ExecuteReaderJson<JsonModel>(new RenderedQuery("SELECT json"));
+                var response = new FakeConnector(database, flavor).ExecuteReaderJson<JsonModel>(new RenderedQuery("SELECT json"));
                 Expect(response.State == ResponseState.Valid && response.Result.Count == 0, "Empty results failed");
             });
             test($"JSON parse errors report failure and dispose resources for {flavor}", () =>
             {
                 var database = new FakeDatabase { JsonRows = new[] { "invalid JSON" } };
-                var response = IsolatedConnector(database, flavor).ExecuteReaderJson<JsonModel>(new RenderedQuery("SELECT json"));
+                var response = new FakeConnector(database, flavor).ExecuteReaderJson<JsonModel>(new RenderedQuery("SELECT json"));
                 Expect(response.State == ResponseState.Error && response.Error.InnerException is JsonException, "JSON failure was not wrapped in the response");
                 Expect(database.Connections.Single().IsDisposed && database.Executed.Single().IsDisposed, "JSON failure leaked resources");
             });
         }
     }
 
-    private static T Read<T>(string json, DbFlavor flavor, bool isolated = true) where T : class
+    private static T Read<T>(string json, DbFlavor flavor, bool asynchronous = false) where T : class
     {
         // SQL Server can split one FOR JSON result over multiple database rows.
         var database = new FakeDatabase { JsonRows = flavor is DbFlavor.SqlServer or DbFlavor.AzureSql ? new[] { "[", json, "]" } : new[] { json } };
         var connector = new FakeConnector(database, flavor);
-        connector.Options.UseSqlModelJsonContract = isolated;
-        var response = connector.ExecuteReaderJson<T>(new RenderedQuery("SELECT json"));
+        var query = new RenderedQuery("SELECT json");
+        var response = asynchronous ? connector.ExecuteReaderJsonAsync<T>(query).GetAwaiter().GetResult() : connector.ExecuteReaderJson<T>(query);
         if (response.State != ResponseState.Valid)
             throw response.Error;
         return response.Result.Single();
-    }
-
-    private static FakeConnector IsolatedConnector(FakeDatabase database, DbFlavor flavor)
-    {
-        var connector = new FakeConnector(database, flavor);
-        connector.Options.UseSqlModelJsonContract = true;
-        return connector;
     }
 
     private static T ReadLike<T>(T template, string json, DbFlavor flavor) where T : class => Read<T>(json, flavor);
@@ -295,6 +288,7 @@ internal static class JsonRegressionTests
     private struct ModelPoint { [JsonIgnore] public int X { get; set; } }
     [JsonConverter(typeof(RejectCollectionConverter))]
     private sealed class AttributedChildren : List<ChildModel> { }
+    private sealed class TaggedChildren<TTag> : List<ChildModel> { }
     private sealed class RejectCollectionConverter : JsonConverter<AttributedChildren>
     {
         public RejectCollectionConverter() => throw new InvalidOperationException("SQL loading must not construct API collection converters");

@@ -32,21 +32,25 @@ namespace SqlLinqer.Extensions.TypeExtensions
             }
         }
         /// <summary>
-        /// Get the underlying type of a IEnumerable type (List T, T[], IEnumberable T, etc)
+        /// Returns the element type of an array or an unambiguous IEnumerable&lt;T&gt; implementation, including derived collection classes.
         /// </summary>
         /// <param name="type">The current type</param>
+        /// <returns>The collection element type, or null for strings, non-generic enumerables, or collections with multiple element types.</returns>
         public static Type GetItemTypeFromIEnumerable(this Type type)
         {
             if (type == null)
                 throw new ArgumentNullException(nameof(type));
 
-            if (!typeof(System.Collections.IEnumerable).IsAssignableFrom(type))
+            if (type == typeof(string) || !typeof(System.Collections.IEnumerable).IsAssignableFrom(type))
                 return null;
 
-            if (type.IsGenericType)
-                return type.GetGenericArguments()?.FirstOrDefault();
+            if (type.IsArray)
+                return type.GetElementType();
 
-            return type.GetElementType();
+            var elementTypes = type.GetInterfaces().Concat(new[] { type })
+                .Where(candidate => candidate.IsGenericType && candidate.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+                .Select(candidate => candidate.GetGenericArguments()[0]).Distinct().ToArray();
+            return elementTypes.Length == 1 ? elementTypes[0] : null;
         }
         /// <summary>
         /// Get a typed custom attribute from a type
