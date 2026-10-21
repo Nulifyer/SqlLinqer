@@ -62,6 +62,12 @@ namespace SqlLinqer.Components.Select
                     {
                         rendered_query = $"JSON_QUERY({rendered_query}, '$[0]')";
                     }
+                    else
+                    {
+                        // Empty SQL Server JSON subqueries can yield SQL NULL.
+                        // Preserve collection results and keep them marked as JSON.
+                        rendered_query = $"JSON_QUERY(COALESCE({rendered_query}, '[]'))";
+                    }
                     break;
                 default:
                     throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(SelectRelationship)}.{nameof(Render)}");
