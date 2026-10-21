@@ -8,12 +8,14 @@ using SqlLinqer.Modeling;
 using SqlLinqer.Queries.Typed;
 using SqlLinqer.Queries.TypedExt;
 
-namespace SqlLinqer.Tests.AzureSql;
+namespace SqlLinqer.Tests.SqlServer;
 
-internal static class AzureSqlSuite
+internal static class SqlServerSuite
 {
-    internal static int Run(bool live = false, bool requireLive = false, bool tempOnly = false)
+    internal static int Run(bool live = false, bool requireLive = false, bool tempOnly = false, DbFlavor flavor = DbFlavor.SqlServer)
     {
+        string engine = flavor == DbFlavor.SqlServer ? "SQL Server" : "Azure SQL";
+        string connectionVariable = flavor == DbFlavor.SqlServer ? "SQLLINQER_TEST_SQLSERVER" : "SQLLINQER_AZURE_SQL_CONNECTION_STRING";
         int localPassed = 0, localFailed = 0, livePassed = 0, liveFailed = 0;
         void Require(bool condition, string message)
         {
@@ -86,32 +88,36 @@ internal static class AzureSqlSuite
         LocalChecks.Run(Local, Require);
         CallableChecks.RunLocal(Local, Require);
 
-        string liveConnectionString = Environment.GetEnvironmentVariable("SQLLINQER_AZURE_SQL_CONNECTION_STRING");
+        string liveConnectionString = Environment.GetEnvironmentVariable(connectionVariable);
         if (!live)
         {
-            Console.WriteLine("SKIP live Azure SQL: use --live or --require-live to enable database execution.");
+            Console.WriteLine($"SKIP live {engine}: use --live or --require-live to enable database execution.");
         }
         else if (string.IsNullOrWhiteSpace(liveConnectionString))
         {
-            Console.WriteLine("SKIP live Azure SQL: SQLLINQER_AZURE_SQL_CONNECTION_STRING is not set. No live Azure validation performed.");
-            if (requireLive) { liveFailed++; Console.Error.WriteLine("FAIL required live Azure SQL endpoint is absent."); }
+            Console.WriteLine($"SKIP live {engine}: {connectionVariable} is not set. No live {engine} validation performed.");
+            if (requireLive) { liveFailed++; Console.Error.WriteLine($"FAIL required live {engine} endpoint is absent."); }
         }
         else if (localFailed == 0)
         {
             try
             {
-                LiveSuite.Run(liveConnectionString, tempOnly, Live);
+                LiveSuite.Run(liveConnectionString, tempOnly, Live, flavor);
             }
             catch (Exception error)
             {
                 liveFailed++;
                 // Never log SQL text, connection strings, provider messages, identity details or tokens.
                 var sqlError = error as SqlException ?? error.InnerException as SqlException;
-                Console.Error.WriteLine($"FAIL live Azure SQL check '{LiveSuite.CurrentCheck}': {error.GetType().Name}" +
-                    (sqlError == null ? "" : $"; SqlException Number={sqlError.Number}, State={sqlError.State}, Class={sqlError.Class}"));
+                var fixtureFrame = new System.Diagnostics.StackTrace(error, true).GetFrames()?
+                    .FirstOrDefault(frame => frame.GetMethod()?.DeclaringType == typeof(LiveSuite)
+                        || frame.GetMethod()?.DeclaringType?.DeclaringType == typeof(LiveSuite));
+                Console.Error.WriteLine($"FAIL live {engine} check '{LiveSuite.CurrentCheck}': {error.GetType().Name}" +
+                    (sqlError == null ? "" : $"; SqlException Number={sqlError.Number}, State={sqlError.State}, Class={sqlError.Class}") +
+                    (fixtureFrame == null ? "" : $"; fixture line={fixtureFrame.GetFileLineNumber()}"));
             }
         }
-        else Console.WriteLine("SKIP live Azure SQL: local provider tests failed.");
+        else Console.WriteLine($"SKIP live {engine}: local provider tests failed.");
 
         Console.WriteLine($"Local: {localPassed} passed, {localFailed} failed. Live: {livePassed} passed, {liveFailed} failed.");
         return localFailed + liveFailed == 0 ? 0 : 1;

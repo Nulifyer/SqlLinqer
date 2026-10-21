@@ -6,7 +6,7 @@ using SqlLinqer.Queries.Core.Abstract;
 using SqlLinqer.Queries.Typed;
 using SqlLinqer.Queries.TypedExt;
 
-namespace SqlLinqer.Tests.AzureSql;
+namespace SqlLinqer.Tests.SqlServer;
 
 internal sealed class ParentCteSelect : SelectQuery<AzureParent>
 {

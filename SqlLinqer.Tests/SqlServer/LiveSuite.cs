@@ -6,7 +6,7 @@ using SqlLinqer.Connections;
 using SqlLinqer.Queries.Typed;
 using SqlLinqer.Queries.TypedExt;
 
-namespace SqlLinqer.Tests.AzureSql;
+namespace SqlLinqer.Tests.SqlServer;
 
 internal static class LiveSuite
 {
@@ -21,33 +21,42 @@ internal static class LiveSuite
             throw new InvalidOperationException("Database operation failed", response.Error?.InnerException ?? response.Error);
         return response.Result;
     }
-    internal static BaseConnector Connector(string connectionString, string schema = null)
-        => new ConnectionFactoryConnector(() => new SqlConnection(connectionString), DbFlavor.AzureSql,
+    internal static BaseConnector Connector(string connectionString, string schema = null, DbFlavor flavor = DbFlavor.AzureSql)
+        => new ConnectionFactoryConnector(() => new SqlConnection(connectionString), flavor,
             new ConnectorOptions { CommandTimeout = TimeSpan.FromSeconds(30), DefaultSchema = schema });
 
-    internal static void Run(string connectionString, bool tempOnly, Action<string, Action> run)
+    internal static void Run(string connectionString, bool tempOnly, Action<string, Action> run, DbFlavor flavor = DbFlavor.AzureSql)
     {
+        CurrentCheck = "configuration";
+        Require(flavor == DbFlavor.AzureSql || flavor == DbFlavor.SqlServer, "Unsupported live SQL flavor");
         var settings = new SqlConnectionStringBuilder(connectionString);
-        Require(settings.Encrypt != SqlConnectionEncryptOption.Optional && !settings.TrustServerCertificate,
-            "Live suite requires Encrypt=true or Strict and TrustServerCertificate=false");
+        Require(settings.Encrypt != SqlConnectionEncryptOption.Optional, "Live suite requires Encrypt=true or Strict");
+        if (flavor == DbFlavor.AzureSql)
+            Require(!settings.TrustServerCertificate, "Live Azure SQL requires TrustServerCertificate=false");
         Require(!string.IsNullOrWhiteSpace(settings.InitialCatalog)
             && !settings.InitialCatalog.Equals("master", StringComparison.OrdinalIgnoreCase), "Select an explicit test Database other than master");
-        var connector = Connector(settings.ConnectionString);
+        var connector = Connector(settings.ConnectionString, flavor: flavor);
         using var connection = (SqlConnection)connector.CreateConnection();
         connection.Open();
+        string engine = flavor == DbFlavor.SqlServer ? "SQL Server" : "Azure SQL Database";
+        CurrentCheck = engine + " engine identity";
         using (var command = new SqlCommand("SELECT CONVERT(int, SERVERPROPERTY('EngineEdition'))", connection))
-            Require(Convert.ToInt32(command.ExecuteScalar()) == 5, "This suite requires Azure SQL Database, not SQL Server or Managed Instance");
+        {
+            int edition = Convert.ToInt32(command.ExecuteScalar());
+            Require(flavor == DbFlavor.AzureSql ? edition == 5 : edition is 2 or 3 or 4,
+                "This suite requires " + engine);
+        }
         void Live(string name, Action action)
         {
             CurrentCheck = name;
             run(name, action);
         }
-        Live("Azure SQL Database engine identity", () => Require(connection.State == ConnectionState.Open, "Connection is not open"));
+        Live(engine + " engine identity", () => Require(connection.State == ConnectionState.Open, "Connection is not open"));
         TemporarySuite(connection, connector, Live);
         if (tempOnly)
             Console.WriteLine("SKIP live DDL suite: --temp-only omits TVPs, stored procedures and cross-connection transaction tests.");
         else
-            ScopedSuite(connection, settings.ConnectionString, Live);
+            ScopedSuite(connection, settings.ConnectionString, Live, flavor);
     }
 
     internal static void NonQuery(SqlConnection connection, string sql, SqlTransaction transaction = null)
@@ -121,9 +130,10 @@ internal static class LiveSuite
                 });
                 live("typed JSON one-to-one one-to-many null empty nested ordering", () =>
                 {
-                    var rows = Valid(new SelectQuery<AzureParent>().SelectRootColumns().Select(x => x.Profile)
+                    var query = new SelectQuery<AzureParent>().SelectRootColumns().Select(x => x.Profile)
                         .Select(x => x.Children).Select(new[] { nameof(AzureParent.Children), nameof(AzureChild.Leaves) })
-                        .OrderByAuto().OrderBy(x => x.Id, SqlDir.ASC).Execute(connector, tx));
+                        .OrderByAuto().OrderBy(x => x.Id, SqlDir.ASC);
+                    var rows = Valid(query.Execute(connector, tx));
                     var alpha = rows.Single(x => x.Name == "alpha \"雪\"");
                     var beta = rows.Single(x => x.Name == "beta");
                     var unnamed = rows.Single(x => x.Name == null);
@@ -252,13 +262,13 @@ internal static class LiveSuite
         DROP SCHEMA [{schema}];
         """;
 
-    private static void ScopedSuite(SqlConnection connection, string connectionString, Action<string, Action> live)
+    private static void ScopedSuite(SqlConnection connection, string connectionString, Action<string, Action> live, DbFlavor flavor)
     {
         // Only this generated schema is ever created, queried or removed by the DDL suite.
         string schema = "SqlLinqerAzure_" + Guid.NewGuid().ToString("N");
         bool created = false;
         Console.WriteLine("Live test schema: " + schema);
-        var connector = Connector(connectionString, schema);
+        var connector = Connector(connectionString, schema, flavor);
         int TypeCount() => Scalar(connection, $"SELECT COUNT(*) FROM sys.table_types WHERE schema_id = SCHEMA_ID(N'{schema}')");
         int RowCount() => Scalar(connection, $"SELECT COUNT(*) FROM [{schema}].[Rows]");
         InsertQuery<ScopedRow> Insert(params ScopedRow[] rows) => new InsertQuery<ScopedRow>(schema).InsertAuto(rows);
@@ -277,6 +287,20 @@ internal static class LiveSuite
                 Require(Valid(Insert(new ScopedRow { Name = "committed", Amount = 1 }).Execute(connector)) == 1 && RowCount() == 1, "Owned commit failed");
                 var failed = connector.ExecuteNonQuery(new RenderedQuery($"INSERT INTO [{schema}].[Rows] (Name, Amount) VALUES (N'before error', 2); THROW 51002, 'intentional test failure', 1;"));
                 Require(failed.State == ResponseState.Error && RowCount() == 1, "Owned batch failure did not roll back");
+            });
+            // Callables have their own contract and must be exercised even if a later
+            // generated-type TVP insert fails.
+            CallableChecks.RunLive(connector, connection, live);
+            live("existing table type procedure input and caller transaction", () =>
+            {
+                using var ids = new DataTable(); ids.Columns.Add("Id", typeof(int));
+                ids.Rows.Add(Scalar(connection, $"SELECT TOP (1) Id FROM [{schema}].[Rows] ORDER BY Id"));
+                using var transaction = connection.BeginTransaction();
+                var rows = Valid(new StoredProcedureQuery<ProcedureRow>("ReadJson", schema)
+                    .AddTvpParameter("Ids", ids, $"{schema}.IdList").ExecuteJson(connector, transaction));
+                Require(rows.Single().Name == "committed" && transaction.Connection == connection,
+                    "Existing table type input or caller ownership differs");
+                transaction.Rollback();
             });
             live("TVP insert identity keys nullable decimal and type cleanup", () =>
             {
@@ -339,7 +363,6 @@ internal static class LiveSuite
                 ids.Clear();
                 Require(Valid(new StoredProcedureQuery<ProcedureRow>("ReadJson", schema).AddTvpParameter("Ids", ids, $"{schema}.IdList").ExecuteJson(connector)).Count == 0, "Empty procedure TVP differs");
             });
-            CallableChecks.RunLive(connector, connection, live);
             live("owned truncate commits", () =>
             {
                 Valid(new TruncateQuery<ScopedRow>(schema).Execute(connector));

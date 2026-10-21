@@ -7,7 +7,7 @@ using SqlLinqer.Components.Render;
 using SqlLinqer.Connections;
 using SqlLinqer.Queries.Typed;
 
-namespace SqlLinqer.Tests.AzureSql;
+namespace SqlLinqer.Tests.SqlServer;
 
 internal static class LocalChecks
 {

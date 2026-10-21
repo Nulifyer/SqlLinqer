@@ -1,60 +1,95 @@
 # SqlLinqer tests
 
-All automated tests use this .NET 10 executable. Run from the repository root:
+Run the complete repeatable suite from the repository root:
 
 ```sh
-dotnet run --project SqlLinqer.Tests
+bash TestDBs/test-containers.sh
 ```
 
-The default run includes regression checks, temporary SQLite and DuckDB databases, and offline Azure SQL provider/parser checks.
-It does not connect to PostgreSQL, MySQL, or Azure SQL Database.
-Each suite reports its results. Any failing suite makes the process exit with code `1`.
-Invalid arguments exit with code `2`.
+This is the main test entry point. It builds the shared .NET 10 executable once, starts disposable PostgreSQL, MySQL, and SQL Server databases, and runs every suite.
+The tests run together in a .NET container on an isolated network, without published ports.
+The runner saves one result log, reports each suite, and removes all test containers and anonymous volumes on success or failure.
+Any failing suite produces a nonzero exit code. Later suites still run after an earlier suite fails.
+Separate live Azure SQL validation is optional.
 
-Select one suite, or repeat `--suite` to select several:
+The full run includes:
 
-```sh
-dotnet run --project SqlLinqer.Tests -- --suite regression
-dotnet run --project SqlLinqer.Tests -- --suite sqlite --suite duckdb
-dotnet run --project SqlLinqer.Tests -- --suite azure-sql
-dotnet run --project SqlLinqer.Tests -- --help
-```
+- Regression checks for SQL rendering, typed models, and connector behavior.
+- SQLite and DuckDB database checks.
+- Shared SQL Server/Azure SQL provider checks and live SQL Server fixtures, including typed callables.
+- PostgreSQL and MySQL integration fixtures.
 
-Suite code and fixtures live in `Regression`, `Sqlite`, `DuckDb`, `AzureSql`, and `Integration`.
-SQLite and DuckDB share the `Regression/CompatibleDatabaseTests.cs` fixture.
-The core library retains its own provider-independent dependencies.
+The current SQL Server fixtures expose error `1205` in the existing generated-type `ExecuteTvp` insert path.
+That remains a failure in the full result. Typed callable and existing-table-type procedure checks run before it.
 
-## Database suites
+## Container options
 
-For PostgreSQL and MySQL, use the disposable container runner:
+The runner needs .NET 10 and an accessible Docker or Podman engine:
 
 ```sh
 bash TestDBs/test-containers.sh --engine docker
+# Run from your terminal if Docker requires sudo:
+bash TestDBs/test-containers.sh --engine docker --sudo
+bash TestDBs/test-containers.sh --engine podman
+# Run the tests on the host with random localhost database ports:
+bash TestDBs/test-containers.sh --host
 ```
 
-The script builds this project and selects `--suite integration`.
-It also supports `--sudo`, `--engine podman`, and `--containerized`.
-To supply disposable databases directly, set `SQLLINQER_TEST_POSTGRES` and `SQLLINQER_TEST_MYSQL`, then run:
+Only container commands use sudo. `--containerized` explicitly selects the default isolated execution mode.
+Override `SQLLINQER_POSTGRES_IMAGE`, `SQLLINQER_MYSQL_IMAGE`, `SQLLINQER_SQLSERVER_IMAGE`, or `SQLLINQER_RUNTIME_IMAGE` to select another image.
+SQL Server images must include `sqlcmd`.
+
+## Run focused or local checks
+
+All suites use the same executable:
 
 ```sh
-dotnet run --project SqlLinqer.Tests -- --suite integration
+# Local checks only, without Docker or server connections:
+dotnet run --project SqlLinqer.Tests
+# Select one suite or repeat --suite:
+dotnet run --project SqlLinqer.Tests -- --suite regression
+dotnet run --project SqlLinqer.Tests -- --suite sqlite --suite duckdb
+dotnet run --project SqlLinqer.Tests -- --suite sql-server
+dotnet run --project SqlLinqer.Tests -- --help
 ```
 
-Both connection strings must select a database named `sqllinqer_integration_<run id>`.
-The suite resets its fixture tables between checks.
+The default includes regression, SQLite, DuckDB, and offline SQL Server/Azure SQL provider/parser checks.
+`--suite sql-server` uses the same fixtures for both flavors; there is no separate Azure suite.
+Suite code lives in `Regression`, `Sqlite`, `DuckDb`, `SqlServer`, and `Integration`.
+SQLite and DuckDB share `Regression/CompatibleDatabaseTests.cs`.
 
-For Azure SQL, set `SQLLINQER_AZURE_SQL_CONNECTION_STRING` to an existing disposable Azure SQL Database.
-Then require live execution:
+## Supply database endpoints directly
+
+With existing disposable databases, set `SQLLINQER_TEST_POSTGRES`, `SQLLINQER_TEST_MYSQL`, and `SQLLINQER_TEST_SQLSERVER`, then run:
 
 ```sh
-dotnet run --project SqlLinqer.Tests -- --suite azure-sql --require-live
+dotnet run --project SqlLinqer.Tests -- --all
 ```
 
-`--live` permits an explicit skip when the endpoint is absent. `--require-live` makes that absence a failure.
-`--temp-only` requires one of these flags and limits the live suite to temporary tables.
-See the [Azure SQL guide](AzureSql/README.md) for connection requirements and cleanup behavior.
+`--all` selects every suite and requires the database endpoints. It cannot be combined with `--temp-only`.
+PostgreSQL and MySQL database names must start with `sqllinqer_integration_`; their fixtures reset tables between checks.
+SQL Server must select a database other than `master` and require encryption.
+Local SQL Server containers may use `TrustServerCertificate=true` for their self-signed certificate.
+The SQL Server fixtures create and clean up their own schema.
 
-See the [SQLite guide](Sqlite/README.md) for minimum-engine validation and [DuckDB guide](../docs/DUCKDB.md) for provider coverage.
+To run only the shared server fixtures against SQL Server:
+
+```sh
+dotnet run --project SqlLinqer.Tests -- --suite sql-server --require-live
+```
+
+For an optional actual Azure endpoint, set `SQLLINQER_AZURE_SQL_CONNECTION_STRING` and select the same suite with `--azure`:
+
+```sh
+dotnet run --project SqlLinqer.Tests -- --suite sql-server --azure --require-live
+```
+
+Azure mode retains certificate validation and Azure engine identity checks.
+`--live` allows an explicit skip when the selected endpoint is absent; `--require-live` makes absence a failure.
+A skipped live check is never counted as a pass. `--temp-only` runs the temporary-table subset and omits procedures and TVPs.
+See the [SQL Server/Azure SQL guide](SqlServer/README.md) for endpoint and permission details.
+
+See the [SQLite guide](Sqlite/README.md) for minimum-engine validation and the [DuckDB guide](../docs/DUCKDB.md) for provider coverage.
 
 ## Rendering benchmark
 

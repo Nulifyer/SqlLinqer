@@ -1,4 +1,4 @@
-# Azure SQL Database
+# SQL Server and Azure SQL Database
 
 `DbFlavor.AzureSql` has numeric value `5` and uses SQL Server rendering. `SqlServer=0`, `MySql=1` and `PostgreSql=2` retain their values. The connector keeps `AzureSql` as its flavor. SQL syntax, parameters, JSON results, output rows, TVPs and transaction defaults follow SQL Server behavior.
 
@@ -10,36 +10,46 @@ Run from the repository root:
 
 ```bash
 dotnet run --project SqlLinqer.Tests -- --suite regression
-dotnet run --project SqlLinqer.Tests -- --suite azure-sql
+dotnet run --project SqlLinqer.Tests -- --suite sql-server
 dotnet build SQLTest/SQLTest.csproj
 dotnet build SQLTestFramework/SQLTestFramework.csproj
 ```
 
-The regression suite checks SQL Server/Azure rendering, SQL shape, parameter metadata, transaction ownership, resource disposal and chunked JSON. The Azure suite always runs offline checks against real SqlClient connections and parameters plus Microsoft's ScriptDom parser in Azure mode. These checks never open a connection or acquire a token. ScriptDom validates syntax only. It does not bind database objects or execute queries.
+The regression suite checks SQL Server/Azure rendering, SQL shape, parameter metadata, transaction ownership, resource disposal and chunked JSON. The shared server suite always runs offline checks against real SqlClient connections and parameters plus Microsoft's ScriptDom parser in Azure mode. These checks never open a connection or acquire a token. ScriptDom validates syntax only. It does not bind database objects or execute queries.
 
-Live tests require `--live` or `--require-live` and use only `SQLLINQER_AZURE_SQL_CONNECTION_STRING`. Inject a connection string for an existing, disposable test database through your shell or secret manager. No endpoint is discovered or provisioned. The connection must select a database other than `master`, require encryption, validate its certificate, and reach Azure SQL Database. The suite checks `SERVERPROPERTY('EngineEdition') = 5` so a SQL Server container or Managed Instance cannot be reported as Azure SQL Database validation.
+Optional Azure execution uses `--suite sql-server --azure` with `--live` or `--require-live` and reads `SQLLINQER_AZURE_SQL_CONNECTION_STRING`. Normal SQL Server execution reads `SQLLINQER_TEST_SQLSERVER`. Inject a connection string for an existing, disposable test database through your shell or secret manager. No endpoint is discovered or provisioned. Both modes require an explicit database other than `master` and encryption. SQL Server mode permits a local self-signed certificate and checks SQL Server engine identity. Azure mode validates the certificate and requires `SERVERPROPERTY('EngineEdition') = 5`.
 
-For CI or a release check, require live execution:
+The shared behavior can be exercised locally through SQL Server Developer without requiring an Azure endpoint:
 
 ```bash
-dotnet run --project SqlLinqer.Tests -- --suite azure-sql --require-live
+bash TestDBs/test-containers.sh --engine docker --sudo
+```
+
+Omit `--sudo` when your account can access Docker directly.
+This runs every suite, including the shared fixtures with `DbFlavor.SqlServer`. There is one container runner and one test executable.
+The regression and offline Azure checks continue to cover the Azure flavor's rendering and provider metadata.
+Direct live Azure testing is optional. When you choose to run it, require execution explicitly:
+
+```bash
+dotnet run --project SqlLinqer.Tests -- --suite sql-server --azure --require-live
 ```
 
 Without a live flag, the suite runs only local checks. With `--live`, an absent endpoint prints `SKIP live Azure SQL`; with `--require-live`, it also reports a failure and exits `1`. Any connection, query, assertion or cleanup failure exits `1`. An unknown flag exits `2`. Default developer execution may exit `0` after an explicit live skip. A skipped suite is never counted as a live pass. Error output names the check and exception type, with SqlException number/state/class when available. It does not print connection strings, token values, SQL text, identity details or provider messages.
 
-The full live suite runs temporary-table tests and then creates one schema named `SqlLinqerAzure_<32 random hex digits>` in the explicitly selected database. It creates only its own `Rows` table, `IdList` type, `ReadRows`/`ReadJson` procedures and generated `TEMP_<id>` TVP types in that schema. No application tables, users, roles or cloud resources are changed. Cleanup runs in `finally`, drops only objects in that schema, and verifies that the schema was removed. Temporary tables are dropped in a separate `finally` and also expire with their connection. Cleanup failures are failures. Process termination or loss of connectivity can prevent cleanup; remove only the recorded `SqlLinqerAzure_...` schema's objects after inspecting them.
+The full live suite runs temporary-table tests and then creates one schema named `SqlLinqerAzure_<32 random hex digits>` in the explicitly selected database. It creates only its own `Rows` table, `IdList` type, `ReadRows`, `ReadJson`, and `TypedCallable` procedures and generated `TEMP_<id>` TVP types in that schema. No application tables, users, roles or cloud resources are changed. Cleanup runs in `finally`, drops only objects in that schema, and verifies that the schema was removed. Temporary tables are dropped in a separate `finally` and also expire with their connection. Cleanup failures are failures. Process termination or loss of connectivity can prevent cleanup; remove only the recorded `SqlLinqerAzure_...` schema's objects after inspecting them.
 
 The test identity needs permission to connect and use temporary tables. Full mode also needs database `CREATE SCHEMA`, `CREATE TABLE`, `CREATE TYPE` and `CREATE PROCEDURE`, ownership or `ALTER` on its new schema, plus permission to execute its procedures and reference its types. Use an identity dedicated to the disposable database. The suite does not grant permissions. See [CREATE SCHEMA](https://learn.microsoft.com/en-us/sql/t-sql/statements/create-schema-transact-sql?view=sql-server-ver17) and [table-valued parameters](https://learn.microsoft.com/en-us/sql/connect/ado-net/sql/table-valued-parameters?view=sql-server-ver17).
 
 For an identity restricted to temporary tables:
 
 ```bash
-dotnet run --project SqlLinqer.Tests -- --suite azure-sql --require-live --temp-only
+dotnet run --project SqlLinqer.Tests -- --suite sql-server --azure --require-live --temp-only
 ```
 
 `--temp-only` explicitly skips procedures, TVPs and the cross-connection tests for owned transactions. Use the full command for integration sign-off. Both modes validate CRUD, returned keys, typed JSON, Unicode/null values, one-to-one null/object results, one-to-many empty arrays, deeper nesting and ordering, paging/Top, grouped and Distinct totals, ungrouped aggregates, direct tabular rendering, CTEs, joined source updates and deletes with outputs, type round trips, truncate and caller rollback after success/failure. Full mode adds owned commit/rollback after a failed batch, TVP insert/output/key/null/decimal behavior, caller/owned TVP failures and type cleanup, procedure DataTable/JSON results, procedure TVPs including empty input, and owned truncate.
 
-No real Azure database is available in the implementation environment. Live execution and managed identity sign-in remain pending. Passing parser/provider/regression checks do not establish cloud behavior.
+Direct Azure SQL execution and managed identity sign-in remain unverified in this environment.
+SQL Server container results cover shared database behavior; they do not establish cloud authentication or service-specific behavior.
 
 ## Connect through SqlClient
 
@@ -59,7 +69,7 @@ var connector = new ReplicatorConnector(template, DbFlavor.AzureSql,
 
 `ReplicatorConnector` copies the provider type and connection string, then replaces connection timeout aliases with `Connect Timeout`. It preserves connection-string authentication and encryption settings. Set `ConnectorOptions.ConnectionTimeout` to preserve your intended login timeout. Command timeout is separate. Reads use no owned transaction. Writes use `ReadCommitted` when the connector owns the transaction. When you supply a transaction, the connector uses its connection and leaves commit, rollback and disposal to you.
 
-Use these templates with your existing endpoint and database. Keep credentials out of source and logs. Each example requires encryption and certificate validation. The host must trust the certificate chain, and the endpoint name must match the certificate. The live executable rejects `Encrypt=false` or `TrustServerCertificate=true`. See [encryption and certificate validation](https://learn.microsoft.com/en-us/sql/connect/ado-net/encryption-and-certificate-validation?view=sql-server-ver17).
+Use these templates with your existing endpoint and database. Keep credentials out of source and logs. Each example requires encryption and certificate validation. The host must trust the certificate chain, and the endpoint name must match the certificate. Live Azure mode rejects `Encrypt=false` or `TrustServerCertificate=true`. See [encryption and certificate validation](https://learn.microsoft.com/en-us/sql/connect/ado-net/encryption-and-certificate-validation?view=sql-server-ver17).
 
 SQL authentication:
 

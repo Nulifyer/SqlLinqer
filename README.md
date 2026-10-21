@@ -17,28 +17,23 @@ dotnet build SQLTestFramework/SQLTestFramework.csproj
 dotnet run --project SqlLinqer.Tests
 ```
 
-All automated suites share [SqlLinqer.Tests](SqlLinqer.Tests/README.md). The default command runs regression, SQLite, DuckDB, and Azure SQL local checks.
-These checks do not require a database server. Select one suite with `-- --suite regression`, `sqlite`, `duckdb`, `azure-sql`, or `integration`.
-The demos require the employee database described in their connection settings.
-
-To run integration checks against real PostgreSQL 18 and MySQL 8.4 containers:
+All automated suites use [SqlLinqer.Tests](SqlLinqer.Tests/README.md).
+For the complete repeatable run, including real PostgreSQL, MySQL, and SQL Server databases:
 
 ```sh
-bash TestDBs/test-containers.sh --engine docker
+bash TestDBs/test-containers.sh
 # If Docker requires sudo, run this from your terminal:
-bash TestDBs/test-containers.sh --engine docker --sudo
-# Podman is also supported:
-bash TestDBs/test-containers.sh --engine podman
-# If host connections to Docker ports time out, keep tests inside containers:
-bash TestDBs/test-containers.sh --engine docker --containerized
+bash TestDBs/test-containers.sh --sudo
 ```
 
-The runner needs .NET 10 and access to Docker or Podman. It creates disposable databases on automatically assigned localhost ports.
-With `--containerized`, it runs tests in a .NET 10 runtime container on the databases' isolated network. This mode does not publish ports.
-The runner removes its containers and anonymous volumes after the checks. Only container commands use sudo.
+The runner builds once, runs every suite in an isolated container environment, saves one result log, and removes its containers and volumes.
+It supports Docker or Podman. Use `--host` to run tests on the host with random localhost database ports.
+Failures remain nonzero, including the currently known generated-type TVP insert deadlock on SQL Server.
+Direct Azure SQL testing is optional and uses the same shared server fixtures.
 
-The runner saves test results to a temporary log and prints its path.
-These checks cover PostgreSQL and MySQL. They do not cover SQL Server.
+`dotnet run --project SqlLinqer.Tests` runs local regression, SQLite, DuckDB, and offline provider checks without server connections.
+Use `-- --suite regression`, `sqlite`, `duckdb`, `sql-server`, or `integration` for focused checks.
+The demos require the employee database described in their connection settings.
 
 ## Guides
 

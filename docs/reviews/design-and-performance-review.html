@@ -120,7 +120,7 @@ dotnet run -c Release --project SqlLinqer.Tests -- --suite regression --benchmar
 <h3>Reproduction commands</h3><pre>dotnet run --project SqlLinqer.Tests -- --suite regression
 dotnet run --project SqlLinqer.Tests -- --suite sqlite
 dotnet run --project SqlLinqer.Tests -- --suite duckdb
-env -u SQLLINQER_AZURE_SQL_CONNECTION_STRING dotnet run --project SqlLinqer.Tests -- --suite azure-sql
+env -u SQLLINQER_AZURE_SQL_CONNECTION_STRING dotnet run --project SqlLinqer.Tests -- --suite sql-server --azure
 dotnet build SQLTest/SQLTest.csproj --no-restore
 dotnet build SQLTestFramework/SQLTestFramework.csproj --no-restore</pre>
 <details><summary><strong>Focused probe output</strong></summary><pre>RELATIONSHIP_ID_COLLISION: True

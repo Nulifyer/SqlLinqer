@@ -5,7 +5,7 @@ using SqlLinqer;
 using SqlLinqer.Connections;
 using SqlLinqer.Modeling;
 
-namespace SqlLinqer.Tests.AzureSql;
+namespace SqlLinqer.Tests.SqlServer;
 
 internal static class CallableChecks
 {
