@@ -185,6 +185,36 @@ internal static class ReviewRegressionTests
             catch (InvalidOperationException error) { Check(error.Message.Contains("decimal"), "Missing async precision explanation"); }
             Check(connector.Created == 0, "Unrepresentable batch opened a connection");
         });
+
+        test("review TVP decimal tables support SqlClient metadata inference", () =>
+        {
+            var metadataType = typeof(Microsoft.Data.SqlClient.SqlConnection).Assembly
+                .GetType("Microsoft.Data.SqlClient.Server.MetaDataUtilsSmi", true);
+            var infer = metadataType.GetMethod("SmiMetaDataFromDataColumn", BindingFlags.Static | BindingFlags.NonPublic);
+            foreach (var values in new decimal?[][]
+            {
+                [0.1234567890123456789012345678m, null],
+                [decimal.MaxValue, -decimal.MaxValue, 0.0000000000000000000000000000m, null],
+                [1.2300000000000000000000000000m, 2m, null],
+                [null, null]
+            })
+            {
+                if (values.Contains(decimal.MaxValue))
+                {
+                    using var raw = new DataTable(); raw.Columns.Add("Value", typeof(decimal));
+                    foreach (var value in values) raw.Rows.Add(value.HasValue ? (object)value.Value : DBNull.Value);
+                    try { infer.Invoke(null, [raw.Columns[0], raw]); throw new Exception("Fixture did not reproduce SqlClient's excessive precision"); }
+                    catch (TargetInvocationException error) when (error.InnerException is InvalidOperationException) { }
+                }
+                var parameters = new ParameterCollection(DbFlavor.SqlServer);
+                new InsertQuery<NullableDecimalRow>().InsertAuto(values.Select(value => new NullableDecimalRow { Value = value }))
+                    .RenderTVP(parameters, DbFlavor.SqlServer, null);
+                using var table = (DataTable)parameters.GetAll().OfType<TvpParameter>().Single().Value;
+                Check(infer.Invoke(null, [table.Columns[0], table]) != null, "SqlClient could not infer decimal metadata");
+                Check(table.Rows.Cast<DataRow>().Select(row => row.IsNull(0) ? (decimal?)null : (decimal)row[0]).SequenceEqual(values),
+                    "Decimal transport normalization changed values or nulls");
+            }
+        });
     }
 
     private static List<T> Read<T>(BaseConnector connector, RenderedQuery query, string mode) where T : class
@@ -213,6 +243,7 @@ internal static class ReviewRegressionTests
     private sealed class ImmutableRenamed(int key) { [SqlColumn("db_key")] public int Key { get; } = key; }
     private sealed class ConcurrentRow(int key, string name) { [SqlColumn("db_key")] public int Key { get; } = key; public string Name { get; } = name; }
     private sealed class DecimalRow { public decimal Value { get; set; } }
+    private sealed class NullableDecimalRow { public decimal? Value { get; set; } }
     private sealed class BinaryRow { public byte[] Data { get; set; } public int Key { get; set; } }
     private sealed class Segment : ReadOnlySequenceSegment<byte>
     {

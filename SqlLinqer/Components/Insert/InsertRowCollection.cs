@@ -131,7 +131,7 @@ namespace SqlLinqer.Components.Insert
                 if (!(ReadValue(row, column) is decimal value)) continue;
                 // Ignore insignificant trailing zeroes. Their stored decimal scale
                 // must not make an otherwise representable batch fail validation.
-                string text = Math.Abs(value).ToString("0.############################", System.Globalization.CultureInfo.InvariantCulture);
+                string text = FormatDecimal(Math.Abs(value));
                 int point = text.IndexOf('.');
                 scale = Math.Max(scale, point < 0 ? 0 : text.Length - point - 1);
                 int digits = text[0] == '0' ? 0 : point < 0 ? text.Length : point;
@@ -141,6 +141,9 @@ namespace SqlLinqer.Components.Insert
                 throw new InvalidOperationException($"The decimal values in '{column.ColumnName}' cannot share a lossless SQL decimal type. Split the batch or use an explicitly defined TVP type.");
             return $"DECIMAL(38,{scale})";
         }
+
+        private static string FormatDecimal(decimal value)
+            => value.ToString("0.############################", System.Globalization.CultureInfo.InvariantCulture);
 
         /// <summary>
         /// Returns the column string for the inserted rows
@@ -193,6 +196,10 @@ namespace SqlLinqer.Components.Insert
                 foreach (var column in Columns.Values)
                 {
                     var value = ReadValue(obj, column);
+                    // SqlClient derives TVP precision from stored decimal scales,
+                    // including zero. Normalize the payload as well as the DDL.
+                    if (value is decimal number)
+                        value = decimal.Parse(FormatDecimal(number), System.Globalization.CultureInfo.InvariantCulture);
                     dRow[column.ColumnName] = value == null ? DBNull.Value : value;
                 }
 
