@@ -53,6 +53,7 @@ These checks cover PostgreSQL and MySQL. They do not cover SQL Server.
 - [Update rows](docs/QUERY_UPDATE.md)
 - [Delete rows](docs/QUERY_DELETE.md)
 - [Handle query responses](docs/RESPONSES.md)
+- [Call typed stored procedures](docs/CALLABLES.md)
 - [Run several writes in one transaction](docs/TRANSACTIONS.md)
 - [Change relationships](docs/QUERY_RELATIONSHIPS.md)
 

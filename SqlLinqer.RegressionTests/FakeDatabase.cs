@@ -15,6 +15,7 @@ internal sealed class FakeDatabase
     public int Rows = 2;
     public long Total = 22;
     public string[] JsonRows;
+    public Func<FakeCommand, DbDataReader> ReaderFactory;
     public readonly List<FakeConnection> Connections = new();
     public readonly List<FakeCommand> Executed = new();
 
@@ -141,6 +142,8 @@ internal sealed class FakeCommand(FakeConnection connection) : DbCommand
     protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
     {
         Execute();
+        if (connection.DatabaseState.ReaderFactory != null)
+            return connection.DatabaseState.ReaderFactory(this);
         var table = new DataTable();
         if (CommandText.Contains("RETURNING") || CommandText.Contains("OUTPUT"))
         {
@@ -172,6 +175,10 @@ internal sealed class FakeCommand(FakeConnection connection) : DbCommand
 
 internal sealed class FakeParameter : DbParameter
 {
+    public SqlDbType SqlDbType { get; set; }
+    public string TypeName { get; set; }
+    public override byte Precision { get; set; }
+    public override byte Scale { get; set; }
     public override DbType DbType { get; set; }
     public override ParameterDirection Direction { get; set; }
     public override bool IsNullable { get; set; }

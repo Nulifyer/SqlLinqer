@@ -80,6 +80,14 @@ namespace SqlLinqer.Components.Render
             base.AddParameter(id, value, dbType);
             return id;
         }
+
+        internal string AddCallableParameter(object value, System.Data.DbType? dbType,
+            System.Data.ParameterDirection direction, SqlLinqer.Modeling.SqlParameterAttribute metadata)
+        {
+            string id = NextId();
+            AddComponent(id, new CallableParameter(id, value ?? DBNull.Value, dbType, direction, metadata));
+            return id;
+        }
         /// <summary>
         /// Add a TVP parameter to the collection
         /// </summary>

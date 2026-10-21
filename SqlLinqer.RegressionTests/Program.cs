@@ -399,6 +399,7 @@ foreach (object value in new object[] { null, DBNull.Value, SqlNull.NULL })
 }
 
 AzureSqlRegressionTests.Run(Test);
+CallableRegressionTests.Run(Test);
 JsonRegressionTests.Run(Test);
 CompatibleQueryRegressionTests.Run(Test);
 if (args.Contains("--benchmark-render")) CompatibleQueryRegressionTests.MeasureRendering();

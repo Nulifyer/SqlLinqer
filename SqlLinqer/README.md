@@ -108,6 +108,7 @@ See the repository's [connection](https://github.com/Nulifyer/SqlLinqer/blob/mas
 [query guides](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/QUERY_READ.md) for more examples.
 
 See [response handling](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/RESPONSES.md) for state, results, and errors.
+See [typed stored procedures](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/CALLABLES.md) for callable models, typed inputs, result sets, and output parameters on SQL Server and Azure SQL.
 The [connector guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/SETUP_A_CONNECTION.md#inject-a-connector) also shows constructor injection and service registration.
 
 See [transactions](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/TRANSACTIONS.md) to commit several writes together,

@@ -78,6 +78,7 @@ Local("ReplicatorConnector property authentication limitation is explicit", () =
 });
 
 LocalChecks.Run(Local, Require);
+CallableChecks.RunLocal(Local, Require);
 
 bool requireLive = args.Contains("--require-live");
 bool tempOnly = args.Contains("--temp-only");

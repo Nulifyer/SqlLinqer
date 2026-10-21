@@ -35,7 +35,7 @@ namespace SqlLinqer.Components.Render
         }
 
         /// <summary>
-        /// Get the text of the query with the placeholders replaced with strings of the values
+        /// Get diagnostic query text with input placeholders replaced by values. Output bindings remain placeholders.
         /// </summary>
         public string GetTextWithParameterValues()
         {
@@ -47,6 +47,9 @@ namespace SqlLinqer.Components.Render
                 .OrderByDescending(x => x.Placehodler);
             foreach (var param in @params)
             {
+                if (param is CallableParameter callable && callable.Direction != System.Data.ParameterDirection.Input)
+                    continue;
+
                 if (param.Value == null || param.Value == DBNull.Value || param.Value is SqlNull)
                 {
                     newText = newText.Replace(param.Placehodler, "NULL");

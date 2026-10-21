@@ -240,6 +240,7 @@ internal static class LiveSuite
         """;
     internal static string ScopedCleanup(string schema) => $"""
         DROP PROCEDURE IF EXISTS [{schema}].[ReadJson];
+        DROP PROCEDURE IF EXISTS [{schema}].[TypedCallable];
         DROP PROCEDURE IF EXISTS [{schema}].[ReadRows];
         DROP TABLE IF EXISTS [{schema}].[Rows];
         DECLARE @drop nvarchar(max) = N'';
@@ -267,6 +268,7 @@ internal static class LiveSuite
                 NonQuery(connection, ScopedTableSetup(schema));
                 NonQuery(connection, TableProcedure(schema));
                 NonQuery(connection, JsonProcedure(schema));
+                NonQuery(connection, CallableChecks.Procedure(schema));
             });
             live("owned transactions commit and rollback failed batches", () =>
             {
@@ -335,6 +337,7 @@ internal static class LiveSuite
                 ids.Clear();
                 Require(Valid(new StoredProcedureQuery<ProcedureRow>("ReadJson", schema).AddTvpParameter("Ids", ids, $"{schema}.IdList").ExecuteJson(connector)).Count == 0, "Empty procedure TVP differs");
             });
+            CallableChecks.RunLive(connector, connection, live);
             live("owned truncate commits", () =>
             {
                 Valid(new TruncateQuery<ScopedRow>(schema).Execute(connector));

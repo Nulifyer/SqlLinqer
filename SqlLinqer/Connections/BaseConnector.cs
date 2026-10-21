@@ -79,6 +79,9 @@ namespace SqlLinqer.Connections
                 if (param.DbType.HasValue)
                     dbParam.DbType = param.DbType.Value;
 
+                if (param is CallableParameter callableParameter)
+                    callableParameter.Configure(dbParam);
+
                 if (DbFlavor == DbFlavor.Sqlite && param.Value is Enum enumValue)
                     dbParam.Value = Convert.ChangeType(enumValue, Enum.GetUnderlyingType(enumValue.GetType()));
 
@@ -161,6 +164,9 @@ namespace SqlLinqer.Connections
                 }
             });
         }
+
+        internal SqlResponse<T> ExecuteCallable<T>(RenderedQuery query, DbTransaction transaction, Func<DbCommand, T> action)
+            => ExecuteOnConnection(query, transaction, true, action);
 
         /// <summary>
         /// A wrapper function to run each command to the database. This can be overriden to control the execution context.
