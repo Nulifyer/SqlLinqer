@@ -5,6 +5,8 @@ using SqlLinqer;
 using SqlLinqer.Connections;
 using SqlLinqer.Modeling;
 
+namespace SqlLinqer.Tests.AzureSql;
+
 internal static class CallableChecks
 {
     internal static void RunLocal(Action<string, Action> local, Action<bool, string> require)

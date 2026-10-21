@@ -2,30 +2,30 @@
 
 `DbFlavor.AzureSql` has numeric value `5` and uses SQL Server rendering. `SqlServer=0`, `MySql=1` and `PostgreSql=2` retain their values. The connector keeps `AzureSql` as its flavor. SQL syntax, parameters, JSON results, output rows, TVPs and transaction defaults follow SQL Server behavior.
 
-The core library remains `netstandard2.0` and has no SqlClient dependency. This `net10.0` executable references `Microsoft.Data.SqlClient` and `Microsoft.Data.SqlClient.Extensions.Azure`, both `7.1.1`. The Azure extension supplies the driver's Microsoft Entra authentication modes in version 7 and later. `System.Security.Cryptography.Pkcs` is pinned to `10.0.13` because the driver's transitive `9.0.18` produced NU1902 and NU1903 audit warnings. See the [SqlClient 7.1.1 release](https://github.com/dotnet/SqlClient/releases/tag/v7.1.1) and [namespace and package documentation](https://learn.microsoft.com/en-us/sql/connect/ado-net/introduction-microsoft-data-sqlclient-namespace?view=sql-server-ver17).
+The core library remains `netstandard2.0` and has no SqlClient dependency. The shared `SqlLinqer.Tests` `net10.0` executable references `Microsoft.Data.SqlClient` and `Microsoft.Data.SqlClient.Extensions.Azure`, both `7.1.1`. The Azure extension supplies the driver's Microsoft Entra authentication modes in version 7 and later. `System.Security.Cryptography.Pkcs` is pinned to `10.0.13` because the driver's transitive `9.0.18` produced NU1902 and NU1903 audit warnings. See the [SqlClient 7.1.1 release](https://github.com/dotnet/SqlClient/releases/tag/v7.1.1) and [namespace and package documentation](https://learn.microsoft.com/en-us/sql/connect/ado-net/introduction-microsoft-data-sqlclient-namespace?view=sql-server-ver17).
 
 ## Run the checks
 
 Run from the repository root:
 
 ```bash
-dotnet run --project SqlLinqer.RegressionTests/SqlLinqer.RegressionTests.csproj
-dotnet run --project SqlLinqer.AzureSqlTests/SqlLinqer.AzureSqlTests.csproj
+dotnet run --project SqlLinqer.Tests -- --suite regression
+dotnet run --project SqlLinqer.Tests -- --suite azure-sql
 dotnet build SQLTest/SQLTest.csproj
 dotnet build SQLTestFramework/SQLTestFramework.csproj
 ```
 
-The regression executable checks SQL Server/Azure rendering, SQL shape, parameter metadata, transaction ownership, resource disposal and chunked JSON. The Azure executable always runs offline checks against real SqlClient connections and parameters plus Microsoft's ScriptDom parser in Azure mode. These checks never open a connection or acquire a token. ScriptDom validates syntax only. It does not bind database objects or execute queries.
+The regression suite checks SQL Server/Azure rendering, SQL shape, parameter metadata, transaction ownership, resource disposal and chunked JSON. The Azure suite always runs offline checks against real SqlClient connections and parameters plus Microsoft's ScriptDom parser in Azure mode. These checks never open a connection or acquire a token. ScriptDom validates syntax only. It does not bind database objects or execute queries.
 
-Live tests use only `SQLLINQER_AZURE_SQL_CONNECTION_STRING`. Inject a connection string for an existing, disposable test database through your shell or secret manager. No endpoint is discovered or provisioned. The connection must select a database other than `master`, require encryption, validate its certificate, and reach Azure SQL Database. The suite checks `SERVERPROPERTY('EngineEdition') = 5` so a SQL Server container or Managed Instance cannot be reported as Azure SQL Database validation.
+Live tests require `--live` or `--require-live` and use only `SQLLINQER_AZURE_SQL_CONNECTION_STRING`. Inject a connection string for an existing, disposable test database through your shell or secret manager. No endpoint is discovered or provisioned. The connection must select a database other than `master`, require encryption, validate its certificate, and reach Azure SQL Database. The suite checks `SERVERPROPERTY('EngineEdition') = 5` so a SQL Server container or Managed Instance cannot be reported as Azure SQL Database validation.
 
 For CI or a release check, require live execution:
 
 ```bash
-dotnet run --project SqlLinqer.AzureSqlTests/SqlLinqer.AzureSqlTests.csproj -- --require-live
+dotnet run --project SqlLinqer.Tests -- --suite azure-sql --require-live
 ```
 
-An absent endpoint prints `SKIP live Azure SQL`; with `--require-live`, it also reports a failure and exits `1`. Any connection, query, assertion or cleanup failure exits `1`. An unknown flag exits `2`. Default developer execution may exit `0` after an explicit live skip. A skipped suite is never counted as a live pass. Error output names the check and exception type, with SqlException number/state/class when available. It does not print connection strings, token values, SQL text, identity details or provider messages.
+Without a live flag, the suite runs only local checks. With `--live`, an absent endpoint prints `SKIP live Azure SQL`; with `--require-live`, it also reports a failure and exits `1`. Any connection, query, assertion or cleanup failure exits `1`. An unknown flag exits `2`. Default developer execution may exit `0` after an explicit live skip. A skipped suite is never counted as a live pass. Error output names the check and exception type, with SqlException number/state/class when available. It does not print connection strings, token values, SQL text, identity details or provider messages.
 
 The full live suite runs temporary-table tests and then creates one schema named `SqlLinqerAzure_<32 random hex digits>` in the explicitly selected database. It creates only its own `Rows` table, `IdList` type, `ReadRows`/`ReadJson` procedures and generated `TEMP_<id>` TVP types in that schema. No application tables, users, roles or cloud resources are changed. Cleanup runs in `finally`, drops only objects in that schema, and verifies that the schema was removed. Temporary tables are dropped in a separate `finally` and also expire with their connection. Cleanup failures are failures. Process termination or loss of connectivity can prevent cleanup; remove only the recorded `SqlLinqerAzure_...` schema's objects after inspecting them.
 
@@ -34,7 +34,7 @@ The test identity needs permission to connect and use temporary tables. Full mod
 For an identity restricted to temporary tables:
 
 ```bash
-dotnet run --project SqlLinqer.AzureSqlTests/SqlLinqer.AzureSqlTests.csproj -- --require-live --temp-only
+dotnet run --project SqlLinqer.Tests -- --suite azure-sql --require-live --temp-only
 ```
 
 `--temp-only` explicitly skips procedures, TVPs and the cross-connection tests for owned transactions. Use the full command for integration sign-off. Both modes validate CRUD, returned keys, typed JSON, Unicode/null values, one-to-one null/object results, one-to-many empty arrays, deeper nesting and ordering, paging/Top, grouped and Distinct totals, ungrouped aggregates, direct tabular rendering, CTEs, joined source updates and deletes with outputs, type round trips, truncate and caller rollback after success/failure. Full mode adds owned commit/rollback after a failed batch, TVP insert/output/key/null/decimal behavior, caller/owned TVP failures and type cleanup, procedure DataTable/JSON results, procedure TVPs including empty input, and owned truncate.
@@ -75,7 +75,7 @@ Microsoft Entra local development:
 Server=tcp:<server>.database.windows.net,1433;Database=<database>;Authentication=Active Directory Default;Encrypt=true;TrustServerCertificate=false;Connect Timeout=30;
 ```
 
-Install both matching `7.1.1` packages. Configure Microsoft Entra authentication on the existing database and grant the intended user access. Sign in through a supported development credential, for example Azure CLI with `az login`, using the intended tenant and identity. `Active Directory Default` uses the Azure Identity credential chain and may select another configured credential. It does not prompt through an interactive browser. To request a user sign-in instead, use `Authentication=Active Directory Interactive` with no password on a host that supports that interaction. The test executable only invokes such authentication after the explicit connection-string variable is supplied.
+Install both matching `7.1.1` packages. Configure Microsoft Entra authentication on the existing database and grant the intended user access. Sign in through a supported development credential, for example Azure CLI with `az login`, using the intended tenant and identity. `Active Directory Default` uses the Azure Identity credential chain and may select another configured credential. It does not prompt through an interactive browser. To request a user sign-in instead, use `Authentication=Active Directory Interactive` with no password on a host that supports that interaction. The test executable only invokes such authentication after a live flag and the explicit connection-string variable are supplied.
 
 Azure-hosted managed identity:
 
@@ -113,7 +113,7 @@ SqlLinqer does not add automatic write retries. A connection failure can leave a
 
 ## Native behavior and limits
 
-Azure SQL uses SQL Server's `EXEC [schema].[procedure] @name = @P1` syntax. Named parameters retain `DbType`, typed nulls and TVP type names. The existing `StoredProcedureQuery` expects a JSON array for `ExecuteJson`, or rows for `ExecuteDataTable`. [Typed callable models](../docs/CALLABLES.md) add ordinary typed rows, multiple result sets, output parameters, and return-code binding. Local checks verify their SQL syntax and native parameter metadata. The optional schema suite also tests typed callable execution, defaults, explicit NULL, and caller transactions. Tabular queries that select relationships return JSON-valued columns for those relationships.
+Azure SQL uses SQL Server's `EXEC [schema].[procedure] @name = @P1` syntax. Named parameters retain `DbType`, typed nulls and TVP type names. The existing `StoredProcedureQuery` expects a JSON array for `ExecuteJson`, or rows for `ExecuteDataTable`. [Typed callable models](../../docs/CALLABLES.md) add ordinary typed rows, multiple result sets, output parameters, and return-code binding. Local checks verify their SQL syntax and native parameter metadata. The optional schema suite also tests typed callable execution, defaults, explicit NULL, and caller transactions. Tabular queries that select relationships return JSON-valued columns for those relationships.
 
 `ExecuteTvp`, `ExecuteTvpWithOutput` and returned-key TVP execution create a random database table type, insert through a Structured parameter, then drop the type on the same connection and transaction. Owned transactions commit all three operations or roll them back on failure. A usable caller transaction gets a best-effort type drop after an insert failure; if SQL Server marks it uncommittable, the caller must roll it back. The library never commits, rolls back or disposes caller transactions. These are real database types, not session-local types, so type-creation and schema permissions are required for every call. For an existing table type, use `StoredProcedureQuery.AddTvpParameter` instead.
 

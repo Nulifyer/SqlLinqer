@@ -110,17 +110,17 @@ pre{background:var(--report-raised);color:var(--report-ink);font-size:12px}
 <p>Position the project around predictable nested queries and explicit data loading. Attribute mapping and typed predicates are established capabilities. Correct semantics, understandable SQL and measured memory use are stronger reasons for someone to choose this library.</p>
 </section>
 
-<section id="evidence" class="panel" role="tabpanel" aria-labelledby="tab-evidence" hidden><h2>Implementation verification</h2><p>The implementation results in Overview are separate from the historical probes below. Current regression cases are in <code>CompatibleQueryRegressionTests.cs</code> and <code>JsonRegressionTests.cs</code>. The SQLite and DuckDB runners compile the same <code>CompatibleDatabaseTests.cs</code> fixture.</p><pre>dotnet run --project SqlLinqer.RegressionTests/SqlLinqer.RegressionTests.csproj
-dotnet run --project SqlLinqer.SqliteTests/SqlLinqer.SqliteTests.csproj
-dotnet run --project SqlLinqer.DuckDbTests/SqlLinqer.DuckDbTests.csproj
-dotnet run -c Release --project SqlLinqer.RegressionTests/SqlLinqer.RegressionTests.csproj -- --benchmark-render-only</pre><p>The API comparison enumerated public and protected types, methods, constructors, fields and properties from assemblies built from the base commit and the current working tree. It found no missing or changed baseline entries. This check supports signature compatibility; behavioral coverage comes from the regression and database fixtures.</p>
+<section id="evidence" class="panel" role="tabpanel" aria-labelledby="tab-evidence" hidden><h2>Implementation verification</h2><p>The implementation results in Overview are separate from the historical probes below. Current regression cases are in <code>CompatibleQueryRegressionTests.cs</code> and <code>JsonRegressionTests.cs</code>. The SQLite and DuckDB suites share the same <code>CompatibleDatabaseTests.cs</code> fixture.</p><pre>dotnet run --project SqlLinqer.Tests -- --suite regression
+dotnet run --project SqlLinqer.Tests -- --suite sqlite
+dotnet run --project SqlLinqer.Tests -- --suite duckdb
+dotnet run -c Release --project SqlLinqer.Tests -- --suite regression --benchmark-render-only</pre><p>The API comparison enumerated public and protected types, methods, constructors, fields and properties from assemblies built from the base commit and the current working tree. It found no missing or changed baseline entries. This check supports signature compatibility; behavioral coverage comes from the regression and database fixtures.</p>
 <h2>What was actually checked</h2><div class="table-wrap"><table><thead><tr><th>Check</th><th>Observed result</th><th>What it establishes</th></tr></thead><tbody>
 <tr><td>Regression executable</td><td>270 passed, 0 failed</td><td>Existing fake-provider/rendering and loader assertions passed.</td></tr><tr><td>SQLite executable</td><td>76 passed, 0 failed</td><td>Real local SQLite file/shared-memory scenarios exercised by that suite.</td></tr><tr><td>DuckDB executable</td><td>43 passed, 0 failed</td><td>Real local DuckDB scenarios exercised by that suite.</td></tr><tr><td>Azure executable</td><td>43 local passed; live explicitly skipped</td><td>Provider/parser checks only. The endpoint variable was removed from this run's environment.</td></tr><tr><td>Core + Framework demos</td><td>Both builds passed</td><td>Compilation only; demo applications were not run.</td></tr><tr><td>Focused probes</td><td>Eight original issues remain; TVP output uses one connection</td><td>Generated SQL, fake-provider data flow and one local allocation run.</td></tr><tr><td>PostgreSQL / MySQL</td><td>Live suites not run</td><td>Docker socket access denied in this environment.</td></tr><tr><td>SQL Server / Azure</td><td>Live suites not run</td><td>Engine execution, cloud authentication and live TVP behavior remain unverified here.</td></tr></tbody></table></div>
 <p class="small">Passing existing tests does not contradict the focused findings: the probes exercise cases that the passing assertions do not establish. P1 findings are backed by rendered SQL and source; this report does not label them as live-engine reproductions.</p>
-<h3>Reproduction commands</h3><pre>dotnet run --project SqlLinqer.RegressionTests/SqlLinqer.RegressionTests.csproj
-dotnet run --project SqlLinqer.SqliteTests/SqlLinqer.SqliteTests.csproj
-dotnet run --project SqlLinqer.DuckDbTests/SqlLinqer.DuckDbTests.csproj
-env -u SQLLINQER_AZURE_SQL_CONNECTION_STRING dotnet run --project SqlLinqer.AzureSqlTests/SqlLinqer.AzureSqlTests.csproj
+<h3>Reproduction commands</h3><pre>dotnet run --project SqlLinqer.Tests -- --suite regression
+dotnet run --project SqlLinqer.Tests -- --suite sqlite
+dotnet run --project SqlLinqer.Tests -- --suite duckdb
+env -u SQLLINQER_AZURE_SQL_CONNECTION_STRING dotnet run --project SqlLinqer.Tests -- --suite azure-sql
 dotnet build SQLTest/SQLTest.csproj --no-restore
 dotnet build SQLTestFramework/SQLTestFramework.csproj --no-restore</pre>
 <details><summary><strong>Focused probe output</strong></summary><pre>RELATIONSHIP_ID_COLLISION: True
@@ -146,7 +146,7 @@ RENDER_COST predicates=1000, ms/render=7.030, bytes/render=10513253</pre></detai
   &lt;PropertyGroup&gt;&lt;OutputType&gt;Exe&lt;/OutputType&gt;&lt;TargetFramework&gt;net10.0&lt;/TargetFramework&gt;&lt;ImplicitUsings&gt;enable&lt;/ImplicitUsings&gt;&lt;Nullable&gt;disable&lt;/Nullable&gt;&lt;/PropertyGroup&gt;
   &lt;ItemGroup&gt;
     &lt;ProjectReference Include=&quot;/home/nulifyer/Projects/SqlLinqer/SqlLinqer/SQLLinqer.csproj&quot; /&gt;
-    &lt;Compile Include=&quot;/home/nulifyer/Projects/SqlLinqer/SqlLinqer.RegressionTests/FakeDatabase.cs&quot; Link=&quot;FakeDatabase.cs&quot; /&gt;
+    &lt;Compile Include=&quot;/home/nulifyer/Projects/SqlLinqer/SqlLinqer.Tests/Regression/FakeDatabase.cs&quot; Link=&quot;FakeDatabase.cs&quot; /&gt;
   &lt;/ItemGroup&gt;
 &lt;/Project&gt;
 </pre><pre>using System.Text.RegularExpressions;
@@ -156,7 +156,7 @@ using SqlLinqer.Modeling;
 using SqlLinqer.Components.Modeling;
 using SqlLinqer.Components.Render;
 using SqlLinqer.Queries.Typed;
-using SqlLinqer.RegressionTests;
+using SqlLinqer.Tests.Regression;
 
 var root = Table.GetCached&lt;Order&gt;();
 var shipping = root.Relationships.TryGet(nameof(Order.Shipping));

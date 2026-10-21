@@ -10,7 +10,7 @@ using SqlLinqer.Modeling;
 using SqlLinqer.Queries.Typed;
 using SqlLinqer.Queries.TypedExt;
 
-namespace SqlLinqer.RegressionTests;
+namespace SqlLinqer.Tests.Regression;
 
 internal static class CompatibleQueryRegressionTests
 {

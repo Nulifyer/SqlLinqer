@@ -6,7 +6,7 @@ using SqlLinqer.Connections;
 using SqlLinqer.Modeling;
 using SqlLinqer.Queries.Typed;
 
-namespace SqlLinqer.RegressionTests;
+namespace SqlLinqer.Tests.Regression;
 
 internal static class JsonRegressionTests
 {

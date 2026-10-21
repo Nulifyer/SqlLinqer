@@ -7,7 +7,7 @@ using SqlLinqer;
 using SqlLinqer.Connections;
 using SqlLinqer.Modeling;
 
-namespace SqlLinqer.RegressionTests;
+namespace SqlLinqer.Tests.Regression;
 
 internal static class CallableRegressionTests
 {

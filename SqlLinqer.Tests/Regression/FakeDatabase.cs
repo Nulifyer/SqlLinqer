@@ -4,7 +4,7 @@ using System.Data.Common;
 using SqlLinqer;
 using SqlLinqer.Connections;
 
-namespace SqlLinqer.RegressionTests;
+namespace SqlLinqer.Tests.Regression;
 
 internal sealed class FakeDatabase
 {
@@ -66,6 +66,12 @@ public sealed class FakeConnection : DbConnection
     public override void Close() => _state = ConnectionState.Closed;
     protected override void Dispose(bool disposing)
     {
+        if (!disposing)
+        {
+            // Disposal failures belong to explicit calls, never the finalizer thread.
+            base.Dispose(false);
+            return;
+        }
         IsDisposed = true;
         Close();
         base.Dispose(disposing);
@@ -103,6 +109,11 @@ internal sealed class FakeTransaction(FakeConnection connection, IsolationLevel 
     }
     protected override void Dispose(bool disposing)
     {
+        if (!disposing)
+        {
+            base.Dispose(false);
+            return;
+        }
         IsDisposed = true;
         base.Dispose(disposing);
         connection.DatabaseState.ThrowIf("dispose-transaction");

@@ -54,17 +54,8 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Run regression checks
-        run: dotnet run --project SqlLinqer.RegressionTests/SqlLinqer.RegressionTests.csproj -c Release -p:GeneratePackageOnBuild=false
-
-      - name: Run SQLite checks
-        run: dotnet run --project SqlLinqer.SqliteTests/SqlLinqer.SqliteTests.csproj -c Release -p:GeneratePackageOnBuild=false
-
-      - name: Run DuckDB checks
-        run: dotnet run --project SqlLinqer.DuckDbTests/SqlLinqer.DuckDbTests.csproj -c Release -p:GeneratePackageOnBuild=false
-
-      - name: Run Azure SQL local checks
-        run: dotnet run --project SqlLinqer.AzureSqlTests/SqlLinqer.AzureSqlTests.csproj -c Release -p:GeneratePackageOnBuild=false
+      - name: Run local test suites
+        run: dotnet run --project SqlLinqer.Tests/SqlLinqer.Tests.csproj -c Release -p:GeneratePackageOnBuild=false
 
       - name: Pack release
         env:

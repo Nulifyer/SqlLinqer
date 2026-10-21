@@ -52,7 +52,7 @@ if ! "${engine[@]}" info >/dev/null; then
 fi
 
 task_repo=$(realpath -- "$(dirname -- "${BASH_SOURCE[0]}")/..")
-dotnet build "$task_repo/SqlLinqer.IntegrationTests/SqlLinqer.IntegrationTests.csproj" --nologo --verbosity quiet
+dotnet build "$task_repo/SqlLinqer.Tests/SqlLinqer.Tests.csproj" --nologo --verbosity quiet
 umask 077
 task_work=$(mktemp -d "${TMPDIR:-/tmp}/sqllinqer-db.XXXXXXXX")
 run_id=$(basename -- "$task_work")
@@ -125,9 +125,9 @@ ENV
     "${engine[@]}" run --cidfile "$task_work/runner.cid" --name "$run_id-runner" \
         --label io.sqllinqer.integration="$run_id" --network "container:$run_id-postgres" \
         --user "$(id -u):$(id -g)" --env-file "$task_work/runner.env" \
-        --volume "$task_repo/SqlLinqer.IntegrationTests/bin/Debug/net10.0:/app:ro" \
+        --volume "$task_repo/SqlLinqer.Tests/bin/Debug/net10.0:/app:ro" \
         "${SQLLINQER_RUNTIME_IMAGE:-mcr.microsoft.com/dotnet/runtime:10.0}" \
-        dotnet /app/SqlLinqer.IntegrationTests.dll 2>&1 | tee "$result_log"
+        dotnet /app/SqlLinqer.Tests.dll --suite integration 2>&1 | tee "$result_log"
 else
-    dotnet run --no-build --project "$task_repo/SqlLinqer.IntegrationTests/SqlLinqer.IntegrationTests.csproj" 2>&1 | tee "$result_log"
+    dotnet run --no-build --project "$task_repo/SqlLinqer.Tests/SqlLinqer.Tests.csproj" -- --suite integration 2>&1 | tee "$result_log"
 fi

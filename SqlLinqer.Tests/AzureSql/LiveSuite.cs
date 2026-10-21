@@ -6,6 +6,8 @@ using SqlLinqer.Connections;
 using SqlLinqer.Queries.Typed;
 using SqlLinqer.Queries.TypedExt;
 
+namespace SqlLinqer.Tests.AzureSql;
+
 internal static class LiveSuite
 {
     internal static string CurrentCheck { get; private set; } = "configuration";

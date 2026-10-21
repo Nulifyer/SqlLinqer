@@ -7,6 +7,18 @@
             "type": "process",
             "args": [
                 "build",
+                "${workspaceFolder}/SqlLinqer.Tests/SqlLinqer.Tests.csproj",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "build-demo",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
                 "${workspaceFolder}/SQLTest/SQLTest.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"

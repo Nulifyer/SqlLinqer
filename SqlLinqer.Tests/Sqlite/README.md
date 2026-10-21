@@ -3,7 +3,7 @@
 Run this executable from the repository root with the .NET 10 SDK:
 
 ```sh
-dotnet run --project SqlLinqer.SqliteTests/SqlLinqer.SqliteTests.csproj
+dotnet run --project SqlLinqer.Tests -- --suite sqlite
 ```
 
 It creates a temporary file database and a named shared-memory database, exercises both through `ReplicatorConnector`, and deletes its file afterward. No database server or cloud account is required. The project references `Microsoft.Data.Sqlite` 10.0.13. The suite runs against SQLite 3.53.3 and the minimum SQLite 3.38.0, with .NET 10.0.13. The executable prints the provider and runtime versions on each run.
@@ -15,7 +15,7 @@ The core library remains `netstandard2.0` and has no SQLite provider dependency.
 On Linux x64, install Python 3, a C compiler available as `cc`, and the .NET 10 SDK, then run:
 
 ```sh
-python3 SqlLinqer.SqliteTests/validate-minimum.py
+python3 SqlLinqer.Tests/Sqlite/validate-minimum.py
 ```
 
 The script downloads the official SQLite 3.38.0 amalgamation, verifies its pinned archive SHA-256 and the `sqlite3.c` SHA3-256 published in the [3.38.0 release notes](https://www.sqlite.org/releaselog/3_38_0.html), and compiles `libe_sqlite3.so`. It publishes the test executable into a new temporary directory and replaces only that directory's native provider asset. Both database modes must print and assert `SQLite 3.38.0`; loading another engine fails validation. The temporary source, library, and published output are removed on exit. System libraries and the NuGet cache are never replaced. The normal command above continues to use the provider's bundled modern engine.

@@ -8,7 +8,7 @@ using SqlLinqer.Modeling;
 using SqlLinqer.Queries.Typed;
 using SqlLinqer.Queries.TypedExt;
 
-namespace SqlLinqer.RegressionTests;
+namespace SqlLinqer.Tests.Regression;
 
 // The native SQLite and DuckDB runners compile this same fixture.
 internal static class CompatibleDatabaseTests

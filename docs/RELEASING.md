@@ -47,7 +47,7 @@ The GitHub prerelease setting must match the presence of a prerelease suffix.
 
 ## Checks and retries
 
-The build job runs the regression, SQLite, DuckDB, and Azure SQL local checks in Release configuration.
+The build job runs `dotnet run --project SqlLinqer.Tests -c Release` for regression, SQLite, DuckDB, and Azure SQL local checks.
 It does not run live Azure SQL or the PostgreSQL/MySQL container suite.
 Run those checks separately when the release needs live database validation.
 The publish job receives only the package artifact and requests publishing credentials after the build job succeeds.

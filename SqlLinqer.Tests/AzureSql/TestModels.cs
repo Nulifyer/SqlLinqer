@@ -1,6 +1,8 @@
 using SqlLinqer;
 using SqlLinqer.Modeling;
 
+namespace SqlLinqer.Tests.AzureSql;
+
 [SqlTable("#SqlLinqerAzureParents"), SqlAutoInsert]
 public class AzureParent : SqlLinqerPrimaryKeyObject<AzureParent, int>
 {

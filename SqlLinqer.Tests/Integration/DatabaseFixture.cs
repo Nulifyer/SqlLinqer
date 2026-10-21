@@ -7,7 +7,7 @@ using SqlLinqer.Connections;
 using SqlLinqer.Extensions.StringExtensions;
 using SqlLinqer.Modeling;
 
-namespace SqlLinqer.IntegrationTests;
+namespace SqlLinqer.Tests.Integration;
 
 internal sealed class DatabaseFixture
 {

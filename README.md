@@ -14,13 +14,11 @@ The library targets .NET Standard 2.0.
 ```sh
 dotnet build SQLTest/SQLTest.csproj
 dotnet build SQLTestFramework/SQLTestFramework.csproj
-dotnet run --project SqlLinqer.RegressionTests/SqlLinqer.RegressionTests.csproj
-dotnet run --project SqlLinqer.SqliteTests/SqlLinqer.SqliteTests.csproj
-dotnet run --project SqlLinqer.DuckDbTests/SqlLinqer.DuckDbTests.csproj
-dotnet run --project SqlLinqer.AzureSqlTests/SqlLinqer.AzureSqlTests.csproj
+dotnet run --project SqlLinqer.Tests
 ```
 
-The regression checks use fake database connections and do not require a running database.
+All automated suites share [SqlLinqer.Tests](SqlLinqer.Tests/README.md). The default command runs regression, SQLite, DuckDB, and Azure SQL local checks.
+These checks do not require a database server. Select one suite with `-- --suite regression`, `sqlite`, `duckdb`, `azure-sql`, or `integration`.
 The demos require the employee database described in their connection settings.
 
 To run integration checks against real PostgreSQL 18 and MySQL 8.4 containers:

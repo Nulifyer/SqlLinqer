@@ -13,7 +13,7 @@ using SqlLinqer.Queries.Core.Abstract;
 using SqlLinqer.Queries.Typed;
 using SqlLinqer.Queries.TypedExt;
 
-namespace SqlLinqer.RegressionTests;
+namespace SqlLinqer.Tests.Regression;
 
 internal static class AzureSqlRegressionTests
 {

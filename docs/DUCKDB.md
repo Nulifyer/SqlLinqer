@@ -113,8 +113,8 @@ A timed-out query returns an error response containing a `TimeoutException`. Own
 Run from the repository root:
 
 ```sh
-dotnet run --project SqlLinqer.DuckDbTests/SqlLinqer.DuckDbTests.csproj
-dotnet run --project SqlLinqer.RegressionTests/SqlLinqer.RegressionTests.csproj
+dotnet run --project SqlLinqer.Tests -- --suite duckdb
+dotnet run --project SqlLinqer.Tests -- --suite regression
 dotnet build SQLTest/SQLTest.csproj
 dotnet build SQLTestFramework/SQLTestFramework.csproj
 ```

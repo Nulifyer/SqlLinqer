@@ -7,6 +7,8 @@ using SqlLinqer.Components.Render;
 using SqlLinqer.Connections;
 using SqlLinqer.Queries.Typed;
 
+namespace SqlLinqer.Tests.AzureSql;
+
 internal static class LocalChecks
 {
     internal static void Parse(string sql)

@@ -14,7 +14,7 @@ URL = "https://www.sqlite.org/2022/sqlite-amalgamation-3380000.zip"
 ARCHIVE_SHA256 = "e055f6054e97747a135c89e36520c0a423249e8a91c5fc445163f4a6adb20df6"
 # Published at https://www.sqlite.org/releaselog/3_38_0.html
 SOURCE_SHA3_256 = "a69af0a88d59271a2dd3c846a3e93cbd29e7c499864f6c0462a3b4160bee1762"
-PROJECT = Path(__file__).resolve().parent / "SqlLinqer.SqliteTests.csproj"
+PROJECT = Path(__file__).resolve().parent.parent / "SqlLinqer.Tests.csproj"
 
 
 def run(*command, **kwargs):
@@ -47,7 +47,7 @@ def main():
             "-DSQLITE_ENABLE_COLUMN_METADATA", str(source_path), "-o", str(library),
             "-lm", "-ldl", "-lpthread")
         environment = dict(os.environ, SQLLINQER_EXPECT_SQLITE_VERSION="3.38.0")
-        run("dotnet", str(publish / "SqlLinqer.SqliteTests.dll"), env=environment)
+        run("dotnet", str(publish / "SqlLinqer.Tests.dll"), "--suite", "sqlite", env=environment)
     print("Minimum-runtime validation passed; temporary source, library, and publish output removed.")
 
 
