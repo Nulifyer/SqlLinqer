@@ -123,10 +123,13 @@ internal static class SqlServerSuite
                 var fixtureFrame = new System.Diagnostics.StackTrace(error, true).GetFrames()?
                     .FirstOrDefault(frame => frame.GetMethod()?.DeclaringType == typeof(LiveSuite)
                         || frame.GetMethod()?.DeclaringType?.DeclaringType == typeof(LiveSuite));
+                var origin = new System.Diagnostics.StackTrace(error.GetBaseException(), true).GetFrames()?
+                    .Take(4).Select(frame => $"{frame.GetMethod()?.DeclaringType?.FullName}.{frame.GetMethod()?.Name}:{frame.GetFileLineNumber()}");
                 Console.Error.WriteLine($"FAIL live {engine} check '{LiveSuite.CurrentCheck}': {error.GetType().Name}" +
                     $"; exception types={string.Join(" -> ", exceptionKinds)}" +
                     (sqlError == null ? "" : $"; SqlException Number={sqlError.Number}, State={sqlError.State}, Class={sqlError.Class}") +
-                    (fixtureFrame == null ? "" : $"; fixture line={fixtureFrame.GetFileLineNumber()}"));
+                    (fixtureFrame == null ? "" : $"; fixture line={fixtureFrame.GetFileLineNumber()}") +
+                    (origin == null ? "" : $"; origin={string.Join(" -> ", origin)}"));
             }
         }
         else Console.WriteLine($"SKIP live {engine}: local provider tests failed.");
