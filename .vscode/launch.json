@@ -13,23 +13,20 @@
             "stopAtEntry": false
         },
         {
-            // Use IntelliSense to find out which attributes exist for C# debugging
-            // Use hover for the description of the existing attributes
-            // For further information visit https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md
+            // Requires the PostgreSQL employees database configured in Program.cs.
             "name": "SqlLinqer .NET 10 tests (console)",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build-net10",
-            // If you have changed target frameworks, make sure to update the program path.
             "program": "${workspaceFolder}/SqlLinqer.Tests.Net10/bin/Debug/net10.0/SqlLinqer.Tests.Net10.dll",
             "args": [],
             "cwd": "${workspaceFolder}/SqlLinqer.Tests.Net10",
-            // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
             "console": "internalConsole",
             "stopAtEntry": false
         },
         {
-            "name": "SqlLinqer .NET Framework 4.8 tests (console)",
+            // Requires Windows with .NET Framework 4.8 and the PostgreSQL employees database.
+            "name": "SqlLinqer .NET Framework 4.8 tests (Windows)",
             "type": "clr",
             "request": "launch",
             "preLaunchTask": "build-netframework48",

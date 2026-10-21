@@ -8,10 +8,16 @@
             "args": [
                 "build",
                 "${workspaceFolder}/SqlLinqer.Tests/SqlLinqer.Tests.csproj",
+                "--configuration",
+                "Debug",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
-            "problemMatcher": "$msCompile"
+            "problemMatcher": "$msCompile",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         },
         {
             "label": "build-net10",
@@ -20,6 +26,8 @@
             "args": [
                 "build",
                 "${workspaceFolder}/SqlLinqer.Tests.Net10/SqlLinqer.Tests.Net10.csproj",
+                "--configuration",
+                "Debug",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -32,6 +40,8 @@
             "args": [
                 "build",
                 "${workspaceFolder}/SqlLinqer.Tests.NetFramework48/SqlLinqer.Tests.NetFramework48.csproj",
+                "--configuration",
+                "Debug",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -43,7 +53,7 @@
             "type": "process",
             "args": [
                 "publish",
-                "${workspaceFolder}/SqlLinqer.Tests.Net10/SqlLinqer.Tests.Net10.csproj",
+                "${workspaceFolder}/SqlLinqer.Tests/SqlLinqer.Tests.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary"
             ],
@@ -55,9 +65,9 @@
             "type": "process",
             "args": [
                 "watch",
-                "run",
                 "--project",
-                "${workspaceFolder}/SqlLinqer.Tests.Net10/SqlLinqer.Tests.Net10.csproj"
+                "${workspaceFolder}/SqlLinqer.Tests/SqlLinqer.Tests.csproj",
+                "run"
             ],
             "problemMatcher": "$msCompile"
         }
