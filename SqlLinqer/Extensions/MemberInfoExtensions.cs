@@ -8,6 +8,19 @@ namespace SqlLinqer.Extensions.MemberInfoExtensions
     /// </summary>
     public static class MemberInfoExtensions
     {
+        internal static void RequireReadable(this MemberInfo member)
+        {
+            if (member is PropertyInfo p && (p.GetIndexParameters().Length != 0 || p.GetMethod == null))
+                throw new InvalidOperationException($"Member '{member.Name}' must be a readable non-indexed property or field.");
+        }
+
+        internal static void RequireWritable(this MemberInfo member)
+        {
+            if (member is FieldInfo f && f.IsInitOnly || member is PropertyInfo p &&
+                (p.GetIndexParameters().Length != 0 || p.SetMethod == null))
+                throw new InvalidOperationException($"Member '{member.Name}' must be a writable non-indexed property or field.");
+        }
+
         /// <summary>
         /// Get the set type of the member's value
         /// </summary>

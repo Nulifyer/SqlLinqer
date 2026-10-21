@@ -27,7 +27,7 @@ namespace SqlLinqer.Components.Modeling
             var bindings = new Dictionary<string, CallableBinding>(StringComparer.OrdinalIgnoreCase);
             foreach (var member in Members(args))
             {
-                RequireReadable(member);
+                member.RequireReadable();
                 var metadata = member.GetCustomAttribute<SqlParameterAttribute>() ?? new SqlParameterAttribute();
                 if (metadata is SqlOutputParameter)
                     throw new InvalidOperationException($"Output parameter '{member.Name}' belongs on the result model.");
@@ -39,7 +39,7 @@ namespace SqlLinqer.Components.Modeling
             var sets = new List<CallableResultSet>();
             foreach (var member in Members(result))
             {
-                RequireWritable(member);
+                member.RequireWritable();
                 var output = member.GetCustomAttribute<SqlOutputParameter>();
                 var set = member.GetCustomAttribute<SqlResultSet>();
                 bool returnValue = member.GetCustomAttribute<SqlReturnValue>() != null;
@@ -74,19 +74,6 @@ namespace SqlLinqer.Components.Modeling
 
         internal static IEnumerable<MemberInfo> Members(Type type)
             => type.GetInstanceFieldsAndPropertyMembers().Where(m => m.GetCustomAttribute<SqlIgnore>() == null);
-
-        internal static void RequireReadable(MemberInfo member)
-        {
-            if (member is PropertyInfo p && (p.GetIndexParameters().Length != 0 || p.GetMethod == null))
-                throw new InvalidOperationException($"Member '{member.Name}' must be a readable non-indexed property or field.");
-        }
-
-        internal static void RequireWritable(MemberInfo member)
-        {
-            if (member is FieldInfo f && f.IsInitOnly || member is PropertyInfo p &&
-                (p.GetIndexParameters().Length != 0 || p.SetMethod == null))
-                throw new InvalidOperationException($"Member '{member.Name}' must be a writable non-indexed property or field.");
-        }
 
         private static string ParameterName(string name)
         {

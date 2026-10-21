@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
 
 namespace SqlLinqer.Components.Json
 {
@@ -35,6 +36,34 @@ namespace SqlLinqer.Components.Json
             }
             cancellationToken.ThrowIfCancellationRequested();
             return Complete(rows, document);
+        }
+
+        internal async IAsyncEnumerable<T> ReadAsyncStream(DbDataReader reader,
+            [EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            if (rowByRow)
+            {
+                while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    // Each value is one root object. Do not create an intermediate DOM
+                    // or retain objects after yielding them to the caller.
+                    yield return JsonSerializer.Deserialize<T>(reader.GetString(0), options);
+                }
+            }
+            else
+            {
+                // Some SQL Server executions return no transport rows for an empty
+                // projection. Match buffered loading instead of parsing empty input.
+                if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) yield break;
+                using (var input = new JsonFragmentStream(reader))
+                {
+                    await foreach (var row in JsonSerializer.DeserializeAsyncEnumerable<T>(input, options, cancellationToken)
+                        .ConfigureAwait(false))
+                        yield return row;
+                }
+            }
+            cancellationToken.ThrowIfCancellationRequested();
         }
 
         private void Add(DbDataReader reader, List<T> rows, StringBuilder document)

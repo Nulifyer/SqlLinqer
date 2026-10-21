@@ -16,6 +16,10 @@ Application serializer options do not affect database loading.
 Constructors and converters selected only by API JSON configuration do not control SQL loading.
 This behavior cannot be disabled or replaced with an API JSON contract.
 
+Mapped `byte[]` results use Base64 JSON on SQL Server, PostgreSQL, MySQL, and DuckDB. SQLite uses the library's hexadecimal JSON converter.
+For nullable binary parameters, declare `SqlColumn` with `System.Data.DbType.Binary` so SQL Server receives a typed binary NULL.
+The same SQL model contract applies to `Execute`, `ExecuteAsync`, and `ExecuteAsyncStream`.
+
 ```csharp
 using System.Text.Json.Serialization;
 using SqlLinqer.Modeling;

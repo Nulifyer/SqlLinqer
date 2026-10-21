@@ -108,11 +108,18 @@ internal static class SqlServerSuite
             {
                 liveFailed++;
                 // Never log SQL text, connection strings, provider messages, identity details or tokens.
-                var sqlError = error as SqlException ?? error.InnerException as SqlException;
+                SqlException sqlError = null;
+                var exceptionKinds = new List<string>();
+                for (var cause = error; cause != null; cause = cause.InnerException)
+                {
+                    exceptionKinds.Add(cause.GetType().Name);
+                    if (cause is SqlException sql) sqlError ??= sql;
+                }
                 var fixtureFrame = new System.Diagnostics.StackTrace(error, true).GetFrames()?
                     .FirstOrDefault(frame => frame.GetMethod()?.DeclaringType == typeof(LiveSuite)
                         || frame.GetMethod()?.DeclaringType?.DeclaringType == typeof(LiveSuite));
                 Console.Error.WriteLine($"FAIL live {engine} check '{LiveSuite.CurrentCheck}': {error.GetType().Name}" +
+                    $"; exception types={string.Join(" -> ", exceptionKinds)}" +
                     (sqlError == null ? "" : $"; SqlException Number={sqlError.Number}, State={sqlError.State}, Class={sqlError.Class}") +
                     (fixtureFrame == null ? "" : $"; fixture line={fixtureFrame.GetFileLineNumber()}"));
             }

@@ -404,6 +404,9 @@ internal static class RegressionSuite
         ConnectorBindingRegressionTests.Run(Test);
         CompilationRegressionTests.Run(Test);
         AsyncRegressionTests.Run(Test);
+        TabularRegressionTests.Run(Test);
+        ValueConversionRegressionTests.Run(Test);
+        StreamingRegressionTests.Run(Test);
         TvpRegressionTests.Run(Test);
         CallableRegressionTests.RunAsync(Test);
         CallableRegressionTests.Run(Test);

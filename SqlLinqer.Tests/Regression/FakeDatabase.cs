@@ -11,6 +11,7 @@ internal sealed class FakeDatabase
     public string FailAt;
     public int AsyncOpens, AsyncCommands, AsyncReads, AsyncNextResults, SyncCommands;
     public int DisposedReaders;
+    public CommandBehavior LastReaderBehavior;
     public CancellationToken LastOpenToken, LastCommandToken, LastReadToken, LastNextToken;
     public Func<CancellationToken, Task> BeforeAsyncCommand, BeforeAsyncRead;
 
@@ -19,6 +20,7 @@ internal sealed class FakeDatabase
     public bool FailRollback;
     public int Rows = 2;
     public long Total = 22;
+    public Func<object> ScalarFactory;
     public string[] JsonRows;
     public Func<FakeCommand, DbDataReader> ReaderFactory;
     public readonly List<FakeConnection> Connections = new();
@@ -136,6 +138,7 @@ internal sealed class FakeTransaction(FakeConnection connection, IsolationLevel 
 
 internal sealed class FakeCommand(FakeConnection connection) : DbCommand
 {
+    public bool UseStreamingMode { get; set; }
     public bool IsDisposed { get; private set; }
     public DbTransaction UsedTransaction => DbTransaction;
     public override string CommandText { get; set; }
@@ -163,7 +166,9 @@ internal sealed class FakeCommand(FakeConnection connection) : DbCommand
             throw new InvalidOperationException("SQL stage failure: " + connection.DatabaseState.FailSql);
     }
     public override int ExecuteNonQuery() { connection.DatabaseState.SyncCommands++; Execute(); return 1; }
-    public override object ExecuteScalar() { connection.DatabaseState.SyncCommands++; Execute(); return connection.DatabaseState.Total; }
+    public override object ExecuteScalar() { connection.DatabaseState.SyncCommands++; Execute(); return ScalarValue(); }
+    private object ScalarValue() => connection.DatabaseState.ScalarFactory != null
+        ? connection.DatabaseState.ScalarFactory() : connection.DatabaseState.Total;
     protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
     {
         connection.DatabaseState.SyncCommands++;
@@ -184,10 +189,11 @@ internal sealed class FakeCommand(FakeConnection connection) : DbCommand
     }
     public override async Task<object> ExecuteScalarAsync(CancellationToken cancellationToken)
     {
-        await BeforeAsync(cancellationToken); Execute(); return connection.DatabaseState.Total;
+        await BeforeAsync(cancellationToken); Execute(); return ScalarValue();
     }
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
     {
+        connection.DatabaseState.LastReaderBehavior = behavior;
         await BeforeAsync(cancellationToken);
         return new AsyncTrackingReader(CreateReader(), connection.DatabaseState);
     }

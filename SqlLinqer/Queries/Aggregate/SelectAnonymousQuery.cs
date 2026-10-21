@@ -1,8 +1,6 @@
 using System;
-using System.Data.Common;
 using System.Linq.Expressions;
 using System.Collections.Generic;
-using SqlLinqer.Connections;
 using SqlLinqer.Components.Where;
 using SqlLinqer.Components.Select;
 using SqlLinqer.Components.Modeling;
@@ -26,6 +24,7 @@ namespace SqlLinqer.Queries.Typed
         , ITypedWhereCollection<SelectAnonymousQuery<TBase, TReturn>, TBase>
         , IQueryExecutable<List<TReturn>>
         , IAsyncQueryExecutable<List<TReturn>>
+        , IAsyncQueryExecutableStream<TReturn>
         , IQueryExecutableTotalCount<TReturn>
         , IAsyncQueryExecutableTotalCount<TReturn>
         where TBase : class
@@ -35,6 +34,7 @@ namespace SqlLinqer.Queries.Typed
         /// The root where group
         /// </summary>
         protected readonly new TableWhereCollection<TBase> RootWhere;
+
         /// <summary>The table mapping for the projected result type.</summary>
         protected readonly Table ReturnTable;
 
@@ -42,6 +42,7 @@ namespace SqlLinqer.Queries.Typed
         /// A SELECT query. Based around a type.
         /// </summary>
         public SelectAnonymousQuery(string default_schema = null) : this(Table.GetCached<TBase>(default_schema)) { }
+
         /// <summary>
         /// A SELECT query. Based around a type.
         /// </summary>
@@ -59,18 +60,21 @@ namespace SqlLinqer.Queries.Typed
             PagingControls.SetTop(num);
             return this;
         }
+
         /// <inheritdoc/>
         public SelectAnonymousQuery<TBase, TReturn> Page(int page, int pageSize)
         {
             PagingControls.SetPage(page, pageSize);
             return this;
         }
+
         /// <inheritdoc/>
         public SelectAnonymousQuery<TBase, TReturn> Limit(int limit, int offset)
         {
             PagingControls.SetLimit(limit, offset);
             return this;
         }
+
         /// <inheritdoc/>
         public new SelectAnonymousQuery<TBase, TReturn> Distinct(bool distinct = true)
         {
@@ -84,18 +88,21 @@ namespace SqlLinqer.Queries.Typed
             base.OrderByAuto(recursive);
             return this;
         }
+
         /// <inheritdoc/>
         public SelectAnonymousQuery<TBase, TReturn> OrderBy(Column column, SqlDir dir)
         {
             base.OrderBy(column, dir, false, false);
             return this;
         }
+
         /// <inheritdoc/>
         public SelectAnonymousQuery<TBase, TReturn> ThenBy(Column column, SqlDir dir)
         {
             base.ThenBy(column, dir, false, false);
             return this;
         }
+
         /// <inheritdoc/>
         public SelectAnonymousQuery<TBase, TReturn> OrderBy<TProperty>(Expression<Func<TReturn, TProperty>> expression, SqlDir dir)
         {
@@ -107,6 +114,7 @@ namespace SqlLinqer.Queries.Typed
             base.OrderBy(col, dir, false, false);
             return this;
         }
+
         /// <inheritdoc/>
         public SelectAnonymousQuery<TBase, TReturn> ThenBy<TProperty>(Expression<Func<TReturn, TProperty>> expression, SqlDir dir)
         {
@@ -124,6 +132,7 @@ namespace SqlLinqer.Queries.Typed
         {
             return RootWhere.NewWhere(where_op);
         }
+
         /// <summary>
         /// Adds a nested condition group while preserving its AND/OR operator. NewWhere creates a detached group until this method adds it.
         /// </summary>
@@ -134,110 +143,61 @@ namespace SqlLinqer.Queries.Typed
             RootWhere.Where(sub_group);
             return this;
         }
+
         /// <inheritdoc/>
         public SelectAnonymousQuery<TBase, TReturn> Where<TProperty>(Expression<Func<TBase, TProperty>> expression, SqlNull value, SqlOp op)
         {
             RootWhere.Where<TProperty>(expression, value, op, SqlSubQueryOp.ANY);
             return this;
         }
+
         /// <inheritdoc/>
         public SelectAnonymousQuery<TBase, TReturn> Where<TProperty>(Expression<Func<TBase, TProperty>> expression, SqlNull value, SqlOp op, SqlSubQueryOp sub_op)
         {
             RootWhere.Where<TProperty>(expression, value, op, sub_op);
             return this;
         }
+
         /// <inheritdoc/>
         public SelectAnonymousQuery<TBase, TReturn> Where<TProperty>(Expression<Func<TBase, TProperty>> expression, TProperty value, SqlOp op)
         {
             RootWhere.Where<TProperty>(expression, value, op, SqlSubQueryOp.ANY);
             return this;
         }
+
         /// <inheritdoc/>
         public SelectAnonymousQuery<TBase, TReturn> Where<TProperty>(Expression<Func<TBase, TProperty>> expression, TProperty value, SqlOp op, SqlSubQueryOp sub_op)
         {
             RootWhere.Where<TProperty>(expression, value, op, sub_op);
             return this;
         }
+
         /// <inheritdoc/>
         public SelectAnonymousQuery<TBase, TReturn> Where<TProperty>(Expression<Func<TBase, TProperty>> expression, IEnumerable<TProperty> values, SqlArrayOp array_op)
         {
             RootWhere.Where<TProperty>(expression, values, array_op);
             return this;
         }
+
         /// <inheritdoc/>
         public SelectAnonymousQuery<TBase, TReturn> Where<TProperty>(Expression<Func<TBase, TProperty>> expression, Queries.Core.SelectQuery subquery, SqlArrayOp op)
         {
             RootWhere.Where(expression, subquery, op);
             return this;
         }
+
         /// <inheritdoc/>
         public SelectAnonymousQuery<TBase, TReturn> Where<TProperty>(Expression<Func<TBase, TProperty>> expression_left, Expression<Func<TBase, TProperty>> expression_right, SqlOp op)
         {
             RootWhere.Where<TProperty>(expression_left, expression_right, op);
             return this;
         }
+
         /// <inheritdoc/>
         public SelectAnonymousQuery<TBase, TReturn> Where(IWhereComponent component)
         {
             RootWhere.Where(component);
             return this;
-        }
-
-        /// <inheritdoc/>
-        public SqlResponse<List<TReturn>> Execute(DbTransaction transaction = null)
-        {
-            return Execute(ExecutionConnector, transaction);
-        }
-        /// <inheritdoc/>
-        public SqlResponse<List<TReturn>> Execute(BaseConnector connector, DbTransaction transaction = null)
-        {
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
-
-            var rendered = this.Render(connector);
-            var response = connector.ExecuteReaderJson<TReturn>(rendered, transaction);
-
-            return response;
-        }
-
-        /// <inheritdoc/>
-        public SqlSelectResponse<TReturn> ExecuteWithTotalCount(DbTransaction transaction = null)
-        {
-            return ExecuteWithTotalCount(ExecutionConnector, transaction);
-        }
-        /// <inheritdoc/>
-        public SqlSelectResponse<TReturn> ExecuteWithTotalCount(BaseConnector connector, DbTransaction transaction = null)
-        {
-            if (connector == null) throw new ArgumentNullException(nameof(connector));
-            var snapshot = Capture();
-            bool needsCount = PagingControls.Top > 0 || PagingControls.Limit > 0 || PagingControls.Offset > 0;
-            var selectRes = new SqlSelectResponse<TReturn>();
-
-            var dataRes = connector.ExecuteReaderJson<TReturn>(snapshot.Render(connector), transaction);
-            if (dataRes.State == ResponseState.Error)
-            {
-                selectRes.SetError(dataRes.Error);
-                return selectRes;
-            }
-
-            if (needsCount)
-            {
-                var count_query = snapshot.RenderForCount(connector.DbFlavor);
-                var countRes = connector.ExecuteScalar<long>(count_query, transaction);
-                if (countRes.State == ResponseState.Error)
-                {
-                    selectRes.SetError(countRes.Error);
-                    return selectRes;
-                }
-
-                selectRes.SetResult(dataRes.Result, countRes.Result);
-            }
-            else
-            {
-                selectRes.SetResult(dataRes.Result, dataRes.Result.Count);
-            }
-
-            return selectRes;
         }
     }
 }

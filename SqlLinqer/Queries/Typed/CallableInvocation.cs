@@ -109,7 +109,7 @@ namespace SqlLinqer.Queries.Typed
                 {
                     var parameter = (DbParameter)command.Parameters[output.Key];
                     output.Value.SetFieldOrPropValue(result,
-                        CallableValue.Convert(parameter.Value, output.Value.GetFieldOrPropValueType()));
+                        TabularValue.Convert(parameter.Value, output.Value.GetFieldOrPropValueType()));
                 }
                 return result;
             });

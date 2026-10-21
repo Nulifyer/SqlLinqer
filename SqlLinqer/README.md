@@ -1,119 +1,216 @@
 # SQL Linqer
 
-SqlLinqer builds SQL queries from C# model mappings and expressions. It supports typed selects, nested relationships, aggregates, and writes.
-The library targets .NET Standard 2.0. Install the database provider in your application and create the database schema before querying.
+Your C# models can describe the query, the relationships, and the result.
 
-SQL result loading always uses SqlLinqer's model contract and ignores API JSON attributes and converters.
-One class can use SqlLinqer attributes for database mappings and JSON attributes for API serialization without either configuration interfering with the other.
+Load a page of users, include their manager and permissions, and get the total number of matches:
 
-## Define a model
+```csharp
+var response = User.BeginSelect(connector)
+    .SelectRootColumns()
+    .Select(user => user.Manager)
+    .Select(user => user.Permissions)
+    .Where(user => user.Manager.Name, "Ada Lovelace", SqlOp.EQ)
+    .OrderBy(user => user.Name, SqlDir.ASC)
+    .ThenBy(user => user.Id, SqlDir.ASC)
+    .Page(1, 20)
+    .ExecuteWithTotalCount();
+```
 
-Map a class to an existing table. These examples use SQL Server and the following model:
+That query returns `User` objects with the selected relationships populated. `TotalResults` gives the count before paging.
+Values such as `"Ada Lovelace"` become SQL parameters.
+
+SqlLinqer supports SQL Server, Azure SQL, PostgreSQL, MySQL, SQLite, and DuckDB, and targets .NET Standard 2.0.
+Use the same model mappings for selects, aggregate projections, inserts, updates, and deletes.
+
+## Try it with your own tables
+
+Install SqlLinqer and your database provider. These examples use SQL Server:
+
+```sh
+dotnet add package SqlLinqer
+dotnet add package Microsoft.Data.SqlClient
+```
+
+Create a connector with your database connection string:
 
 ```csharp
 using System;
-using SqlLinqer.Modeling;
-
-[SqlTable("Users")]
-public class User : SqlLinqerPrimaryKeyObject<User, string>
-{
-    [SqlPrimaryKey(dbGenerated: false)]
-    [SqlColumn("id")]
-    public string Id { get; set; }
-
-    [SqlColumn("username")]
-    public string Username { get; set; }
-
-    [SqlColumn("email")]
-    public string Email { get; set; }
-
-    public User()
-    {
-        Id = Guid.NewGuid().ToString();
-    }
-}
-```
-
-## Configure a connector
-
-Install `Microsoft.Data.SqlClient` in your application. Supply a connection string for an existing database:
-
-```csharp
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Data.SqlClient;
 using SqlLinqer;
 using SqlLinqer.Connections;
+using SqlLinqer.Modeling;
 
 using var template = new SqlConnection(connectionString);
 var connector = new ReplicatorConnector(template, DbFlavor.SqlServer);
 ```
 
-The connector creates and disposes connections for queries. Pass it when starting a query. The query retains it for `Execute()`.
-If you supply a transaction to `Execute`, you own its commit, rollback, and disposal.
+The examples below use this connector and the models in the next section. Create the matching tables in your database first.
+For another database or dependency injection, see the [connection guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/SETUP_A_CONNECTION.md).
 
-## Insert rows
+## Map the tables once
 
-```csharp
-var newUsers = new[]
-{
-    new User { Username = "ab789", Email = "boss@company.com" },
-    new User { Username = "js354", Email = "myemail@company.com" }
-};
-
-var insertResponse = User.BeginInsert(connector)
-    .InsertAuto(newUsers)
-    .Execute();
-```
-
-`BeginInsert` captures primary keys. If the response is valid, `TouchedPrimaryKeys` contains the inserted IDs and `Result` contains the affected-row count.
-
-## Select rows
+Map your existing `Users` and `Permissions` tables. The `UserPermissions` linking table supplies the many-to-many relationship:
 
 ```csharp
-var selectResponse = User.BeginSelect(connector)
-    .SelectRootColumns()
-    .OrderBy(x => x.Username, SqlDir.ASC)
-    .Execute();
-
-if (selectResponse.State == ResponseState.Valid)
+[SqlTable("Users")]
+public class User : SqlLinqerPrimaryKeyObject<User, int>
 {
-    foreach (var user in selectResponse.Result)
-        Console.WriteLine(user.Username);
+    [SqlPrimaryKey(dbGenerated: true), SqlColumn("id")]
+    public int Id { get; set; }
+
+    [SqlColumn("name")]
+    public string Name { get; set; }
+
+    [SqlColumn("email")]
+    public string Email { get; set; }
+
+    [SqlColumn("manager_id")]
+    public int? ManagerId { get; set; }
+
+    [SqlOneToOne(nameof(ManagerId)), SqlAutoSelectExclude]
+    public User Manager { get; set; }
+
+    [SqlManyToMany("UserPermissions", "user_id", "permission_id"), SqlAutoSelectExclude]
+    public IEnumerable<Permission> Permissions { get; set; }
+}
+
+[SqlTable("Permissions")]
+public class Permission : SqlLinqerPrimaryKeyObject<Permission, int>
+{
+    [SqlPrimaryKey(dbGenerated: true), SqlColumn("id")]
+    public int Id { get; set; }
+
+    [SqlColumn("name")]
+    public string Name { get; set; }
 }
 ```
 
-`ExecuteWithTotalCount` returns `SqlSelectResponse<User>`, with rows in `Result` and the count before paging in `TotalResults`.
+Now `user.Manager.Name` and `user.Permissions` are queryable relationships.
+Select them when you need them. `SelectRootColumns()` loads the user's own columns.
 
-## Update rows
+## Use the results directly
 
-```csharp
-var updateResponse = User.BeginUpdate(connector)
-    .Update(x => x.Email, "noreply@company.com")
-    .Where(x => x.Email, "%@company.com", SqlOp.LIKE)
-    .Execute();
-```
-
-## Delete rows
+Execute the opening query after defining your models and connector. Check its state, then work with the returned models:
 
 ```csharp
-var deleteResponse = User.BeginDelete(connector)
-    .Where(x => x.Email, "%@company.com", SqlOp.LIKE)
-    .Execute();
+if (response.State != ResponseState.Valid)
+    throw response.Error;
+
+foreach (var user in response.Result)
+{
+    Console.WriteLine($"{user.Name}, managed by {user.Manager?.Name}");
+    foreach (var permission in user.Permissions)
+        Console.WriteLine($"  {permission.Name}");
+}
+
+Console.WriteLine($"{response.TotalResults} matching users");
 ```
 
-Filter updates and deletes before executing them. Without a filter, they affect every row in the table.
-Check `State` before reading `Result`. If the response has an error, inspect `Error`.
+Pages start at `1`. The same query builder also supports optional filters, grouped conditions, and `IN` lists.
 
-See the repository's [connection](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/SETUP_A_CONNECTION.md),
-[model](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/BUILDING_A_DATAMODEL.md), and
-[query guides](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/QUERY_READ.md) for more examples.
+## Turn relationships into a report
 
-See [response handling](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/RESPONSES.md) for state, results, and errors.
-See [typed stored procedures](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/CALLABLES.md) for callable models, typed inputs, result sets, and output parameters on SQL Server and Azure SQL.
-The [connector guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/SETUP_A_CONNECTION.md#inject-a-connector) also shows constructor injection and service registration.
+Count each user's permissions and return just the fields your report needs:
 
-See [transactions](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/TRANSACTIONS.md) to commit several writes together,
-and [relationship updates](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/QUERY_RELATIONSHIPS.md) to assign managers or change permissions.
+```csharp
+var summary = User.BeginSelectBuilder(connector)
+    .BuildQuery(query => new
+    {
+        Name = query.Select(user => user.Name),
+        PermissionCount = query.Count(user => user.Permissions.First().Id)
+    })
+    .OrderBy(row => row.PermissionCount, SqlDir.DESC)
+    .Execute();
 
+if (summary.State != ResponseState.Valid)
+    throw summary.Error;
 
-- [Sync and async execution](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/EXECUTION.md)
-- [Query snapshots and compilation](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/QUERY_COMPILATION.md)
+foreach (var row in summary.Result)
+    Console.WriteLine($"{row.Name}: {row.PermissionCount} permissions");
+```
+
+Use an anonymous projection for a local result, or a named class to return it from a method.
+
+## Insert models and get their keys
+
+```csharp
+var inserted = User.BeginInsert(connector)
+    .InsertAuto(new[]
+    {
+        new User { Name = "Grace Hopper", Email = "grace@example.com" },
+        new User { Name = "Margaret Hamilton", Email = "margaret@example.com" }
+    })
+    .Execute();
+
+if (inserted.State != ResponseState.Valid)
+    throw inserted.Error;
+
+Console.WriteLine($"Inserted {inserted.Result} users");
+Console.WriteLine(string.Join(", ", inserted.TouchedPrimaryKeys));
+```
+
+The key mapping tells SqlLinqer that the database generates these IDs. `TouchedPrimaryKeys` contains the inserted keys.
+Primary-key capture depends on the database's capabilities; see the [insert guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/QUERY_CREATE.md).
+
+## Make targeted changes
+
+Update a user's email or delete a specific user with the same member expressions:
+
+```csharp
+var updated = User.BeginUpdate(connector)
+    .Update(user => user.Email, "ada@example.com")
+    .Where(user => user.Id, 42, SqlOp.EQ)
+    .Execute();
+
+var deleted = User.BeginDelete(connector)
+    .Where(user => user.Id, 99, SqlOp.EQ)
+    .Execute();
+
+if (updated.State != ResponseState.Valid)
+    throw updated.Error;
+if (deleted.State != ResponseState.Valid)
+    throw deleted.Error;
+```
+
+Pass a transaction to execute several changes together. You control its commit and rollback.
+
+## Choose how results arrive
+
+Use `Execute()` for synchronous results or `ExecuteAsync()` for asynchronous results:
+
+```csharp
+var query = User.BeginSelect(connector)
+    .SelectRootColumns()
+    .OrderBy(user => user.Id, SqlDir.ASC);
+
+var asynchronous = await query.ExecuteAsync();
+if (asynchronous.State != ResponseState.Valid)
+    throw asynchronous.Error;
+```
+
+For large reads, experimental `ExecuteAsyncStream()` lets you process each model as it arrives:
+
+```csharp
+await foreach (var user in query.ExecuteAsyncStream())
+{
+    Console.WriteLine(user.Name);
+}
+```
+
+Run these examples in an asynchronous method with a compiler that supports async enumeration.
+A stream yields complete root models, including their selected nested collections. Process each row directly or collect batches in your application.
+Provider buffers and query execution still contribute to memory use.
+See [streaming examples and measurements](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/RESULT_STREAMING.md) for batching, cancellation, and memory limits.
+
+## Keep building
+
+Add [typed stored procedures](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/CALLABLES.md),
+[transactions](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/TRANSACTIONS.md), and
+[relationship changes](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/QUERY_RELATIONSHIPS.md) as your queries grow.
+Database mappings and API JSON attributes can share a model without changing each other's behavior.
+
+Find more examples in the [query guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/QUERY_READ.md),
+[model guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/BUILDING_A_DATAMODEL.md), and
+[GitHub repository](https://github.com/Nulifyer/SqlLinqer).

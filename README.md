@@ -1,87 +1,80 @@
 # SQL Linqer
 
-SqlLinqer builds SQL queries from C# model mappings and expressions. It supports typed selects, nested relationships, aggregates, and writes.
-The library targets .NET Standard 2.0. Install the database provider in your application and create the database schema before querying.
+Build parameterized SQL queries around your C# models.
 
-SQL result loading always uses SqlLinqer's model contract and ignores API JSON attributes and converters.
-One class can use SqlLinqer attributes for database mappings and JSON attributes for API serialization without either configuration interfering with the other.
+SqlLinqer maps tables, columns, and relationships to C# members. Use those members to filter rows, load related models,
+build aggregate projections, and write changes. The same mappings carry through each query.
 
-## Build and check
+Supports SQL Server, Azure SQL, PostgreSQL, MySQL, SQLite, and DuckDB. Targets .NET Standard 2.0.
 
-`SqlLinqer.Tests.Net10` tests .NET 10 compatibility. `SqlLinqer.Tests.NetFramework48` tests .NET Framework 4.8 compatibility and uses Npgsql 4.1.14.
-The library targets .NET Standard 2.0.
+[NuGet package](https://www.nuget.org/packages/SqlLinqer/) · [Get started](docs/SETUP_A_CONNECTION.md) · [Model guide](docs/BUILDING_A_DATAMODEL.md)
 
-```sh
-dotnet build SqlLinqer.Tests.Net10/SqlLinqer.Tests.Net10.csproj
-dotnet build SqlLinqer.Tests.NetFramework48/SqlLinqer.Tests.NetFramework48.csproj
-dotnet run --project SqlLinqer.Tests
-```
+## Describe the result you need
 
-All automated suites use [SqlLinqer.Tests](SqlLinqer.Tests/README.md).
-For the complete repeatable run, including real PostgreSQL, MySQL, and SQL Server databases:
-
-```sh
-bash TestDBs/test-containers.sh
-# If Docker requires sudo, run this from your terminal:
-bash TestDBs/test-containers.sh --sudo
-```
-
-The runner builds once, runs every suite in an isolated container environment, saves one result log, and removes its containers and volumes.
-It supports Docker or Podman. Use `--host` to run tests on the host with random localhost database ports.
-Failures remain nonzero, including live database and cleanup failures.
-Direct Azure SQL testing is optional and uses the same shared server fixtures.
-
-`dotnet run --project SqlLinqer.Tests` runs local regression, SQLite, DuckDB, and offline provider checks without server connections.
-Use `-- --suite regression`, `sqlite`, `duckdb`, `sql-server`, or `integration` for focused checks.
-The two compatibility test programs require the employee database described in their connection settings.
-
-## Guides
-
-- [Sync and async execution](docs/EXECUTION.md)
-- [Query snapshots and compilation](docs/QUERY_COMPILATION.md)
-- [Publish a NuGet release](docs/RELEASING.md)
-- [Set up a connection](docs/SETUP_A_CONNECTION.md)
-- [Inject a connector](docs/SETUP_A_CONNECTION.md#inject-a-connector)
-- [Build a data model](docs/BUILDING_A_DATAMODEL.md)
-- [Insert rows](docs/QUERY_CREATE.md)
-- [Select rows](docs/QUERY_READ.md)
-- [Update rows](docs/QUERY_UPDATE.md)
-- [Delete rows](docs/QUERY_DELETE.md)
-- [Handle query responses](docs/RESPONSES.md)
-- [Call typed stored procedures](docs/CALLABLES.md)
-- [Run several writes in one transaction](docs/TRANSACTIONS.md)
-- [Change relationships](docs/QUERY_RELATIONSHIPS.md)
-
-## Quick example
-
-Use the `User` model from the [model guide](docs/BUILDING_A_DATAMODEL.md).
-Configure a SQL Server connection string before running this example:
+Get a page of users managed by Ada, with their manager and permissions already loaded:
 
 ```csharp
-using System.Linq;
-using Microsoft.Data.SqlClient;
-using SqlLinqer;
-using SqlLinqer.Connections;
-
-using var template = new SqlConnection(connectionString);
-var connector = new ReplicatorConnector(template, DbFlavor.SqlServer);
-
-var response = User
-    .BeginSelect(connector)
-    .Top(10)
+var response = User.BeginSelect(connector)
     .SelectRootColumns()
-    .Select(x => x.Permissions)
-    .Where(x => x.Permissions.First().Name, "% admin", SqlOp.NOTLIKE)
-    .OrderBy(x => x.Manager.Name, SqlDir.ASC)
-    .ThenBy(x => x.Name, SqlDir.ASC)
-    .Execute();
+    .Select(user => user.Manager)
+    .Select(user => user.Permissions)
+    .Where(user => user.Manager.Name, "Ada Lovelace", SqlOp.EQ)
+    .OrderBy(user => user.Name, SqlDir.ASC)
+    .ThenBy(user => user.Id, SqlDir.ASC)
+    .Page(1, 20)
+    .ExecuteWithTotalCount();
 
-if (response.State == ResponseState.Valid)
-{
-    var users = response.Result;
-}
-else
-{
-    System.Diagnostics.Debug.WriteLine(response.Error?.Message);
-}
+if (response.State != ResponseState.Valid)
+    throw response.Error;
+
+var users = response.Result;
+var totalMatches = response.TotalResults;
 ```
+
+`Result` contains typed `User` models and their selected relationships. `TotalResults` counts the matching users before paging.
+The example uses the [sample models](docs/BUILDING_A_DATAMODEL.md) and a [configured connector](docs/SETUP_A_CONNECTION.md).
+Import `SqlLinqer` for operators and response states.
+
+## Why SqlLinqer?
+
+- **Keep mappings with the model.** Define table names, column names, keys, and relationships once. Query expressions use C# members throughout.
+- **Choose what to load.** Select individual columns, nested models, or anonymous projections. Add filters, ordering, and paging to the same query builder.
+- **Compose queries from application input.** Add optional conditions as you build a search. The renderer binds query values as parameters.
+- **Use your database provider.** Create a connector from an ADO.NET connection or a connection factory. Pass your own transaction when several operations belong together.
+- **Reuse models across SQL and APIs.** Database loading follows SqlLinqer mappings. API JSON attributes and converters control API serialization independently.
+- **Choose how to consume results.** Use `Execute()` or `ExecuteAsync()` for buffered results. Experimental `ExecuteAsyncStream()` yields models as you enumerate them.
+
+SqlLinqer fits applications that want explicit query construction over an existing database schema.
+You manage the schema and choose the provider. SqlLinqer handles query rendering, parameter binding, and mapped result loading.
+Database-specific capabilities and limits are covered in the guides.
+
+## Start with your database
+
+```sh
+dotnet add package SqlLinqer
+```
+
+Install your database's ADO.NET provider, [create a connector](docs/SETUP_A_CONNECTION.md), and [map your models](docs/BUILDING_A_DATAMODEL.md).
+The [NuGet README](SqlLinqer/README.md) walks through relationships, projections, inserts, updates, and deletes with one example model.
+
+The NuGet page contains the latest published release. This repository also includes development features, including experimental result streaming.
+
+## Explore the library
+
+- [Connections and dependency injection](docs/SETUP_A_CONNECTION.md)
+- [Models, keys, and relationships](docs/BUILDING_A_DATAMODEL.md)
+- [Selects, paging, and aggregate projections](docs/QUERY_READ.md)
+- [Inserts](docs/QUERY_CREATE.md), [updates](docs/QUERY_UPDATE.md), and [deletes](docs/QUERY_DELETE.md)
+- [Relationship changes](docs/QUERY_RELATIONSHIPS.md) and [transactions](docs/TRANSACTIONS.md)
+- [Synchronous and asynchronous execution](docs/EXECUTION.md)
+- [Experimental streaming and memory measurements](docs/RESULT_STREAMING.md)
+- [Result conversions](docs/RESULT_CONVERSIONS.md) and [response handling](docs/RESPONSES.md)
+- [Typed stored procedures](docs/CALLABLES.md)
+- [Query snapshots and compilation](docs/QUERY_COMPILATION.md)
+- [DuckDB support](docs/DUCKDB.md)
+
+## Work on the project
+
+See the [contributor guide](docs/CONTRIBUTING.md) for builds, tests, and source organization.
+The [test guide](SqlLinqer.Tests/README.md) covers the complete container-backed suite and focused local runs.
+Release maintainers can follow the [NuGet publishing guide](docs/RELEASING.md).

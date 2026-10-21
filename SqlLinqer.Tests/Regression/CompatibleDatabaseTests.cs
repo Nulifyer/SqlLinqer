@@ -87,6 +87,26 @@ internal static class CompatibleDatabaseTests
         });
         BaseConnector Budget() => new ConnectionFactoryConnector(connector.CreateConnection, connector.DbFlavor,
             new ConnectorOptions { ParameterLimit = 2 });
+        foreach (int count in new[] { 1, 2, 3, 5, 33 })
+            test($"compatible: exact and partial batch boundaries preserve keys, rows={count}", () =>
+            {
+                var bounded = new ConnectionFactoryConnector(connector.CreateConnection, connector.DbFlavor,
+                    new ConnectorOptions { ParameterLimit = 4 });
+                var data = Enumerable.Range(1, count).Select(id => new BatchRow { Id = id, Name = $"row-{id}" }).ToArray();
+                var query = new InsertWithPrimaryKeyQuery<BatchRow, int>().InsertAuto(data);
+                string before = query.Render(connector).Text;
+                try
+                {
+                    var response = query.Execute(bounded);
+                    Check(Result(response) == count && response.TouchedPrimaryKeys.Order().SequenceEqual(Enumerable.Range(1, count)),
+                        "Boundary batch changed affected count or keys");
+                    Check(Count("compat_batches") == count && query.Render(connector).Text == before, "Batching mutated insert or lost rows");
+                    var duplicate = query.Execute(bounded);
+                    Check(duplicate.State == ResponseState.Error && duplicate.TouchedPrimaryKeys?.Any() != true, "Reused insert exposed stale successful keys");
+                    Check(Count("compat_batches") == count && query.Render(connector).Text == before, "Failed reuse changed data or insert state");
+                }
+                finally { Sql("DELETE FROM compat_batches"); }
+            });
         test("compatible: batch insert returns every primary key", () =>
         {
             var response = new InsertWithPrimaryKeyQuery<BatchRow, int>().InsertAuto(new[] {

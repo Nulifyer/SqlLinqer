@@ -24,6 +24,7 @@ namespace SqlLinqer.Components.Json
                 {
                     new DatabaseModelConverterFactory(),
                     new DatabaseEnumConverterFactory(),
+                    new DatabaseFloatingPointConverterFactory(),
                     new DatabaseBooleanConverter(),
                     new DatabaseDateTimeConverter(),
                     new DatabaseDateTimeOffsetConverter(),

@@ -4,6 +4,8 @@
 
 The fluent query interface supports both execution styles. Both return the same response types and use the same SQL generation and JSON mapping rules.
 
+Typed selects and projections also provide experimental [result streaming](RESULT_STREAMING.md) through `ExecuteAsyncStream`.
+
 ```csharp
 var query = User.BeginSelect(connector)
     .SelectRootColumns()
@@ -74,6 +76,50 @@ The library passes the token to provider methods for connection opening, command
 The provider determines whether these operations perform asynchronous I/O. Embedded providers can complete them synchronously.
 SqlLinqer does not use `Task.Run` to wrap synchronous execution.
 DuckDB also receives a scoped interrupt registration because its cancellation applies to the connection.
+
+## Tabular model lists
+
+For commands that return ordinary columns, choose `ExecuteReaderDataTable` for a `DataTable` or
+`ExecuteReaderList<T>` for a `List<T>`. Both return a `SqlResponse` whose state must be checked.
+The asynchronous counterparts are `ExecuteReaderDataTableAsync` and `ExecuteReaderListAsync<T>`.
+
+```csharp
+var query = new RenderedQuery("SELECT Id, display_name FROM Customers");
+var response = await connector.ExecuteReaderListAsync<Customer>(
+    query, cancellationToken: cancellationToken);
+if (response.State == ResponseState.Error)
+    throw response.Error;
+
+List<Customer> customers = response.Result;
+
+public sealed class Customer
+{
+    public int Id { get; set; }
+    [SqlColumn("display_name")]
+    public string Name { get; set; }
+}
+```
+
+Import `System.Collections.Generic`, `SqlLinqer`, `SqlLinqer.Components.Render`, and `SqlLinqer.Modeling` for this example.
+Run the query code inside an asynchronous method and declare the model outside that method.
+
+The list methods map provider rows directly into a buffered `List<T>`.
+They preserve native values, including `DateTime.Kind`, without a temporary `DataTable`.
+DuckDB binary streams become independent byte arrays before the database reader closes.
+
+Mapping uses public fields and properties, matches names without regard to case, and honors `SqlColumn` and `SqlIgnore`.
+API JSON attributes do not affect these mappings. Each mapped member requires a result column; extra columns are ignored.
+Models can use a parameterless constructor or one public constructor that matches mapped member names and types.
+SQL NULL maps to nullable members. Compatible numeric, GUID, and enum values are converted.
+Incompatible values and missing columns produce an error response without a partial list.
+An empty result produces an empty list. Scalar types such as `int?` are supported for single-column results.
+
+These methods load the first tabular result and skip leading results without columns.
+They map flat rows and do not populate relationships. Use typed callables when a command needs multiple result sets.
+The list methods accept the same caller-owned transaction as the table methods.
+Asynchronous cancellation applies during database loading and model conversion.
+
+See [result value conversions](RESULT_CONVERSIONS.md) for numeric range checks, date and timezone rules, and the conversion test matrix.
 
 ## Transactions and ownership
 

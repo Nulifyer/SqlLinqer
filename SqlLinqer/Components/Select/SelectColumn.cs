@@ -34,14 +34,6 @@ namespace SqlLinqer.Components.Select
         {
             query.Joins.AddTable(Column.Table);
 
-            if (forJson && flavor == DbFlavor.Sqlite
-                && (Column.DbType == System.Data.DbType.Binary || Column.Table.Columns.GetAll<ReflectedColumn>()
-                    .Any(x => x.ColumnName == Column.ColumnName && x.ValueType == typeof(byte[]))))
-            {
-                string value = Column.Render(flavor);
-                return $"{Alias.DbWrapString(flavor)}, CASE WHEN {value} IS NULL THEN NULL ELSE hex({value}) END";
-            }
-
             if (forJson)
             {
                 switch (flavor)
@@ -51,8 +43,20 @@ namespace SqlLinqer.Components.Select
                     case DbFlavor.PostgreSql:
                     case DbFlavor.MySql:
                         string value = Column.Render(flavor);
-                        if (flavor == DbFlavor.DuckDb && Column is ReflectedColumn reflected && reflected.ValueType == typeof(byte[]))
-                            value = $"to_base64({value})";
+                        if (Column.DbType == System.Data.DbType.Binary || Column.Table.Columns.GetAll<ReflectedColumn>()
+                            .Any(x => x.ColumnName == Column.ColumnName && x.ValueType == typeof(byte[])))
+                        {
+                            // Keep the library's byte[] JSON contract independent of
+                            // provider binary JSON encodings and Base64 line wrapping.
+                            value = flavor switch
+                            {
+                                DbFlavor.Sqlite => $"CASE WHEN {value} IS NULL THEN NULL ELSE hex({value}) END",
+                                DbFlavor.DuckDb => $"to_base64({value})",
+                                DbFlavor.PostgreSql => $"replace(encode({value}, 'base64'), chr(10), '')",
+                                DbFlavor.MySql => $"REPLACE(TO_BASE64({value}), CHAR(10), '')",
+                                _ => value,
+                            };
+                        }
                         return $"{Alias.DbWrapString(flavor)}, {value}";
                     case DbFlavor.SqlServer:
                     case DbFlavor.AzureSql:

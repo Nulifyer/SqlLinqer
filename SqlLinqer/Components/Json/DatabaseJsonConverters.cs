@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using SqlLinqer.Connections;
 
 namespace SqlLinqer.Components.Json
 {
@@ -52,9 +53,8 @@ namespace SqlLinqer.Components.Json
         {
             if (reader.TokenType == JsonTokenType.String)
             {
-                if (reader.TryGetDateTime(out var value)
-                    || DateTime.TryParse(reader.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out value))
-                    return value;
+                try { return DbValueConversion.ConvertTo<DateTime>(reader.GetString()); }
+                catch (FormatException error) { throw new JsonException("Expected a database date/time string.", error); }
             }
             throw new JsonException("Expected a database date/time string.");
         }
@@ -69,9 +69,8 @@ namespace SqlLinqer.Components.Json
         {
             if (reader.TokenType == JsonTokenType.String)
             {
-                if (reader.TryGetDateTimeOffset(out var value)
-                    || DateTimeOffset.TryParse(reader.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out value))
-                    return value;
+                try { return DbValueConversion.ConvertTo<DateTimeOffset>(reader.GetString()); }
+                catch (FormatException error) { throw new JsonException("Expected a database date/time string with an offset.", error); }
             }
             throw new JsonException("Expected a database date/time string with an offset.");
         }

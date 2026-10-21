@@ -1,0 +1,1242 @@
+=== regression ===
+PASS paging survives count rendering for SqlServer
+PASS Top counts all matching rows for SqlServer
+PASS Boolean parameters retain type for SqlServer
+PASS empty IN stays false in a write for SqlServer
+PASS empty NOT IN stays true inside OR for SqlServer
+PASS paging survives count rendering for MySql
+PASS Top counts all matching rows for MySql
+PASS Boolean parameters retain type for MySql
+PASS empty IN stays false in a write for MySql
+PASS empty NOT IN stays true inside OR for MySql
+PASS paging survives count rendering for PostgreSql
+PASS Top counts all matching rows for PostgreSql
+PASS Boolean parameters retain type for PostgreSql
+PASS empty IN stays false in a write for PostgreSql
+PASS empty NOT IN stays true inside OR for PostgreSql
+PASS paging survives count rendering for Sqlite
+PASS Top counts all matching rows for Sqlite
+PASS Boolean parameters retain type for Sqlite
+PASS empty IN stays false in a write for Sqlite
+PASS empty NOT IN stays true inside OR for Sqlite
+PASS paging survives count rendering for DuckDb
+PASS Top counts all matching rows for DuckDb
+PASS Boolean parameters retain type for DuckDb
+PASS empty IN stays false in a write for DuckDb
+PASS empty NOT IN stays true inside OR for DuckDb
+PASS paging survives count rendering for AzureSql
+PASS Top counts all matching rows for AzureSql
+PASS Boolean parameters retain type for AzureSql
+PASS empty IN stays false in a write for AzureSql
+PASS empty NOT IN stays true inside OR for AzureSql
+PASS rendering Top across dialects preserves SQL Server TOP
+PASS insert leaves Unspecified timestamp inference to the provider
+PASS insert leaves Utc timestamp inference to the provider
+PASS insert leaves Local timestamp inference to the provider
+PASS insert honors an explicitly requested timestamp type
+PASS paging stash can be reused
+PASS failed select rendering restores query state for SqlServer
+PASS failed count rendering restores query state for SqlServer
+PASS failed select rendering restores query state for MySql
+PASS failed count rendering restores query state for MySql
+PASS failed select rendering restores query state for PostgreSql
+PASS failed count rendering restores query state for PostgreSql
+PASS failed select rendering restores query state for Sqlite
+PASS failed count rendering restores query state for Sqlite
+PASS failed select rendering restores query state for DuckDb
+PASS failed count rendering restores query state for DuckDb
+PASS failed select rendering restores query state for AzureSql
+PASS failed count rendering restores query state for AzureSql
+PASS page total is independent of returned row count 0
+PASS page total is independent of returned row count 2
+PASS page total is independent of returned row count 10
+PASS unpaged select does not execute a redundant count
+PASS select overload forwards caller transaction
+PASS delete overload forwards caller transaction
+PASS aggregate overload forwards caller transaction
+PASS exists overload forwards caller transaction
+PASS procedure-json overload forwards caller transaction
+PASS procedure-table overload forwards caller transaction
+PASS DuckDB insert outputs complete an owned transaction, failure=False
+PASS DuckDB insert outputs complete an owned transaction, failure=True
+PASS DuckDB update outputs complete an owned transaction, failure=False
+PASS DuckDB update outputs complete an owned transaction, failure=True
+PASS DuckDB delete outputs complete an owned transaction, failure=False
+PASS DuckDB delete outputs complete an owned transaction, failure=True
+PASS nonquery disposes owned resources after open failure
+PASS nonquery disposes owned resources after command failure
+PASS nonquery disposes owned resources after parameter failure
+PASS nonquery disposes owned resources after execute failure
+PASS nonquery leaves caller transaction and connection owned by caller on failure
+PASS nonquery rejects a completed transaction without opening another connection
+PASS scalar disposes owned resources after open failure
+PASS scalar disposes owned resources after command failure
+PASS scalar disposes owned resources after parameter failure
+PASS scalar disposes owned resources after execute failure
+PASS scalar leaves caller transaction and connection owned by caller on failure
+PASS scalar rejects a completed transaction without opening another connection
+PASS json disposes owned resources after open failure
+PASS json disposes owned resources after command failure
+PASS json disposes owned resources after parameter failure
+PASS json disposes owned resources after execute failure
+PASS json leaves caller transaction and connection owned by caller on failure
+PASS json rejects a completed transaction without opening another connection
+PASS table disposes owned resources after open failure
+PASS table disposes owned resources after command failure
+PASS table disposes owned resources after parameter failure
+PASS table disposes owned resources after execute failure
+PASS table leaves caller transaction and connection owned by caller on failure
+PASS table rejects a completed transaction without opening another connection
+PASS owned transaction commits and disposes on success
+PASS rollback failure preserves original query error
+PASS TVP uses caller connection and transaction, failure=False
+PASS TVP uses caller connection and transaction, failure=True
+PASS TVP completes its owned transaction, failure=False
+PASS TVP completes its owned transaction, failure=True
+PASS PostgreSQL inserts put RETURNING after VALUES
+PASS PostgreSQL updates use physical target and unqualified assignment
+PASS PostgreSQL arithmetic and column assignments use valid targets
+PASS PostgreSQL deletes include RETURNING
+PASS delete captures keys for PostgreSql
+PASS delete output precedes FROM or follows WHERE for PostgreSql
+PASS delete captures keys for SqlServer
+PASS delete output precedes FROM or follows WHERE for SqlServer
+PASS PostgreSQL joined update preserves joins and correlates target primary key
+PASS PostgreSQL joined delete preserves joins and correlates target primary key
+PASS MySQL puts joined tables before SET
+PASS MySQL plain writes do not contain SQL Server output
+PASS MySQL returned-row requests fail before execution
+PASS connection password survives rebuilding: abc=def
+PASS connection password survives rebuilding: abc;def=ghi
+PASS connection password survives rebuilding: both"'quotes;=
+PASS connection password survives rebuilding: space at end 
+PASS connection timeout aliases are replaced for MySql
+PASS connection timeout aliases are replaced for SqlServer
+PASS NULL diagnostic formatting accepts null
+PASS NULL diagnostic formatting accepts DBNull
+PASS NULL diagnostic formatting accepts SqlNull
+PASS Azure enum is distinct and preserves existing values
+PASS Azure SQL Server equivalence: root select
+PASS Azure count equivalence: root select
+PASS Azure direct non-JSON select equivalence: root select
+PASS Azure SQL Server equivalence: nested one to one JSON
+PASS Azure count equivalence: nested one to one JSON
+PASS Azure direct non-JSON select equivalence: nested one to one JSON
+PASS Azure SQL Server equivalence: nested one to many JSON
+PASS Azure count equivalence: nested one to many JSON
+PASS Azure direct non-JSON select equivalence: nested one to many JSON
+PASS Azure SQL Server equivalence: Top
+PASS Azure count equivalence: Top
+PASS Azure direct non-JSON select equivalence: Top
+PASS Azure SQL Server equivalence: distinct paging and descending order
+PASS Azure count equivalence: distinct paging and descending order
+PASS Azure direct non-JSON select equivalence: distinct paging and descending order
+PASS Azure SQL Server equivalence: LIKE
+PASS Azure count equivalence: LIKE
+PASS Azure direct non-JSON select equivalence: LIKE
+PASS Azure SQL Server equivalence: WHERE subquery
+PASS Azure count equivalence: WHERE subquery
+PASS Azure direct non-JSON select equivalence: WHERE subquery
+PASS Azure SQL Server equivalence: aggregate and group by
+PASS Azure count equivalence: aggregate and group by
+PASS Azure direct non-JSON select equivalence: aggregate and group by
+PASS Azure SQL Server equivalence: CASE
+PASS Azure count equivalence: CASE
+PASS Azure direct non-JSON select equivalence: CASE
+PASS Azure SQL Server equivalence: CTE
+PASS Azure count equivalence: CTE
+PASS Azure direct non-JSON select equivalence: CTE
+PASS Azure SQL Server equivalence: insert output
+PASS Azure SQL Server equivalence: insert returned key
+PASS Azure SQL Server equivalence: update output
+PASS Azure SQL Server equivalence: update returned key with join
+PASS Azure SQL Server equivalence: delete output
+PASS Azure SQL Server equivalence: delete returned key with join
+PASS Azure SQL Server equivalence: truncate
+PASS Azure SQL Server equivalence: procedure
+PASS SqlServer procedure preserves typed null and TVP metadata
+PASS SqlServer DISTINCT count retains projection and restores paging
+PASS SqlServer grouped and ungrouped aggregate totals count result rows
+PASS SqlServer source assignment discovers join and OUTPUT order
+PASS SqlServer DISTINCT count discovers relationship CTEs before emitting WITH
+PASS SqlServer TVP output uses one write transaction and autocommit type DDL, fail=False
+PASS SqlServer TVP output uses one write transaction and autocommit type DDL, fail=True
+PASS AzureSql procedure preserves typed null and TVP metadata
+PASS AzureSql DISTINCT count retains projection and restores paging
+PASS AzureSql grouped and ungrouped aggregate totals count result rows
+PASS AzureSql source assignment discovers join and OUTPUT order
+PASS AzureSql DISTINCT count discovers relationship CTEs before emitting WITH
+PASS AzureSql TVP output uses one write transaction and autocommit type DDL, fail=False
+PASS AzureSql TVP output uses one write transaction and autocommit type DDL, fail=True
+PASS Azure TVP stage failure CREATE TYPE, caller=False, output=False
+PASS Azure TVP stage failure CREATE TYPE, caller=False, output=True
+PASS Azure TVP stage failure CREATE TYPE, caller=True, output=False
+PASS Azure TVP stage failure CREATE TYPE, caller=True, output=True
+PASS Azure TVP stage failure INSERT INTO, caller=False, output=False
+PASS Azure TVP stage failure INSERT INTO, caller=False, output=True
+PASS Azure TVP stage failure INSERT INTO, caller=True, output=False
+PASS Azure TVP stage failure INSERT INTO, caller=True, output=True
+PASS Azure TVP stage failure DROP TYPE, caller=False, output=False
+PASS Azure TVP stage failure DROP TYPE, caller=False, output=True
+PASS Azure TVP stage failure DROP TYPE, caller=True, output=False
+PASS Azure TVP stage failure DROP TYPE, caller=True, output=True
+PASS CTE output columns retain projection aliases and typed lookup
+PASS factory authentication uses new owned connections and bypasses factory for caller transactions
+PASS Azure count rendering and state, Top=False
+PASS Azure count rendering and state, Top=True
+PASS Azure public component rendering bypasses query renderer
+PASS Azure quoting LIKE and public paging controls
+PASS Azure TVP SQL type schema data and output
+PASS Azure write ownership, fail=False, caller=False, TVP=False
+PASS Azure write ownership, fail=False, caller=False, TVP=True
+PASS Azure write ownership, fail=False, caller=True, TVP=False
+PASS Azure write ownership, fail=False, caller=True, TVP=True
+PASS Azure write ownership, fail=True, caller=False, TVP=False
+PASS Azure write ownership, fail=True, caller=False, TVP=True
+PASS Azure write ownership, fail=True, caller=True, TVP=False
+PASS Azure write ownership, fail=True, caller=True, TVP=True
+PASS Azure execution: insert
+PASS Azure execution: update
+PASS Azure execution: delete
+PASS Azure execution: output
+PASS Azure execution: select
+PASS Azure execution: count
+PASS Azure execution: exists
+PASS Azure execution: procedure
+PASS embedded identifier delimiters are escaped for SqlServer
+PASS apostrophes in JSON projection names are escaped for SqlServer
+PASS embedded identifier delimiters are escaped for MySql
+PASS apostrophes in JSON projection names are escaped for MySql
+PASS embedded identifier delimiters are escaped for PostgreSql
+PASS apostrophes in JSON projection names are escaped for PostgreSql
+PASS embedded identifier delimiters are escaped for Sqlite
+PASS apostrophes in JSON projection names are escaped for Sqlite
+PASS embedded identifier delimiters are escaped for DuckDb
+PASS apostrophes in JSON projection names are escaped for DuckDb
+PASS embedded identifier delimiters are escaped for AzureSql
+PASS apostrophes in JSON projection names are escaped for AzureSql
+PASS legacy prequoted names remain compatible for SqlServer
+PASS legacy prequoted names remain compatible for AzureSql
+PASS legacy prequoted names remain compatible for MySql
+PASS legacy prequoted names remain compatible for PostgreSql
+PASS legacy SOUNDDEX marker renders SOUNDEX for SqlServer
+PASS legacy SOUNDDEX marker renders SOUNDEX for AzureSql
+PASS legacy SOUNDDEX marker renders SOUNDEX for MySql
+PASS missing execution connectors identify the connector parameter
+PASS select retains its connector and forwards caller transactions
+PASS select without a binding uses the current default connector
+PASS select-auto retains its connector and forwards caller transactions
+PASS select-auto without a binding uses the current default connector
+PASS select-key retains its connector and forwards caller transactions
+PASS select-key without a binding uses the current default connector
+PASS select-key-auto retains its connector and forwards caller transactions
+PASS select-key-auto without a binding uses the current default connector
+PASS select-count retains its connector and forwards caller transactions
+PASS select-count without a binding uses the current default connector
+PASS aggregate retains its connector and forwards caller transactions
+PASS aggregate without a binding uses the current default connector
+PASS aggregate-count retains its connector and forwards caller transactions
+PASS aggregate-count without a binding uses the current default connector
+PASS insert retains its connector and forwards caller transactions
+PASS insert without a binding uses the current default connector
+PASS insert-auto retains its connector and forwards caller transactions
+PASS insert-auto without a binding uses the current default connector
+PASS insert-output retains its connector and forwards caller transactions
+PASS insert-output without a binding uses the current default connector
+PASS insert-key retains its connector and forwards caller transactions
+PASS insert-key without a binding uses the current default connector
+PASS insert-key-auto retains its connector and forwards caller transactions
+PASS insert-key-auto without a binding uses the current default connector
+PASS insert-tvp retains its connector and forwards caller transactions
+PASS insert-tvp without a binding uses the current default connector
+PASS insert-tvp-output retains its connector and forwards caller transactions
+PASS insert-tvp-output without a binding uses the current default connector
+PASS insert-key-tvp retains its connector and forwards caller transactions
+PASS insert-key-tvp without a binding uses the current default connector
+PASS update retains its connector and forwards caller transactions
+PASS update without a binding uses the current default connector
+PASS update-output retains its connector and forwards caller transactions
+PASS update-output without a binding uses the current default connector
+PASS update-key retains its connector and forwards caller transactions
+PASS update-key without a binding uses the current default connector
+PASS update-key-auto retains its connector and forwards caller transactions
+PASS update-key-auto without a binding uses the current default connector
+PASS update-key-nondefaults retains its connector and forwards caller transactions
+PASS update-key-nondefaults without a binding uses the current default connector
+PASS delete retains its connector and forwards caller transactions
+PASS delete without a binding uses the current default connector
+PASS delete-output retains its connector and forwards caller transactions
+PASS delete-output without a binding uses the current default connector
+PASS delete-key retains its connector and forwards caller transactions
+PASS delete-key without a binding uses the current default connector
+PASS delete-key-value retains its connector and forwards caller transactions
+PASS delete-key-value without a binding uses the current default connector
+PASS delete-key-auto retains its connector and forwards caller transactions
+PASS delete-key-auto without a binding uses the current default connector
+PASS exists retains its connector and forwards caller transactions
+PASS exists without a binding uses the current default connector
+PASS truncate retains its connector and forwards caller transactions
+PASS truncate without a binding uses the current default connector
+PASS procedure-json retains its connector and forwards caller transactions
+PASS procedure-json without a binding uses the current default connector
+PASS procedure-table retains its connector and forwards caller transactions
+PASS procedure-table without a binding uses the current default connector
+PASS explicit SqlServer connector renders and executes without replacing the binding
+PASS explicit MySql connector renders and executes without replacing the binding
+PASS explicit PostgreSql connector renders and executes without replacing the binding
+PASS explicit Sqlite connector renders and executes without replacing the binding
+PASS explicit DuckDb connector renders and executes without replacing the binding
+PASS explicit AzureSql connector renders and executes without replacing the binding
+PASS capture freezes model aliases, builder paging, and predicates
+PASS capture owns binary predicates and rendered bindings
+PASS capture owns stored procedure TVP values
+PASS capture isolates read-only TVP binary cells
+PASS insert capture reads mapped values once and isolates entity mutations
+PASS capture supports repeated data and count compilation for SqlServer
+PASS capture supports repeated data and count compilation for MySql
+PASS capture supports repeated data and count compilation for PostgreSql
+PASS capture supports repeated data and count compilation for Sqlite
+PASS capture supports repeated data and count compilation for DuckDb
+PASS capture supports repeated data and count compilation for AzureSql
+PASS direct write rendering isolates compilation and preserves virtual overrides
+PASS one snapshot compiles concurrently across dialects with independent bindings
+PASS async select and total use async provider contracts for SqlServer
+PASS async output and primary key writes preserve response types for SqlServer
+PASS async select and total use async provider contracts for MySql
+PASS async output and primary key writes preserve response types for MySql
+PASS async select and total use async provider contracts for PostgreSql
+PASS async output and primary key writes preserve response types for PostgreSql
+PASS async select and total use async provider contracts for Sqlite
+PASS async output and primary key writes preserve response types for Sqlite
+PASS async select and total use async provider contracts for DuckDb
+PASS async output and primary key writes preserve response types for DuckDb
+PASS async select and total use async provider contracts for AzureSql
+PASS async output and primary key writes preserve response types for AzureSql
+PASS async execution retains its connector and supports a per-call override
+PASS async truncate and supported legacy procedure methods for SqlServer
+PASS async truncate and supported legacy procedure methods for MySql
+PASS async truncate and supported legacy procedure methods for PostgreSql
+PASS async truncate and supported legacy procedure methods for Sqlite
+PASS async truncate and supported legacy procedure methods for DuckDb
+PASS async truncate and supported legacy procedure methods for AzureSql
+PASS async SQL Server mapper combines JSON document chunks
+PASS async tabular loading preserves synchronous schema and row-state behavior
+PASS async count uses the captured definition after builder mutation during I/O
+PASS async aggregate count retains captured paging, initiallyPaged=False
+PASS async aggregate count retains captured paging, initiallyPaged=True
+PASS async batches freeze entity values and use one owned transaction
+PASS async pre-cancellation never creates a connection
+PASS async command cancellation preserves transaction ownership, caller=False
+PASS async command cancellation preserves transaction ownership, caller=True
+PASS async reader cancellation propagates and disposes reader and command
+PASS async database errors remain response values and roll back owned writes
+PASS async owned write failures remain response errors at open
+PASS async owned write failures remain response errors at command
+PASS async owned write failures remain response errors at parameter
+PASS async owned write failures remain response errors at begin
+PASS async owned write failures remain response errors at execute
+PASS async owned write failures remain response errors at commit
+PASS async owned write failures remain response errors at dispose-connection
+PASS async owned write failures remain response errors at dispose-transaction
+PASS async command and reader receive the supplied cancellation token
+PASS async unrelated cancellation exceptions remain response errors
+PASS async TVP insert and primary keys use async commands for SqlServer
+PASS async TVP insert and primary keys use async commands for AzureSql
+PASS cancelled TVP cleans its type in a usable caller transaction
+PASS tabular list maps SQL names, fields, nulls, enums, GUIDs and ignores API attributes, async=False
+PASS tabular list maps immutable models and nullable scalars, async=False
+PASS tabular list returns empty rows with and without a result schema, async=False
+PASS tabular list returns no partial models after missing failure, async=False
+PASS tabular list returns no partial models after null failure, async=False
+PASS tabular list returns no partial models after format failure, async=False
+PASS tabular list returns no partial models after overflow failure, async=False
+PASS tabular list returns no partial models after execute failure, async=False
+PASS tabular list preserves caller transaction after mapping failure, async=False
+PASS tabular list mapping failure rolls back owned output transaction, async=False
+PASS tabular table and list skip leading non-tabular results, flavor=SqlServer, async=False
+PASS tabular table and list skip leading non-tabular results, flavor=MySql, async=False
+PASS tabular table and list skip leading non-tabular results, flavor=PostgreSql, async=False
+PASS tabular table and list skip leading non-tabular results, flavor=Sqlite, async=False
+PASS tabular table and list skip leading non-tabular results, flavor=DuckDb, async=False
+PASS tabular table and list skip leading non-tabular results, flavor=AzureSql, async=False
+PASS tabular list maps SQL names, fields, nulls, enums, GUIDs and ignores API attributes, async=True
+PASS tabular list maps immutable models and nullable scalars, async=True
+PASS tabular list returns empty rows with and without a result schema, async=True
+PASS tabular list returns no partial models after missing failure, async=True
+PASS tabular list returns no partial models after null failure, async=True
+PASS tabular list returns no partial models after format failure, async=True
+PASS tabular list returns no partial models after overflow failure, async=True
+PASS tabular list returns no partial models after execute failure, async=True
+PASS tabular list preserves caller transaction after mapping failure, async=True
+PASS tabular list mapping failure rolls back owned output transaction, async=True
+PASS tabular table and list skip leading non-tabular results, flavor=SqlServer, async=True
+PASS tabular table and list skip leading non-tabular results, flavor=MySql, async=True
+PASS tabular table and list skip leading non-tabular results, flavor=PostgreSql, async=True
+PASS tabular table and list skip leading non-tabular results, flavor=Sqlite, async=True
+PASS tabular table and list skip leading non-tabular results, flavor=DuckDb, async=True
+PASS tabular table and list skip leading non-tabular results, flavor=AzureSql, async=True
+PASS tabular async list propagates cancellation while loading and disposes resources
+PASS tabular async list observes cancellation during model mapping
+PASS streaming mapping, repeat enumeration, and resources for SqlServer
+PASS streaming early exit disposes reader and owned connection for SqlServer
+PASS streaming empty JSON results for SqlServer
+PASS streaming mapping, repeat enumeration, and resources for MySql
+PASS streaming early exit disposes reader and owned connection for MySql
+PASS streaming empty JSON results for MySql
+PASS streaming mapping, repeat enumeration, and resources for PostgreSql
+PASS streaming early exit disposes reader and owned connection for PostgreSql
+PASS streaming empty JSON results for PostgreSql
+PASS streaming mapping, repeat enumeration, and resources for Sqlite
+PASS streaming early exit disposes reader and owned connection for Sqlite
+PASS streaming empty JSON results for Sqlite
+PASS streaming mapping, repeat enumeration, and resources for DuckDb
+PASS streaming early exit disposes reader and owned connection for DuckDb
+PASS streaming empty JSON results for DuckDb
+PASS streaming mapping, repeat enumeration, and resources for AzureSql
+PASS streaming early exit disposes reader and owned connection for AzureSql
+PASS streaming empty JSON results for AzureSql
+PASS streaming first row does not read the rest of a row-form result
+PASS streaming zero JSON transport rows match buffered execution for SqlServer
+PASS streaming zero JSON transport rows match buffered execution for AzureSql
+PASS streaming captures builder values and connector before deferred enumeration
+PASS streaming caller transaction survives early disposal
+PASS streaming wraps open failure and disposes resources
+PASS streaming wraps command failure and disposes resources
+PASS streaming wraps parameter failure and disposes resources
+PASS streaming wraps execute failure and disposes resources
+PASS streaming wraps read failure and disposes resources
+PASS streaming wraps json failure and disposes resources
+PASS streaming wraps dispose-connection failure and disposes resources
+PASS streaming error after a delivered row preserves partial progress
+PASS streaming cancellation during enumeration, enumerationToken=False
+PASS streaming cancellation during enumeration, enumerationToken=True
+PASS streaming cancelled before enumeration does not create a connection
+PASS streaming consumer failure disposes enumeration
+PASS streaming SQL Server fragments split strings, escapes, surrogate pairs, and large tokens
+PASS streaming SQL Server yields before reading the complete document
+PASS streaming SQL Server rejects malformed or truncated document [{"Id":1}
+PASS streaming SQL Server rejects malformed or truncated document [{bad}]
+PASS streaming SQL Server rejects malformed or truncated document [{"Name":"unterminated
+PASS streaming streaming hook covers deferred reads and disposal
+PASS streaming DuckDB deadline remains active while consumer pauses
+PASS streaming real Sqlite nested mapping, projections, cancellation, and caller rollback
+PASS streaming real DuckDb nested mapping, projections, cancellation, and caller rollback
+PASS async SqlServer TVP failure preserves ownership and cleans type, stage=CREATE TYPE, caller=False, output=False
+PASS async SqlServer TVP failure preserves ownership and cleans type, stage=INSERT INTO, caller=False, output=False
+PASS async SqlServer TVP failure preserves ownership and cleans type, stage=DROP TYPE, caller=False, output=False
+PASS async SqlServer TVP failure preserves ownership and cleans type, stage=CREATE TYPE, caller=False, output=True
+PASS async SqlServer TVP failure preserves ownership and cleans type, stage=INSERT INTO, caller=False, output=True
+PASS async SqlServer TVP failure preserves ownership and cleans type, stage=DROP TYPE, caller=False, output=True
+PASS async SqlServer TVP failure preserves ownership and cleans type, stage=CREATE TYPE, caller=True, output=False
+PASS async SqlServer TVP failure preserves ownership and cleans type, stage=INSERT INTO, caller=True, output=False
+PASS async SqlServer TVP failure preserves ownership and cleans type, stage=DROP TYPE, caller=True, output=False
+PASS async SqlServer TVP failure preserves ownership and cleans type, stage=CREATE TYPE, caller=True, output=True
+PASS async SqlServer TVP failure preserves ownership and cleans type, stage=INSERT INTO, caller=True, output=True
+PASS async SqlServer TVP failure preserves ownership and cleans type, stage=DROP TYPE, caller=True, output=True
+PASS async AzureSql TVP failure preserves ownership and cleans type, stage=CREATE TYPE, caller=False, output=False
+PASS async AzureSql TVP failure preserves ownership and cleans type, stage=INSERT INTO, caller=False, output=False
+PASS async AzureSql TVP failure preserves ownership and cleans type, stage=DROP TYPE, caller=False, output=False
+PASS async AzureSql TVP failure preserves ownership and cleans type, stage=CREATE TYPE, caller=False, output=True
+PASS async AzureSql TVP failure preserves ownership and cleans type, stage=INSERT INTO, caller=False, output=True
+PASS async AzureSql TVP failure preserves ownership and cleans type, stage=DROP TYPE, caller=False, output=True
+PASS async AzureSql TVP failure preserves ownership and cleans type, stage=CREATE TYPE, caller=True, output=False
+PASS async AzureSql TVP failure preserves ownership and cleans type, stage=INSERT INTO, caller=True, output=False
+PASS async AzureSql TVP failure preserves ownership and cleans type, stage=DROP TYPE, caller=True, output=False
+PASS async AzureSql TVP failure preserves ownership and cleans type, stage=CREATE TYPE, caller=True, output=True
+PASS async AzureSql TVP failure preserves ownership and cleans type, stage=INSERT INTO, caller=True, output=True
+PASS async AzureSql TVP failure preserves ownership and cleans type, stage=DROP TYPE, caller=True, output=True
+PASS SqlServer async callable maps multiple sets and reads outputs after close
+PASS AzureSql async callable maps multiple sets and reads outputs after close
+PASS SqlServer callable maps ordinary rows two sets and delayed outputs
+PASS SqlServer callable preserves caller transaction on success
+PASS AzureSql callable maps ordinary rows two sets and delayed outputs
+PASS AzureSql callable preserves caller transaction on success
+PASS callable typed NULL differs from an omitted parameter
+PASS callable preserves provider metadata and table parameter
+PASS callable accepts empty result sets and skips update counts
+PASS callable rejects result contract mismatch: missing
+PASS callable rejects result contract mismatch: extra
+PASS callable rejects result contract mismatch: null
+PASS callable rejects result contract mismatch: missing-column
+PASS callable preserves caller ownership on mapping failure
+PASS callable handles connector failure: open
+PASS callable handles connector failure: command
+PASS callable handles connector failure: parameter
+PASS callable handles connector failure: begin
+PASS callable handles connector failure: execute
+PASS callable handles connector failure: commit
+PASS callable definitions support external shared models and distinct routine identities
+PASS callable maps immutable row constructors and nullable scalar sets
+PASS callable rejects unsupported providers before creating a connection
+PASS callable validates definitions and arguments before execution
+PASS relationship collection types use their enumerable element rather than their own generic arguments
+PASS JSON loads fields, private setters and getter-only properties for SqlServer
+PASS JSON loads nested objects, collections and nulls for SqlServer
+PASS JSON loads string enums, quoted numbers and numeric booleans for SqlServer
+PASS JSON loads numeric enums and native booleans for SqlServer
+PASS JSON loads database date strings independent of culture for SqlServer
+PASS JSON loads ISO UTC dates for SqlServer
+PASS SQL JSON ignores API member attributes for SqlServer
+PASS SQL JSON chooses constructors independently of API attributes for SqlServer
+PASS SQL loading supports independent SQL and API contracts for SqlServer, async=False
+PASS SQL loading bypasses API converters on models and members for SqlServer, async=False
+PASS SQL loading supports independent SQL and API contracts for SqlServer, async=True
+PASS SQL loading bypasses API converters on models and members for SqlServer, async=True
+PASS SQL JSON bypasses API validation and object creation rules for SqlServer
+PASS SQL JSON uses CLR enum names independently of API enum names for SqlServer
+PASS SQL JSON handles model structs and attributed collections for SqlServer
+PASS JSON preserves anonymous aggregate projections for SqlServer
+PASS SQL model construction failures remain error values for SqlServer
+PASS JSON returns an empty collection for no rows for SqlServer
+PASS JSON parse errors report failure and dispose resources for SqlServer
+PASS JSON loads fields, private setters and getter-only properties for MySql
+PASS JSON loads nested objects, collections and nulls for MySql
+PASS JSON loads string enums, quoted numbers and numeric booleans for MySql
+PASS JSON loads numeric enums and native booleans for MySql
+PASS JSON loads database date strings independent of culture for MySql
+PASS JSON loads ISO UTC dates for MySql
+PASS SQL JSON ignores API member attributes for MySql
+PASS SQL JSON chooses constructors independently of API attributes for MySql
+PASS SQL loading supports independent SQL and API contracts for MySql, async=False
+PASS SQL loading bypasses API converters on models and members for MySql, async=False
+PASS SQL loading supports independent SQL and API contracts for MySql, async=True
+PASS SQL loading bypasses API converters on models and members for MySql, async=True
+PASS SQL JSON bypasses API validation and object creation rules for MySql
+PASS SQL JSON uses CLR enum names independently of API enum names for MySql
+PASS SQL JSON handles model structs and attributed collections for MySql
+PASS JSON preserves anonymous aggregate projections for MySql
+PASS SQL model construction failures remain error values for MySql
+PASS JSON returns an empty collection for no rows for MySql
+PASS JSON parse errors report failure and dispose resources for MySql
+PASS JSON loads fields, private setters and getter-only properties for PostgreSql
+PASS JSON loads nested objects, collections and nulls for PostgreSql
+PASS JSON loads string enums, quoted numbers and numeric booleans for PostgreSql
+PASS JSON loads numeric enums and native booleans for PostgreSql
+PASS JSON loads database date strings independent of culture for PostgreSql
+PASS JSON loads ISO UTC dates for PostgreSql
+PASS SQL JSON ignores API member attributes for PostgreSql
+PASS SQL JSON chooses constructors independently of API attributes for PostgreSql
+PASS SQL loading supports independent SQL and API contracts for PostgreSql, async=False
+PASS SQL loading bypasses API converters on models and members for PostgreSql, async=False
+PASS SQL loading supports independent SQL and API contracts for PostgreSql, async=True
+PASS SQL loading bypasses API converters on models and members for PostgreSql, async=True
+PASS SQL JSON bypasses API validation and object creation rules for PostgreSql
+PASS SQL JSON uses CLR enum names independently of API enum names for PostgreSql
+PASS SQL JSON handles model structs and attributed collections for PostgreSql
+PASS JSON preserves anonymous aggregate projections for PostgreSql
+PASS SQL model construction failures remain error values for PostgreSql
+PASS JSON returns an empty collection for no rows for PostgreSql
+PASS JSON parse errors report failure and dispose resources for PostgreSql
+PASS JSON loads fields, private setters and getter-only properties for Sqlite
+PASS JSON loads nested objects, collections and nulls for Sqlite
+PASS JSON loads string enums, quoted numbers and numeric booleans for Sqlite
+PASS JSON loads numeric enums and native booleans for Sqlite
+PASS JSON loads database date strings independent of culture for Sqlite
+PASS JSON loads ISO UTC dates for Sqlite
+PASS SQL JSON ignores API member attributes for Sqlite
+PASS SQL JSON chooses constructors independently of API attributes for Sqlite
+PASS SQL loading supports independent SQL and API contracts for Sqlite, async=False
+PASS SQL loading bypasses API converters on models and members for Sqlite, async=False
+PASS SQL loading supports independent SQL and API contracts for Sqlite, async=True
+PASS SQL loading bypasses API converters on models and members for Sqlite, async=True
+PASS SQL JSON bypasses API validation and object creation rules for Sqlite
+PASS SQL JSON uses CLR enum names independently of API enum names for Sqlite
+PASS SQL JSON handles model structs and attributed collections for Sqlite
+PASS JSON preserves anonymous aggregate projections for Sqlite
+PASS SQL model construction failures remain error values for Sqlite
+PASS JSON returns an empty collection for no rows for Sqlite
+PASS JSON parse errors report failure and dispose resources for Sqlite
+PASS JSON loads fields, private setters and getter-only properties for DuckDb
+PASS JSON loads nested objects, collections and nulls for DuckDb
+PASS JSON loads string enums, quoted numbers and numeric booleans for DuckDb
+PASS JSON loads numeric enums and native booleans for DuckDb
+PASS JSON loads database date strings independent of culture for DuckDb
+PASS JSON loads ISO UTC dates for DuckDb
+PASS SQL JSON ignores API member attributes for DuckDb
+PASS SQL JSON chooses constructors independently of API attributes for DuckDb
+PASS SQL loading supports independent SQL and API contracts for DuckDb, async=False
+PASS SQL loading bypasses API converters on models and members for DuckDb, async=False
+PASS SQL loading supports independent SQL and API contracts for DuckDb, async=True
+PASS SQL loading bypasses API converters on models and members for DuckDb, async=True
+PASS SQL JSON bypasses API validation and object creation rules for DuckDb
+PASS SQL JSON uses CLR enum names independently of API enum names for DuckDb
+PASS SQL JSON handles model structs and attributed collections for DuckDb
+PASS JSON preserves anonymous aggregate projections for DuckDb
+PASS SQL model construction failures remain error values for DuckDb
+PASS JSON returns an empty collection for no rows for DuckDb
+PASS JSON parse errors report failure and dispose resources for DuckDb
+PASS JSON loads fields, private setters and getter-only properties for AzureSql
+PASS JSON loads nested objects, collections and nulls for AzureSql
+PASS JSON loads string enums, quoted numbers and numeric booleans for AzureSql
+PASS JSON loads numeric enums and native booleans for AzureSql
+PASS JSON loads database date strings independent of culture for AzureSql
+PASS JSON loads ISO UTC dates for AzureSql
+PASS SQL JSON ignores API member attributes for AzureSql
+PASS SQL JSON chooses constructors independently of API attributes for AzureSql
+PASS SQL loading supports independent SQL and API contracts for AzureSql, async=False
+PASS SQL loading bypasses API converters on models and members for AzureSql, async=False
+PASS SQL loading supports independent SQL and API contracts for AzureSql, async=True
+PASS SQL loading bypasses API converters on models and members for AzureSql, async=True
+PASS SQL JSON bypasses API validation and object creation rules for AzureSql
+PASS SQL JSON uses CLR enum names independently of API enum names for AzureSql
+PASS SQL JSON handles model structs and attributed collections for AzureSql
+PASS JSON preserves anonymous aggregate projections for AzureSql
+PASS SQL model construction failures remain error values for AzureSql
+PASS JSON returns an empty collection for no rows for AzureSql
+PASS JSON parse errors report failure and dispose resources for AzureSql
+PASS parallel independent queries isolate bindings and schemas for SqlServer
+PASS independent relationship occurrences and schemas for SqlServer
+PASS relationship schema defaults honor explicit overrides for SqlServer
+PASS paging preserves grouped and distinct projections for SqlServer
+PASS count preserves result shape and binds each parameter once for SqlServer
+PASS relationship filters render deterministically for SqlServer, EQ
+PASS relationship filters render deterministically for SqlServer, NOT
+PASS large mixed filters retain their parameters for SqlServer
+PASS insert batches respect budgets and ownership for SqlServer, output=False, caller=False, fail=False
+PASS insert batches respect budgets and ownership for SqlServer, output=False, caller=False, fail=True
+PASS insert batches respect budgets and ownership for SqlServer, output=False, caller=True, fail=False
+PASS insert batches respect budgets and ownership for SqlServer, output=False, caller=True, fail=True
+PASS insert batches respect budgets and ownership for SqlServer, output=True, caller=False, fail=False
+PASS insert batches respect budgets and ownership for SqlServer, output=True, caller=False, fail=True
+PASS insert batches respect budgets and ownership for SqlServer, output=True, caller=True, fail=False
+PASS insert batches respect budgets and ownership for SqlServer, output=True, caller=True, fail=True
+PASS an oversized insert row returns an error before connecting for SqlServer
+PASS parallel independent queries isolate bindings and schemas for MySql
+PASS independent relationship occurrences and schemas for MySql
+PASS relationship schema defaults honor explicit overrides for MySql
+PASS paging preserves grouped and distinct projections for MySql
+PASS count preserves result shape and binds each parameter once for MySql
+PASS relationship filters render deterministically for MySql, EQ
+PASS relationship filters render deterministically for MySql, NOT
+PASS large mixed filters retain their parameters for MySql
+PASS insert batches respect budgets and ownership for MySql, output=False, caller=False, fail=False
+PASS insert batches respect budgets and ownership for MySql, output=False, caller=False, fail=True
+PASS insert batches respect budgets and ownership for MySql, output=False, caller=True, fail=False
+PASS insert batches respect budgets and ownership for MySql, output=False, caller=True, fail=True
+PASS insert batches respect budgets and ownership for MySql, output=True, caller=False, fail=False
+PASS insert batches respect budgets and ownership for MySql, output=True, caller=False, fail=True
+PASS insert batches respect budgets and ownership for MySql, output=True, caller=True, fail=False
+PASS insert batches respect budgets and ownership for MySql, output=True, caller=True, fail=True
+PASS an oversized insert row returns an error before connecting for MySql
+PASS parallel independent queries isolate bindings and schemas for PostgreSql
+PASS independent relationship occurrences and schemas for PostgreSql
+PASS relationship schema defaults honor explicit overrides for PostgreSql
+PASS paging preserves grouped and distinct projections for PostgreSql
+PASS count preserves result shape and binds each parameter once for PostgreSql
+PASS relationship filters render deterministically for PostgreSql, EQ
+PASS relationship filters render deterministically for PostgreSql, NOT
+PASS large mixed filters retain their parameters for PostgreSql
+PASS insert batches respect budgets and ownership for PostgreSql, output=False, caller=False, fail=False
+PASS insert batches respect budgets and ownership for PostgreSql, output=False, caller=False, fail=True
+PASS insert batches respect budgets and ownership for PostgreSql, output=False, caller=True, fail=False
+PASS insert batches respect budgets and ownership for PostgreSql, output=False, caller=True, fail=True
+PASS insert batches respect budgets and ownership for PostgreSql, output=True, caller=False, fail=False
+PASS insert batches respect budgets and ownership for PostgreSql, output=True, caller=False, fail=True
+PASS insert batches respect budgets and ownership for PostgreSql, output=True, caller=True, fail=False
+PASS insert batches respect budgets and ownership for PostgreSql, output=True, caller=True, fail=True
+PASS an oversized insert row returns an error before connecting for PostgreSql
+PASS parallel independent queries isolate bindings and schemas for Sqlite
+PASS independent relationship occurrences and schemas for Sqlite
+PASS relationship schema defaults honor explicit overrides for Sqlite
+PASS paging preserves grouped and distinct projections for Sqlite
+PASS count preserves result shape and binds each parameter once for Sqlite
+PASS relationship filters render deterministically for Sqlite, EQ
+PASS relationship filters render deterministically for Sqlite, NOT
+PASS large mixed filters retain their parameters for Sqlite
+PASS insert batches respect budgets and ownership for Sqlite, output=False, caller=False, fail=False
+PASS insert batches respect budgets and ownership for Sqlite, output=False, caller=False, fail=True
+PASS insert batches respect budgets and ownership for Sqlite, output=False, caller=True, fail=False
+PASS insert batches respect budgets and ownership for Sqlite, output=False, caller=True, fail=True
+PASS insert batches respect budgets and ownership for Sqlite, output=True, caller=False, fail=False
+PASS insert batches respect budgets and ownership for Sqlite, output=True, caller=False, fail=True
+PASS insert batches respect budgets and ownership for Sqlite, output=True, caller=True, fail=False
+PASS insert batches respect budgets and ownership for Sqlite, output=True, caller=True, fail=True
+PASS an oversized insert row returns an error before connecting for Sqlite
+PASS parallel independent queries isolate bindings and schemas for DuckDb
+PASS independent relationship occurrences and schemas for DuckDb
+PASS relationship schema defaults honor explicit overrides for DuckDb
+PASS paging preserves grouped and distinct projections for DuckDb
+PASS count preserves result shape and binds each parameter once for DuckDb
+PASS relationship filters render deterministically for DuckDb, EQ
+PASS relationship filters render deterministically for DuckDb, NOT
+PASS large mixed filters retain their parameters for DuckDb
+PASS insert batches respect budgets and ownership for DuckDb, output=False, caller=False, fail=False
+PASS insert batches respect budgets and ownership for DuckDb, output=False, caller=False, fail=True
+PASS insert batches respect budgets and ownership for DuckDb, output=False, caller=True, fail=False
+PASS insert batches respect budgets and ownership for DuckDb, output=False, caller=True, fail=True
+PASS insert batches respect budgets and ownership for DuckDb, output=True, caller=False, fail=False
+PASS insert batches respect budgets and ownership for DuckDb, output=True, caller=False, fail=True
+PASS insert batches respect budgets and ownership for DuckDb, output=True, caller=True, fail=False
+PASS insert batches respect budgets and ownership for DuckDb, output=True, caller=True, fail=True
+PASS an oversized insert row returns an error before connecting for DuckDb
+PASS parallel independent queries isolate bindings and schemas for AzureSql
+PASS independent relationship occurrences and schemas for AzureSql
+PASS relationship schema defaults honor explicit overrides for AzureSql
+PASS paging preserves grouped and distinct projections for AzureSql
+PASS count preserves result shape and binds each parameter once for AzureSql
+PASS relationship filters render deterministically for AzureSql, EQ
+PASS relationship filters render deterministically for AzureSql, NOT
+PASS large mixed filters retain their parameters for AzureSql
+PASS insert batches respect budgets and ownership for AzureSql, output=False, caller=False, fail=False
+PASS insert batches respect budgets and ownership for AzureSql, output=False, caller=False, fail=True
+PASS insert batches respect budgets and ownership for AzureSql, output=False, caller=True, fail=False
+PASS insert batches respect budgets and ownership for AzureSql, output=False, caller=True, fail=True
+PASS insert batches respect budgets and ownership for AzureSql, output=True, caller=False, fail=False
+PASS insert batches respect budgets and ownership for AzureSql, output=True, caller=False, fail=True
+PASS insert batches respect budgets and ownership for AzureSql, output=True, caller=True, fail=False
+PASS insert batches respect budgets and ownership for AzureSql, output=True, caller=True, fail=True
+PASS an oversized insert row returns an error before connecting for AzureSql
+PASS SQL Server VALUES row budget applies for SqlServer
+PASS SQL Server parameter ceiling cannot be raised for SqlServer
+PASS SQL Server VALUES row budget applies for AzureSql
+PASS SQL Server parameter ceiling cannot be raised for AzureSql
+PASS primary keys are collected across insert batches
+PASS PostgreSQL DISTINCT JSON and totals use comparable projections
+PASS owned batch failures remain error values at open
+PASS owned batch failures remain error values at command
+PASS owned batch failures remain error values at parameter
+PASS owned batch failures remain error values at begin
+PASS owned batch failures remain error values at commit
+PASS owned batch failures remain error values at dispose-connection
+PASS owned batch failures remain error values at dispose-transaction
+PASS batch rollback failure preserves the original execution error
+PASS metadata caches distinguish identical names from different assemblies
+PASS column identity still follows public metadata mutations
+703 passed, 0 failed
+regression: PASS
+=== sqlite ===
+file: Microsoft.Data.Sqlite 10.0.13; SQLite 3.53.3; .NET 10.0.13
+PASS file: connector preserves provider timeout and connection string
+PASS file: insert RETURNING converts Int64 primary keys to Int32
+PASS file: multirow insert and null/default values
+PASS file: typed root JSON roundtrips provider values
+PASS file: direct render and connector render share parameter syntax
+PASS file: DateTime clock roundtrips but Kind is not stored
+PASS file: root Top Page Limit and total count
+PASS file: nested objects arrays and missing relationships
+PASS file: nested pagination orders and limits before JSON aggregation
+PASS file: empty root and null predicates
+PASS file: LIKE uses explicit backslash escaping
+PASS file: word LIKE uses native ASCII boundaries escaping wildcard patterns and nulls
+PASS file: binary equality uses one BLOB parameter
+PASS file: byte-valued lists remain numeric predicates for nonbinary columns
+PASS file: aggregate JSON date string and null functions
+PASS file: grouped aggregate JSON and empty aggregate
+PASS file: grouped DISTINCT and nested counts ignore paging
+PASS file: CASE and nested functions keep scalar SQL expressions
+PASS file: typed nested CASE and functions handle null and column branches
+PASS file: CASE aggregates group by the resulting value and count result groups
+PASS file: anonymous grouped ordering uses aggregate expressions before pagination
+PASS file: DISTINCT aggregate counts ignore nulls and preserve empty results
+PASS file: one-to-many CTE filtering preserves one root per match
+PASS file: IN NOT IN and empty array filters
+PASS file: identifiers literals and JSON keys escape quotes
+PASS file: GUID primary keys and default-only inserts
+PASS file: default expressions RETURNING and failed bulk writes are atomic
+PASS file: joined writes without a primary key are rejected
+PASS file: plain updates use unqualified targets and commit owned transactions
+PASS file: update RETURNING with primary keys and arithmetic
+PASS file: joined update uses safe target selection
+PASS file: joined source assignments preserve LEFT nulls and simultaneous target references
+PASS file: joined source assignments combine CTE filters RETURNING and no matches
+PASS file: joined duplicate sources update each target once using a native matching value
+PASS file: rejects unsupported requests before execution
+PASS file: rollback and failed writes keep caller ownership
+PASS file: delete RETURNING through joined filters
+PASS file: compatible: two relationships to the same table return independent values
+PASS file: compatible: grouped, distinct and aggregate pages retain result meaning
+PASS file: compatible: related tables resolve in the configured default schema
+PASS file: compatible: repeated relationship filters retain values, EQ
+PASS file: compatible: repeated relationship filters retain values, NOT
+PASS file: compatible: SQL loading ignores API attributes and preserves API serialization, async=False
+PASS file: compatible: SQL loading ignores API attributes and preserves API serialization, async=True
+PASS file: compatible: exact and partial batch boundaries preserve keys, rows=1
+PASS file: compatible: exact and partial batch boundaries preserve keys, rows=2
+PASS file: compatible: exact and partial batch boundaries preserve keys, rows=3
+PASS file: compatible: exact and partial batch boundaries preserve keys, rows=5
+PASS file: compatible: exact and partial batch boundaries preserve keys, rows=33
+PASS file: compatible: batch insert returns every primary key
+PASS file: compatible: batch output preserves rows
+PASS file: compatible: later batch failure rolls back owned transaction, output=False
+PASS file: compatible: later batch failure rolls back owned transaction, output=True
+PASS file: compatible: caller can roll back a successful batch
+PASS file: compatible: empty and oversized inserts leave the database unchanged
+PASS file: SQL JSON: API metadata and serializer changes preserve nested database values, read=Execute
+PASS file: SQL JSON: throwing API converters on roots, members and collections never run, read=Execute
+PASS file: SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=Execute
+PASS file: SQL JSON: empty results, paging, projections and aggregates, read=Execute
+PASS file: SQL JSON: large Unicode value survives native transport, read=Execute
+PASS file: SQL JSON: API metadata and serializer changes preserve nested database values, read=ExecuteAsync
+PASS file: SQL JSON: throwing API converters on roots, members and collections never run, read=ExecuteAsync
+PASS file: SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=ExecuteAsync
+PASS file: SQL JSON: empty results, paging, projections and aggregates, read=ExecuteAsync
+PASS file: SQL JSON: large Unicode value survives native transport, read=ExecuteAsync
+PASS file: SQL JSON: API metadata and serializer changes preserve nested database values, read=ExecuteAsyncStream
+PASS file: SQL JSON: throwing API converters on roots, members and collections never run, read=ExecuteAsyncStream
+PASS file: SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=ExecuteAsyncStream
+PASS file: SQL JSON: empty results, paging, projections and aggregates, read=ExecuteAsyncStream
+PASS file: SQL JSON: large Unicode value survives native transport, read=ExecuteAsyncStream
+PASS file: SQL JSON: async-stream early exit closes the reader and preserves caller rollback
+PASS file: SQL JSON: async-stream cancellation disposes the execution and preserves its token
+PASS file: SQL JSON: async-stream database errors retain the rendered query
+PASS file: SQL JSON: concurrent API serialization and snapshot loading keep independent contracts
+PASS file: attached schema remains qualified and missing schemas fail
+shared memory: Microsoft.Data.Sqlite 10.0.13; SQLite 3.53.3; .NET 10.0.13
+PASS shared memory: connector preserves provider timeout and connection string
+PASS shared memory: insert RETURNING converts Int64 primary keys to Int32
+PASS shared memory: multirow insert and null/default values
+PASS shared memory: typed root JSON roundtrips provider values
+PASS shared memory: direct render and connector render share parameter syntax
+PASS shared memory: DateTime clock roundtrips but Kind is not stored
+PASS shared memory: root Top Page Limit and total count
+PASS shared memory: nested objects arrays and missing relationships
+PASS shared memory: nested pagination orders and limits before JSON aggregation
+PASS shared memory: empty root and null predicates
+PASS shared memory: LIKE uses explicit backslash escaping
+PASS shared memory: word LIKE uses native ASCII boundaries escaping wildcard patterns and nulls
+PASS shared memory: binary equality uses one BLOB parameter
+PASS shared memory: byte-valued lists remain numeric predicates for nonbinary columns
+PASS shared memory: aggregate JSON date string and null functions
+PASS shared memory: grouped aggregate JSON and empty aggregate
+PASS shared memory: grouped DISTINCT and nested counts ignore paging
+PASS shared memory: CASE and nested functions keep scalar SQL expressions
+PASS shared memory: typed nested CASE and functions handle null and column branches
+PASS shared memory: CASE aggregates group by the resulting value and count result groups
+PASS shared memory: anonymous grouped ordering uses aggregate expressions before pagination
+PASS shared memory: DISTINCT aggregate counts ignore nulls and preserve empty results
+PASS shared memory: one-to-many CTE filtering preserves one root per match
+PASS shared memory: IN NOT IN and empty array filters
+PASS shared memory: identifiers literals and JSON keys escape quotes
+PASS shared memory: GUID primary keys and default-only inserts
+PASS shared memory: default expressions RETURNING and failed bulk writes are atomic
+PASS shared memory: joined writes without a primary key are rejected
+PASS shared memory: plain updates use unqualified targets and commit owned transactions
+PASS shared memory: update RETURNING with primary keys and arithmetic
+PASS shared memory: joined update uses safe target selection
+PASS shared memory: joined source assignments preserve LEFT nulls and simultaneous target references
+PASS shared memory: joined source assignments combine CTE filters RETURNING and no matches
+PASS shared memory: joined duplicate sources update each target once using a native matching value
+PASS shared memory: rejects unsupported requests before execution
+PASS shared memory: rollback and failed writes keep caller ownership
+PASS shared memory: delete RETURNING through joined filters
+PASS shared memory: compatible: two relationships to the same table return independent values
+PASS shared memory: compatible: grouped, distinct and aggregate pages retain result meaning
+PASS shared memory: compatible: related tables resolve in the configured default schema
+PASS shared memory: compatible: repeated relationship filters retain values, EQ
+PASS shared memory: compatible: repeated relationship filters retain values, NOT
+PASS shared memory: compatible: SQL loading ignores API attributes and preserves API serialization, async=False
+PASS shared memory: compatible: SQL loading ignores API attributes and preserves API serialization, async=True
+PASS shared memory: compatible: exact and partial batch boundaries preserve keys, rows=1
+PASS shared memory: compatible: exact and partial batch boundaries preserve keys, rows=2
+PASS shared memory: compatible: exact and partial batch boundaries preserve keys, rows=3
+PASS shared memory: compatible: exact and partial batch boundaries preserve keys, rows=5
+PASS shared memory: compatible: exact and partial batch boundaries preserve keys, rows=33
+PASS shared memory: compatible: batch insert returns every primary key
+PASS shared memory: compatible: batch output preserves rows
+PASS shared memory: compatible: later batch failure rolls back owned transaction, output=False
+PASS shared memory: compatible: later batch failure rolls back owned transaction, output=True
+PASS shared memory: compatible: caller can roll back a successful batch
+PASS shared memory: compatible: empty and oversized inserts leave the database unchanged
+PASS shared memory: SQL JSON: API metadata and serializer changes preserve nested database values, read=Execute
+PASS shared memory: SQL JSON: throwing API converters on roots, members and collections never run, read=Execute
+PASS shared memory: SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=Execute
+PASS shared memory: SQL JSON: empty results, paging, projections and aggregates, read=Execute
+PASS shared memory: SQL JSON: large Unicode value survives native transport, read=Execute
+PASS shared memory: SQL JSON: API metadata and serializer changes preserve nested database values, read=ExecuteAsync
+PASS shared memory: SQL JSON: throwing API converters on roots, members and collections never run, read=ExecuteAsync
+PASS shared memory: SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=ExecuteAsync
+PASS shared memory: SQL JSON: empty results, paging, projections and aggregates, read=ExecuteAsync
+PASS shared memory: SQL JSON: large Unicode value survives native transport, read=ExecuteAsync
+PASS shared memory: SQL JSON: API metadata and serializer changes preserve nested database values, read=ExecuteAsyncStream
+PASS shared memory: SQL JSON: throwing API converters on roots, members and collections never run, read=ExecuteAsyncStream
+PASS shared memory: SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=ExecuteAsyncStream
+PASS shared memory: SQL JSON: empty results, paging, projections and aggregates, read=ExecuteAsyncStream
+PASS shared memory: SQL JSON: large Unicode value survives native transport, read=ExecuteAsyncStream
+PASS shared memory: SQL JSON: async-stream early exit closes the reader and preserves caller rollback
+PASS shared memory: SQL JSON: async-stream cancellation disposes the execution and preserves its token
+PASS shared memory: SQL JSON: async-stream database errors retain the rendered query
+PASS shared memory: SQL JSON: concurrent API serialization and snapshot loading keep independent contracts
+PASS shared memory: attached schema remains qualified and missing schemas fail
+PASS real Sqlite sync/async scalar nulls, nullable values, GUIDs, enums, and invariant conversion
+PASS real Sqlite sync/async CRUD, totals, nesting, binary values, and caller rollback
+152 passed, 0 failed
+sqlite: PASS
+=== duckdb ===
+Provider 1.5.6.1; native v1.5.6; linux-x64
+PASS sequence-generated keys and tabular output
+PASS typed root JSON bool enum GUID timestamp decimal binary null
+PASS insert affected rows and returned rows
+PASS DataTable materializes native scalar and binary columns
+PASS nested many, one, empty arrays and absent one
+PASS nested ordering and pagination before JSON aggregation
+PASS count paging and Top preserve parameters and query state
+PASS parameterized subquery and relationship filters
+PASS relationship counts and ordering by related rows
+PASS direct Render flavor, connector, existing collection and repeated dialect rendering
+PASS existing parameters remain intact when rendering another query
+PASS common string/date functions and aggregate aliases
+PASS grouped parameterized functions and nested function expressions
+PASS imported named parameters avoid generated placeholder collisions
+PASS all supported aggregate aliases execute in the native engine
+PASS nested relationships preserve JSON scalar types
+PASS parameterized scalar types and binary equality
+PASS LIKE escaping preserves literal wildcard and backslash characters
+PASS byte arrays remain IN lists for byte-valued columns
+PASS date, timestamp with offset, string enum and nullable JSON values
+PASS update returned rows, arithmetic, columns and affected counts
+PASS caller owns transaction, reads/writes/count/output and rollback
+PASS owned transaction rolls back earlier statements on provider failure
+PASS joined source assignments, outputs, keys and LEFT JOIN nulls roll back
+PASS joined writes combine related-row CTE filters and preserve no-match output
+PASS duplicate source matches reject ambiguous updates and delete each target once
+PASS owned joined writes persist
+PASS pure aggregate root FROM, nested numeric conversions and empty aggregates
+PASS grouped and distinct totals count results and preserve parameters
+PASS aggregate and distinct paging preserve grouping
+PASS CASE values and nested functions group by the projected expression
+PASS LEFT projection dispatch and nested functions retain aliases
+PASS default-only batch inserts and integer long GUID key conversions
+PASS custom predicate Finalize overrides retain behavior across dialects
+PASS native word predicates preserve boundaries wildcards escaping NULL and dialect renders
+PASS wide scalar aggregates convert native HUGEINT without losing checked overflow
+PASS JSON and tabular readers honor command deadlines
+PASS command deadline interrupts native work and permits caller rollback and connection reuse
+PASS delete keys/rows and affected counts
+PASS stored procedures, TVPs and unsupported functions reject before execution
+PASS replicated file connections persist with no injected timeout
+PASS TRUNCATE native statement preserves sequence
+PASS plain memory databases are independent; caller transaction keeps memory alive
+PASS compatible: two relationships to the same table return independent values
+PASS compatible: grouped, distinct and aggregate pages retain result meaning
+PASS compatible: related tables resolve in the configured default schema
+PASS compatible: repeated relationship filters retain values, EQ
+PASS compatible: repeated relationship filters retain values, NOT
+PASS compatible: SQL loading ignores API attributes and preserves API serialization, async=False
+PASS compatible: SQL loading ignores API attributes and preserves API serialization, async=True
+PASS compatible: exact and partial batch boundaries preserve keys, rows=1
+PASS compatible: exact and partial batch boundaries preserve keys, rows=2
+PASS compatible: exact and partial batch boundaries preserve keys, rows=3
+PASS compatible: exact and partial batch boundaries preserve keys, rows=5
+PASS compatible: exact and partial batch boundaries preserve keys, rows=33
+PASS compatible: batch insert returns every primary key
+PASS compatible: batch output preserves rows
+PASS compatible: later batch failure rolls back owned transaction, output=False
+PASS compatible: later batch failure rolls back owned transaction, output=True
+PASS compatible: caller can roll back a successful batch
+PASS compatible: empty and oversized inserts leave the database unchanged
+PASS SQL JSON: API metadata and serializer changes preserve nested database values, read=Execute
+PASS SQL JSON: throwing API converters on roots, members and collections never run, read=Execute
+PASS SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=Execute
+PASS SQL JSON: empty results, paging, projections and aggregates, read=Execute
+PASS SQL JSON: large Unicode value survives native transport, read=Execute
+PASS SQL JSON: API metadata and serializer changes preserve nested database values, read=ExecuteAsync
+PASS SQL JSON: throwing API converters on roots, members and collections never run, read=ExecuteAsync
+PASS SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=ExecuteAsync
+PASS SQL JSON: empty results, paging, projections and aggregates, read=ExecuteAsync
+PASS SQL JSON: large Unicode value survives native transport, read=ExecuteAsync
+PASS SQL JSON: API metadata and serializer changes preserve nested database values, read=ExecuteAsyncStream
+PASS SQL JSON: throwing API converters on roots, members and collections never run, read=ExecuteAsyncStream
+PASS SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=ExecuteAsyncStream
+PASS SQL JSON: empty results, paging, projections and aggregates, read=ExecuteAsyncStream
+PASS SQL JSON: large Unicode value survives native transport, read=ExecuteAsyncStream
+PASS SQL JSON: async-stream early exit closes the reader and preserves caller rollback
+PASS SQL JSON: async-stream cancellation disposes the execution and preserves its token
+PASS SQL JSON: async-stream database errors retain the rendered query
+PASS SQL JSON: concurrent API serialization and snapshot loading keep independent contracts
+PASS real DuckDb sync/async scalar nulls, nullable values, GUIDs, enums, and invariant conversion
+PASS real DuckDb sync/async CRUD, totals, nesting, binary values, and caller rollback
+82 passed, 0 failed
+duckdb: PASS
+=== sql-server ===
+PASS local SqlClient replication preserves Sql Password
+PASS local SqlClient replication preserves Active Directory Default
+PASS local SqlClient replication preserves Active Directory Interactive
+PASS local SqlClient replication preserves Active Directory Managed Identity
+PASS local SqlClient accepts timeout alias Connect Timeout
+PASS local SqlClient accepts timeout alias Connection Timeout
+PASS local matching Azure authentication extension is deployed
+PASS local ReplicatorConnector property authentication limitation is explicit
+PASS local factory preserves token callback credentials and login settings
+PASS local provider binds stored procedure typed null and Structured TVP
+PASS local Azure T-SQL parser root
+PASS local Azure T-SQL non-JSON parser root
+PASS local Azure T-SQL count parser root
+PASS local Azure T-SQL parser nested relationships
+PASS local Azure T-SQL non-JSON parser nested relationships
+PASS local Azure T-SQL count parser nested relationships
+PASS local Azure T-SQL parser distinct page
+PASS local Azure T-SQL non-JSON parser distinct page
+PASS local Azure T-SQL count parser distinct page
+PASS local Azure T-SQL parser grouped
+PASS local Azure T-SQL non-JSON parser grouped
+PASS local Azure T-SQL count parser grouped
+PASS local Azure T-SQL parser aggregate
+PASS local Azure T-SQL non-JSON parser aggregate
+PASS local Azure T-SQL count parser aggregate
+PASS local Azure T-SQL parser CTE
+PASS local Azure T-SQL non-JSON parser CTE
+PASS local Azure T-SQL count parser CTE
+PASS local Azure T-SQL parser CTE distinct page
+PASS local Azure T-SQL non-JSON parser CTE distinct page
+PASS local Azure T-SQL count parser CTE distinct page
+PASS local Azure T-SQL parser distinct relationship CTE
+PASS local Azure T-SQL non-JSON parser distinct relationship CTE
+PASS local Azure T-SQL count parser distinct relationship CTE
+PASS local Azure T-SQL parser joined source update
+PASS local Azure T-SQL parser joined delete
+PASS local Azure T-SQL parser identity insert
+PASS local Azure T-SQL parser type insert
+PASS local Azure T-SQL parser truncate
+PASS local Azure T-SQL parser procedure
+PASS local Azure T-SQL TVP native type declarations and nullable data
+PASS local SqlClient native type parameter binding
+PASS local Azure T-SQL suite setup procedures and cleanup
+PASS local typed callable SQL syntax and real SqlClient parameter binding
+PASS local typed callable live procedure parses
+PASS live SQL Server engine identity
+PASS live insert identity keys and relationship fixtures
+PASS live typed JSON one-to-one one-to-many null empty nested ordering
+PASS live paging Top grouped Distinct and aggregate totals
+PASS live parameter and typed JSON type round trips
+PASS live direct non-JSON rendering and CTE execution
+PASS live joined source update and joined delete outputs
+PASS live update delete returned keys and exists
+PASS live truncate participates in caller rollback
+PASS live caller transaction remains usable and rolls back
+PASS live caller statement failure leaves caller transaction usable
+Live test schema: SqlLinqerAzure_66171a31d11a4ddeb457a707c1bef711
+PASS live unique test schema type table and procedures
+PASS live owned transactions commit and rollback failed batches
+PASS live typed callable result sets defaults outputs and return code
+PASS live typed callable caller transaction and explicit NULL
+PASS live existing table type procedure input and caller transaction
+PASS live TVP insert identity keys nullable decimal and type cleanup
+PASS live TVP output rows use one owned transaction
+PASS live TVP caller ownership rollback and failure cleanup
+PASS live stored procedure typed null DataTable JSON and TVP execution
+PASS live async TVP identity keys output values and committed type cleanup
+PASS live async TVP caller transaction rolls back rows without restoring generated types
+PASS live TVP type DDL follows the caller database when the factory defaults elsewhere, async=False
+PASS live TVP cleans generated type after SQL Server aborts the caller transaction, async=False
+PASS live TVP type DDL follows the caller database when the factory defaults elsewhere, async=True
+PASS live TVP cleans generated type after SQL Server aborts the caller transaction, async=True
+PASS live async TVP cancellation after type creation cleans metadata, caller=False
+PASS live async TVP cancellation after type creation cleans metadata, caller=True
+PASS live SQL JSON: API metadata and serializer changes preserve nested database values, read=Execute
+PASS live SQL JSON: throwing API converters on roots, members and collections never run, read=Execute
+PASS live SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=Execute
+PASS live SQL JSON: empty results, paging, projections and aggregates, read=Execute
+PASS live SQL JSON: large Unicode value survives native transport, read=Execute
+PASS live SQL JSON: API metadata and serializer changes preserve nested database values, read=ExecuteAsync
+PASS live SQL JSON: throwing API converters on roots, members and collections never run, read=ExecuteAsync
+PASS live SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=ExecuteAsync
+PASS live SQL JSON: empty results, paging, projections and aggregates, read=ExecuteAsync
+PASS live SQL JSON: large Unicode value survives native transport, read=ExecuteAsync
+PASS live SQL JSON: API metadata and serializer changes preserve nested database values, read=ExecuteAsyncStream
+PASS live SQL JSON: throwing API converters on roots, members and collections never run, read=ExecuteAsyncStream
+PASS live SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=ExecuteAsyncStream
+PASS live SQL JSON: empty results, paging, projections and aggregates, read=ExecuteAsyncStream
+PASS live SQL JSON: large Unicode value survives native transport, read=ExecuteAsyncStream
+PASS live SQL JSON: async-stream early exit closes the reader and preserves caller rollback
+PASS live SQL JSON: async-stream cancellation disposes the execution and preserves its token
+PASS live SQL JSON: async-stream database errors retain the rendered query
+PASS live SQL JSON: concurrent API serialization and snapshot loading keep independent contracts
+PASS live owned truncate commits
+PASS live unique schema and all test objects cleaned up
+Local: 45 passed, 0 failed. Live: 49 passed, 0 failed.
+sql-server: PASS
+=== integration ===
+Waiting for PostgreSql...
+PASS PostgreSql: SQL JSON: API metadata and serializer changes preserve nested database values, read=Execute
+PASS PostgreSql: SQL JSON: throwing API converters on roots, members and collections never run, read=Execute
+PASS PostgreSql: SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=Execute
+PASS PostgreSql: SQL JSON: empty results, paging, projections and aggregates, read=Execute
+PASS PostgreSql: SQL JSON: large Unicode value survives native transport, read=Execute
+PASS PostgreSql: SQL JSON: API metadata and serializer changes preserve nested database values, read=ExecuteAsync
+PASS PostgreSql: SQL JSON: throwing API converters on roots, members and collections never run, read=ExecuteAsync
+PASS PostgreSql: SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=ExecuteAsync
+PASS PostgreSql: SQL JSON: empty results, paging, projections and aggregates, read=ExecuteAsync
+PASS PostgreSql: SQL JSON: large Unicode value survives native transport, read=ExecuteAsync
+PASS PostgreSql: SQL JSON: API metadata and serializer changes preserve nested database values, read=ExecuteAsyncStream
+PASS PostgreSql: SQL JSON: throwing API converters on roots, members and collections never run, read=ExecuteAsyncStream
+PASS PostgreSql: SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=ExecuteAsyncStream
+PASS PostgreSql: SQL JSON: empty results, paging, projections and aggregates, read=ExecuteAsyncStream
+PASS PostgreSql: SQL JSON: large Unicode value survives native transport, read=ExecuteAsyncStream
+PASS PostgreSql: SQL JSON: async-stream early exit closes the reader and preserves caller rollback
+PASS PostgreSql: SQL JSON: async-stream cancellation disposes the execution and preserves its token
+PASS PostgreSql: SQL JSON: async-stream database errors retain the rendered query
+PASS PostgreSql: SQL JSON: concurrent API serialization and snapshot loading keep independent contracts
+PASS PostgreSql: async select, nested results, and totals match synchronous execution
+PASS PostgreSql: async writes preserve caller rollback and returned keys where supported
+PASS PostgreSql: native JSON loads fields, dates, enums and private model members
+PASS PostgreSql: empty selections return an empty list
+PASS PostgreSql: query values remain parameters
+PASS PostgreSql: boolean and NULL filters
+PASS PostgreSql: one-to-one relationship JSON
+PASS PostgreSql: one-to-many relationship JSON
+PASS PostgreSql: one-to-many relationship filter
+PASS PostgreSql: last-page totals and query reuse
+PASS PostgreSql: empty-page totals
+PASS PostgreSql: Top preserves the full count
+PASS PostgreSql: anonymous aggregate projections
+PASS PostgreSql: plain insert commits and preserves values
+PASS PostgreSql: plain update commits
+PASS PostgreSql: insert preserves a null date
+PASS PostgreSql: arithmetic update
+PASS PostgreSql: update from a joined column
+PASS PostgreSql: update using a joined filter
+PASS PostgreSql: plain delete commits
+PASS PostgreSql: delete using a joined filter
+PASS PostgreSql: empty IN never deletes rows
+PASS PostgreSql: empty NOT IN includes all rows
+PASS PostgreSql: caller transaction can roll back an insert
+PASS PostgreSql: caller transaction can roll back a delete
+PASS PostgreSql: caller retains failed transaction and connection
+PASS PostgreSql: failed owned write rolls back and later queries work
+PASS PostgreSql: insert preserves a local timestamp
+PASS PostgreSql: insert preserves a UTC timestamp with time zone
+PASS PostgreSql: insert returns generated primary keys
+PASS PostgreSql: update returns affected primary keys
+PASS PostgreSql: delete returns affected primary keys
+Waiting for MySql...
+PASS MySql: SQL JSON: API metadata and serializer changes preserve nested database values, read=Execute
+PASS MySql: SQL JSON: throwing API converters on roots, members and collections never run, read=Execute
+PASS MySql: SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=Execute
+PASS MySql: SQL JSON: empty results, paging, projections and aggregates, read=Execute
+PASS MySql: SQL JSON: large Unicode value survives native transport, read=Execute
+PASS MySql: SQL JSON: API metadata and serializer changes preserve nested database values, read=ExecuteAsync
+PASS MySql: SQL JSON: throwing API converters on roots, members and collections never run, read=ExecuteAsync
+PASS MySql: SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=ExecuteAsync
+PASS MySql: SQL JSON: empty results, paging, projections and aggregates, read=ExecuteAsync
+PASS MySql: SQL JSON: large Unicode value survives native transport, read=ExecuteAsync
+PASS MySql: SQL JSON: API metadata and serializer changes preserve nested database values, read=ExecuteAsyncStream
+PASS MySql: SQL JSON: throwing API converters on roots, members and collections never run, read=ExecuteAsyncStream
+PASS MySql: SQL JSON: API attributes leave insert, update, filter and delete mappings intact, read=ExecuteAsyncStream
+PASS MySql: SQL JSON: empty results, paging, projections and aggregates, read=ExecuteAsyncStream
+PASS MySql: SQL JSON: large Unicode value survives native transport, read=ExecuteAsyncStream
+PASS MySql: SQL JSON: async-stream early exit closes the reader and preserves caller rollback
+PASS MySql: SQL JSON: async-stream cancellation disposes the execution and preserves its token
+PASS MySql: SQL JSON: async-stream database errors retain the rendered query
+PASS MySql: SQL JSON: concurrent API serialization and snapshot loading keep independent contracts
+PASS MySql: async select, nested results, and totals match synchronous execution
+PASS MySql: async writes preserve caller rollback and returned keys where supported
+PASS MySql: native JSON loads fields, dates, enums and private model members
+PASS MySql: empty selections return an empty list
+PASS MySql: query values remain parameters
+PASS MySql: boolean and NULL filters
+PASS MySql: one-to-one relationship JSON
+PASS MySql: one-to-many relationship JSON
+PASS MySql: one-to-many relationship filter
+PASS MySql: last-page totals and query reuse
+PASS MySql: empty-page totals
+PASS MySql: Top preserves the full count
+PASS MySql: anonymous aggregate projections
+PASS MySql: plain insert commits and preserves values
+PASS MySql: plain update commits
+PASS MySql: insert preserves a null date
+PASS MySql: arithmetic update
+PASS MySql: update from a joined column
+PASS MySql: update using a joined filter
+PASS MySql: plain delete commits
+PASS MySql: delete using a joined filter
+PASS MySql: empty IN never deletes rows
+PASS MySql: empty NOT IN includes all rows
+PASS MySql: caller transaction can roll back an insert
+PASS MySql: caller transaction can roll back a delete
+PASS MySql: caller retains failed transaction and connection
+PASS MySql: failed owned write rolls back and later queries work
+PASS MySql: unsupported returned-row requests perform no writes
+98 integration checks passed, 0 failed.
+integration: PASS
+=== scale ===
+SCALE rows=10000 iterations=3 configuration=Debug .NET=10.0.13
+Use -c Release for performance comparisons.
+Sqlite: 10.0.13.0; engine=3.53.3; parameter budget=999; DuckDB threads=2, memory_limit=512MB
+PERF Sqlite batched-insert rows=10000 samples=1 median_ms=245.170 rows_per_second=40788 managed_bytes_median=63552184
+PERF Sqlite typed-json-all rows=10000 samples=3 median_ms=44.069 rows_per_second=226915 managed_bytes_median=18683208
+PASS Sqlite: full typed JSON preserves every key and payload
+PERF Sqlite typed-json-all-async rows=10000 samples=3 median_ms=50.188 rows_per_second=199253 managed_bytes_median=18684264
+PASS Sqlite: ExecuteAsync full typed JSON preserves every key and payload
+PERF Sqlite typed-json-all-async-stream rows=10000 samples=3 median_ms=39.081 rows_per_second=255876 managed_bytes_median=22946504
+PASS Sqlite: ExecuteAsyncStream validates every row without retaining the result set
+PERF Sqlite datatable-all rows=10000 samples=3 median_ms=26.915 rows_per_second=371540 managed_bytes_median=3919296
+PASS Sqlite: flat DataTable preserves count and Int64 checksum
+PERF Sqlite deep-page-with-count rows=257 samples=3 median_ms=2.673 rows_per_second=96161 managed_bytes_median=706248
+PASS Sqlite: deep and empty pages retain total and query state
+PERF Sqlite grouped-aggregate rows=10000 samples=3 median_ms=2.180 rows_per_second=4587577 managed_bytes_median=85848
+PASS Sqlite: grouped aggregates match independently calculated counts and sums
+PASS Sqlite: async nested paging preserves payloads and the full count
+PASS Sqlite: ExecuteAsyncStream preserves nested page keys and binary payloads
+PASS Sqlite: large IN filter binds values once and returns exact keys
+PERF Sqlite nested-page rows=512 samples=3 median_ms=3.928 rows_per_second=130360 managed_bytes_median=1140296
+PASS Sqlite: nested objects at scale retain each parent value
+PERF Sqlite nested-array rows=103 samples=3 median_ms=1.145 rows_per_second=89996 managed_bytes_median=87424
+PASS Sqlite: large nested array preserves every correlated child
+PASS Sqlite: large update and delete remain in caller transaction
+PASS Sqlite: late duplicate rolls back all owned batches and exposes no keys
+PASS Sqlite: four concurrent readers preserve independent parameters
+PASS Sqlite: fixture and large-data checks
+DuckDb: 1.5.6.1; engine=v1.5.6; parameter budget=999; DuckDB threads=2, memory_limit=512MB
+PERF DuckDb batched-insert rows=10000 samples=1 median_ms=519.350 rows_per_second=19255 managed_bytes_median=65295592
+PERF DuckDb typed-json-all rows=10000 samples=3 median_ms=23.097 rows_per_second=432962 managed_bytes_median=8701536
+PASS DuckDb: full typed JSON preserves every key and payload
+PERF DuckDb typed-json-all-async rows=10000 samples=3 median_ms=20.983 rows_per_second=476572 managed_bytes_median=8714624
+PASS DuckDb: ExecuteAsync full typed JSON preserves every key and payload
+PERF DuckDb typed-json-all-async-stream rows=10000 samples=3 median_ms=28.304 rows_per_second=353304 managed_bytes_median=12977904
+PASS DuckDb: ExecuteAsyncStream validates every row without retaining the result set
+PERF DuckDb datatable-all rows=10000 samples=3 median_ms=5.202 rows_per_second=1922522 managed_bytes_median=2929072
+PASS DuckDb: flat DataTable preserves count and Int64 checksum
+PERF DuckDb deep-page-with-count rows=257 samples=3 median_ms=8.462 rows_per_second=30371 managed_bytes_median=442256
+PASS DuckDb: deep and empty pages retain total and query state
+PERF DuckDb grouped-aggregate rows=10000 samples=3 median_ms=0.779 rows_per_second=12840267 managed_bytes_median=86888
+PASS DuckDb: grouped aggregates match independently calculated counts and sums
+PASS DuckDb: async nested paging preserves payloads and the full count
+PASS DuckDb: ExecuteAsyncStream preserves nested page keys and binary payloads
+PASS DuckDb: large IN filter binds values once and returns exact keys
+PERF DuckDb nested-page rows=512 samples=3 median_ms=6.473 rows_per_second=79095 managed_bytes_median=628664
+PASS DuckDb: nested objects at scale retain each parent value
+PERF DuckDb nested-array rows=103 samples=3 median_ms=1.679 rows_per_second=61353 managed_bytes_median=87000
+PASS DuckDb: large nested array preserves every correlated child
+PASS DuckDb: large update and delete remain in caller transaction
+PASS DuckDb: late duplicate rolls back all owned batches and exposes no keys
+PASS DuckDb: four concurrent readers preserve independent parameters
+PASS DuckDb: fixture and large-data checks
+PERF SqlServer render-10 rows=1 samples=3 median_ms=0.069 rows_per_second=14535 managed_bytes_median=50544
+PASS SqlServer: render 10 predicates
+PERF SqlServer render-100 rows=1 samples=3 median_ms=0.335 rows_per_second=2987 managed_bytes_median=300864
+PASS SqlServer: render 100 predicates
+PERF SqlServer render-1000 rows=1 samples=3 median_ms=3.104 rows_per_second=322 managed_bytes_median=2848800
+PASS SqlServer: render 1000 predicates
+PERF MySql render-10 rows=1 samples=3 median_ms=0.074 rows_per_second=13587 managed_bytes_median=50792
+PASS MySql: render 10 predicates
+PERF MySql render-100 rows=1 samples=3 median_ms=0.323 rows_per_second=3097 managed_bytes_median=301112
+PASS MySql: render 100 predicates
+PERF MySql render-1000 rows=1 samples=3 median_ms=2.845 rows_per_second=352 managed_bytes_median=2834448
+PASS MySql: render 1000 predicates
+PERF PostgreSql render-10 rows=1 samples=3 median_ms=0.065 rows_per_second=15314 managed_bytes_median=50824
+PASS PostgreSql: render 10 predicates
+PERF PostgreSql render-100 rows=1 samples=3 median_ms=0.600 rows_per_second=1668 managed_bytes_median=303152
+PASS PostgreSql: render 100 predicates
+PERF PostgreSql render-1000 rows=1 samples=3 median_ms=2.928 rows_per_second=342 managed_bytes_median=2834480
+PASS PostgreSql: render 1000 predicates
+PERF Sqlite render-10 rows=1 samples=3 median_ms=0.081 rows_per_second=12392 managed_bytes_median=45296
+PASS Sqlite: render 10 predicates
+PERF Sqlite render-100 rows=1 samples=3 median_ms=0.282 rows_per_second=3540 managed_bytes_median=249536
+PASS Sqlite: render 100 predicates
+PERF Sqlite render-1000 rows=1 samples=3 median_ms=2.548 rows_per_second=392 managed_bytes_median=2322072
+PASS Sqlite: render 1000 predicates
+PERF DuckDb render-10 rows=1 samples=3 median_ms=0.058 rows_per_second=17212 managed_bytes_median=45168
+PASS DuckDb: render 10 predicates
+PERF DuckDb render-100 rows=1 samples=3 median_ms=0.284 rows_per_second=3525 managed_bytes_median=249408
+PASS DuckDb: render 100 predicates
+PERF DuckDb render-1000 rows=1 samples=3 median_ms=2.510 rows_per_second=398 managed_bytes_median=2319928
+PASS DuckDb: render 1000 predicates
+PERF AzureSql render-10 rows=1 samples=3 median_ms=0.100 rows_per_second=10030 managed_bytes_median=50544
+PASS AzureSql: render 10 predicates
+PERF AzureSql render-100 rows=1 samples=3 median_ms=0.317 rows_per_second=3155 managed_bytes_median=300864
+PASS AzureSql: render 100 predicates
+PERF AzureSql render-1000 rows=1 samples=3 median_ms=2.888 rows_per_second=346 managed_bytes_median=2832936
+PASS AzureSql: render 1000 predicates
+Scale: 48 passed, 0 failed.
+scale: PASS
+Suites: 6 passed, 0 failed.

@@ -55,6 +55,12 @@ internal static class AsyncProviderChecks
             var rendered = new RenderedQuery(); rendered.Text = tabular.Render(rendered.Parameters, flavor, false);
             using (var table = Result(await connector.ExecuteReaderDataTableAsync(rendered)))
                 Check(((byte[])table.Rows[0][nameof(Row.Payload)]).SequenceEqual(new byte[] { 0, 128, 255 }), "Async tabular binary values differ");
+            var tabularSync = Result(connector.ExecuteReaderList<Row>(rendered)).Single();
+            var tabularAsync = Result(await connector.ExecuteReaderListAsync<Row>(rendered)).Single();
+            Check(tabularSync.Id == id && tabularAsync.Id == id
+                && tabularSync.Name == "changed" && tabularAsync.Name == "changed"
+                && tabularSync.Payload.SequenceEqual(new byte[] { 0, 128, 255 })
+                && tabularAsync.Payload.SequenceEqual(tabularSync.Payload), "Tabular model lists changed native values");
 
             using (var connection = connector.CreateConnection())
             {

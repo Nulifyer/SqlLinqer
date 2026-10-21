@@ -48,6 +48,16 @@ namespace SqlLinqer.Connections
             }
         }
 
+        // Streaming leaves this scope open across multiple reads and consumer pauses.
+        internal void ThrowIfInterrupted(Exception error = null)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                throw new OperationCanceledException("The database operation was cancelled.", error, cancellationToken);
+            lock (gate)
+                if (expired)
+                    throw new TimeoutException("The DuckDB command exceeded ConnectorOptions.CommandTimeout.", error ?? cancellationError);
+        }
+
         internal T Execute<T>(Func<T> action)
         {
             try

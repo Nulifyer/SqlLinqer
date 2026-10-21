@@ -18,6 +18,29 @@ internal static class CompatibleQueryRegressionTests
     {
         foreach (DbFlavor flavor in Enum.GetValues<DbFlavor>())
         {
+            test($"parallel independent queries isolate bindings and schemas for {flavor}", () =>
+            {
+                Parallel.For(0, 32, new ParallelOptions { MaxDegreeOfParallelism = 4 }, i =>
+                {
+                    var query = new SelectQuery<Order>($"parallel_tenant_{i % 4}").Select(x => x.Id)
+                        .Select(x => x.Billing.Name).Select(x => x.Shipping.Name)
+                        .Where(x => x.Id, i, SqlOp.GT).Where(x => x.Billing.Name, $"billing-{i}", SqlOp.EQ).Page(2, 7);
+                    var first = query.Render(flavor);
+                    for (int repeat = 0; repeat < 3; repeat++)
+                    {
+                        var next = query.Render(flavor);
+                        Check(next.Text == first.Text, "Concurrent rendering changed SQL");
+                        Check(next.Parameters.GetAll().Select(x => x.Value).SequenceEqual(new object[] { i, $"billing-{i}" }),
+                            "Concurrent rendering contaminated parameter values");
+                        var count = new ParameterCollection();
+                        query.RenderForCount(count, flavor);
+                        Check(count.GetAll().Select(x => x.Value).SequenceEqual(new object[] { i, $"billing-{i}" }),
+                            "Concurrent count changed bindings");
+                    }
+                    Check(Table.GetCached<Order>($"parallel_tenant_{i % 4}").FindRelationshipFromPath(new[] { nameof(Order.Billing) })
+                        .ChildTable.Schema == $"parallel_tenant_{i % 4}", "Concurrent table cache crossed schemas");
+                });
+            });
             test($"independent relationship occurrences and schemas for {flavor}", () =>
             {
                 var table = Table.GetCached<Order>("tenant_a");

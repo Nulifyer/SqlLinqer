@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>8.0</LangVersion>
     <Authors>Kyle Leddy</Authors>
     <Company></Company>
     <Description>Build parameterized SQL queries from C# model mappings and expressions. Supports typed selects, nested relationships, aggregates, writes, and synchronous or asynchronous execution.</Description>
@@ -22,6 +23,7 @@
 
   <ItemGroup>
     <PackageReference Include="System.Text.Json" Version="10.0.13" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.13" />
   </ItemGroup>
 
   <ItemGroup>
