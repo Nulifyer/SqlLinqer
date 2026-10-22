@@ -1,6 +1,6 @@
-[README](../README.md)
+[Contributor documentation](README.md) · [Project README](../../README.md)
 
-# Contributing
+# Building and testing
 
 ## Build and check
 
@@ -15,7 +15,7 @@ dotnet build SqlLinqer.Tests.NetFramework48/SqlLinqer.Tests.NetFramework48.cspro
 dotnet run --project SqlLinqer.Tests
 ```
 
-All automated suites use [SqlLinqer.Tests](../SqlLinqer.Tests/README.md).
+All automated suites use [SqlLinqer.Tests](../../SqlLinqer.Tests/README.md).
 For the complete repeatable run, including real PostgreSQL, MySQL, and SQL Server databases:
 
 ```sh

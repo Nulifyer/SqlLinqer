@@ -1,43 +1,9 @@
-[README](../README.md)
+[Contributor documentation](README.md) · [User documentation](../README.md)
 
-# Query snapshots and compilation
+# Query and execution implementation notes
 
-Fluent builders remain mutable. `Capture()` creates a query definition that owns a detached copy of their current structure.
-Changing the builder afterward does not change the snapshot.
-
-```csharp
-var query = User.BeginSelect(connector)
-    .SelectRootColumns()
-    .Where(x => x.Name, "Ada", SqlOp.EQ)
-    .Page(2, 20);
-
-var snapshot = query.Capture();
-query.Top(1);
-
-var page = snapshot.Render(connector);
-var total = snapshot.RenderForCount(connector.DbFlavor);
-```
-
-`page` retains the original paging and predicate.
-The count removes root paging and ordering while retaining projection, `DISTINCT`, grouping, and nested-query semantics.
-Each render returns fresh SQL bindings. Count rendering does not change future data rendering.
-
-## Repeated and concurrent rendering
-
-A captured definition can render for several database flavors or from several callers.
-Each compilation gets its own working graph and parameter collection.
-Do not modify a shared external `ParameterCollection` concurrently.
-
-To execute an explicitly captured select, pass its rendered query to the connector:
-
-```csharp
-var response = await connector.ExecuteReaderJsonAsync<User>(
-    snapshot.Render(connector),
-    cancellationToken: cancellationToken);
-```
-
-Capturing is not synchronized with concurrent builder mutation.
-Finish constructing the builder before calling `Capture()` or starting execution.
+These notes describe library implementation and extension points.
+For application examples, start with the [user documentation](../README.md).
 
 ## Capture ownership and cost
 
@@ -88,44 +54,46 @@ Collection ordering uses the minimum member value for ascending order and the ma
 Missing relationships retain the provider's default NULL ordering. Add a unique final sort field for stable paging when values tie.
 Ordering paths must end at a selected scalar member.
 
-## Logical result shape
+## Streaming implementation
 
-`RenderedQuery.ResultShape` describes the selected members of regular SELECT renders.
-Count-only and other rendered commands can leave this property null.
-Each member has a name, CLR type, logical kind, and nested members.
-The kinds are scalar, optional object, and collection.
-Nested collections use empty arrays when no related rows match. Missing one-to-one results use null.
-SQL expressions without a declared CLR type use `object` in this metadata.
+PostgreSQL, MySQL, SQLite, and DuckDB queries return one root JSON object per database row. The connector deserializes each value directly and yields the model.
+It materializes that row's JSON string and the root model, including nested collections and binary values.
+
+SQL Server and Azure SQL return a JSON array split into text fragments. The connector requests sequential access and reads fragment text through `GetTextReader`.
+A stateful UTF-8 encoder preserves characters across fragments. Fixed buffers coalesce fragments before the framework parser reads them.
+The parser yields complete array elements without constructing a complete document string or result list.
+Zero transport rows produce an empty sequence, matching buffered loading. Malformed JSON content fails enumeration.
+Parser buffers can grow for large values. Bounded read-ahead can load several small objects before the first yield.
+
+DuckDB.NET requires `UseStreamingMode=true` as well as reader iteration. The connector enables it for streaming commands through the provider property.
+A provider without that writable Boolean property is rejected for DuckDB streams. Buffered commands keep their existing provider behavior.
+The DuckDB timeout and cancellation registration remain active through enumeration and are disposed before the command and connection are released.
+Its deadline includes time spent processing yielded rows.
+
+Memory consists of provider and parser buffers, the current root object, and caller-retained rows. A batch size limits row count, not bytes.
+Sorting, aggregation, large nested collections, and provider-native execution can still require substantial memory.
+Synchronous streams, callable result-set streams, write-output streams, and automatic batching helpers are outside this experiment.
+
+## Custom connector hooks
+
+`BaseConnector.ExecuteCommand` remains the synchronous interception hook.
+Override `ExecuteCommandAsync` to apply logging or execution policies to asynchronous calls:
 
 ```csharp
-var rendered = User.BeginSelect(connector)
-    .SelectRootColumns()
-    .Select(x => x.Permissions)
-    .Render(connector);
-
-foreach (var member in rendered.ResultShape.Members)
-    Console.WriteLine($"{member.Name}: {member.Kind}");
+protected override async Task<SqlResponse<T>> ExecuteCommandAsync<T>(
+    RenderedQuery query,
+    Func<Task<SqlResponse<T>>> action,
+    CancellationToken cancellationToken)
+{
+    return await base.ExecuteCommandAsync(
+        query, action, cancellationToken).ConfigureAwait(false);
+}
 ```
 
-The shape is immutable metadata. Current typed loading still uses the existing JSON model contract and converters.
-It does not add a direct reader mapper. SQL loading always uses SqlLinqer's model contract and ignores API JSON attributes and converters.
-The database compiler determines the transport encoding independently of that logical structure.
+Import `System`, `System.Threading`, `System.Threading.Tasks`, `SqlLinqer`, and `SqlLinqer.Components.Render` for this override.
+Override both hooks when the same policy must apply to both execution styles.
+Existing `JsonResultsRowByRow` overrides continue to control JSON transport decoding for both styles.
 
-## Verification
-
-Run the local regression and embedded-provider checks:
-
-```sh
-dotnet run --project SqlLinqer.Tests
-```
-
-Compilation regression cases cover model and value isolation, repeated data/count compilation, and concurrent dialect rendering.
-Async checks cover provider calls, cancellation, disposal, transaction ownership, batching, and callable outputs.
-SQLite and DuckDB checks also execute the new interfaces against real embedded databases.
-The integration suite includes asynchronous PostgreSQL/MySQL cases when its disposable endpoints are configured.
-
-Use the existing render allocation benchmark to measure the copying cost:
-
-```sh
-dotnet run -c Release --project SqlLinqer.Tests -- --benchmark-render-only
-```
+Override `ExecuteCommandAsyncStream` for policies that cover the complete streaming enumeration, including early disposal.
+`ExecuteCommand` and `ExecuteCommandAsync` cover buffered execution only.
+Consumer exceptions occur outside the execution hook and retain their original type.

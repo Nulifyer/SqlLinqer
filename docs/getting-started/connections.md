@@ -1,10 +1,11 @@
-[README](../README.md)
+[Documentation](../README.md) · [Project README](../../README.md)
 
-# Set up a connection
+# Connections and dependency injection
 
-These examples use SQL Server. Add its provider to your application:
+Install SqlLinqer and the ADO.NET provider for your database. These examples use SQL Server:
 
 ```sh
+dotnet add package SqlLinqer
 dotnet add package Microsoft.Data.SqlClient
 ```
 
@@ -29,6 +30,41 @@ var connector = new ReplicatorConnector(template, DbFlavor.SqlServer, options);
 ```
 
 Replace the placeholders with your connection settings. Reuse `connector` across queries.
+
+## Use another database
+
+Choose the matching provider connection class and `DbFlavor`:
+
+| Database | Provider package | Connection class | Flavor |
+| --- | --- | --- | --- |
+| SQL Server | `Microsoft.Data.SqlClient` | `SqlConnection` | `DbFlavor.SqlServer` |
+| Azure SQL | `Microsoft.Data.SqlClient` | `SqlConnection` | `DbFlavor.AzureSql` |
+| PostgreSQL | `Npgsql` | `NpgsqlConnection` | `DbFlavor.PostgreSql` |
+| MySQL | `MySql.Data` | `MySqlConnection` | `DbFlavor.MySql` |
+| SQLite | `Microsoft.Data.Sqlite` | `SqliteConnection` | `DbFlavor.Sqlite` |
+| DuckDB | `DuckDB.NET.Data.Full` | `DuckDBConnection` | `DbFlavor.DuckDb` |
+
+Install the provider package in your application and construct its connection with your database's connection string.
+Pass that connection and the matching flavor to `ReplicatorConnector`, as in the SQL Server example.
+
+## DuckDB
+
+Add `DuckDB.NET.Data.Full` to your application and use `DbFlavor.DuckDb`:
+
+```csharp
+using DuckDB.NET.Data;
+using SqlLinqer;
+using SqlLinqer.Connections;
+
+using var template = new DuckDBConnection("Data Source=application.duckdb");
+var connector = new ReplicatorConnector(template, DbFlavor.DuckDb);
+```
+
+`ReplicatorConnector` creates connections as queries execute. File databases persist across those connections.
+A plain `Data Source=:memory:` database belongs to one connection.
+To query it, keep that connection open and pass a transaction from it to every query.
+Use `IsolationLevel.Snapshot` when creating a DuckDB transaction. SqlLinqer uses this isolation level for transactions it creates.
+The application owns the supplied transaction's commit, rollback, and disposal.
 
 ## Retain a connector on a query
 
@@ -71,6 +107,10 @@ var factoryConnector = new ConnectionFactoryConnector(
 ```
 
 Return a fresh connection on every factory call.
+Use this approach when each connection needs properties such as a SqlClient `AccessTokenCallback` or application-managed credentials.
+`ReplicatorConnector` copies the provider type and connection string, so it does not preserve these additional connection properties.
+Set them in the factory on every new connection.
+Configure login timeout in the factory's connection string. `ConnectorOptions.CommandTimeout` still applies to commands.
 
 ## Inject a connector
 
@@ -81,7 +121,7 @@ This example uses `Microsoft.Extensions.DependencyInjection`:
 dotnet add package Microsoft.Extensions.DependencyInjection
 ```
 
-Create a repository that accepts `BaseConnector`. It uses the [sample `User` model](BUILDING_A_DATAMODEL.md):
+Create a repository that accepts `BaseConnector`. It uses the [sample `User` model](model-mapping.md):
 
 ```csharp
 using System.Collections.Generic;

@@ -47,7 +47,7 @@ var connector = new ReplicatorConnector(template, DbFlavor.SqlServer);
 ```
 
 The examples below use this connector and the models in the next section. Create the matching tables in your database first.
-For another database or dependency injection, see the [connection guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/SETUP_A_CONNECTION.md).
+For another database or dependency injection, see the [connection guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/getting-started/connections.md).
 
 ## Map the tables once
 
@@ -152,7 +152,7 @@ Console.WriteLine(string.Join(", ", inserted.TouchedPrimaryKeys));
 ```
 
 The key mapping tells SqlLinqer that the database generates these IDs. `TouchedPrimaryKeys` contains the inserted keys.
-Primary-key capture depends on the database's capabilities; see the [insert guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/QUERY_CREATE.md).
+Primary-key capture depends on the database's capabilities; see the [insert guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/queries/insert.md).
 
 ## Make targeted changes
 
@@ -202,15 +202,17 @@ await foreach (var user in query.ExecuteAsyncStream())
 Run these examples in an asynchronous method with a compiler that supports async enumeration.
 A stream yields complete root models, including their selected nested collections. Process each row directly or collect batches in your application.
 Provider buffers and query execution still contribute to memory use.
-See [streaming examples and measurements](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/RESULT_STREAMING.md) for batching, cancellation, and memory limits.
+See the [result streaming guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/execution/result-streaming.md) for batching, cancellation, and memory limits.
 
 ## Keep building
 
-Add [typed stored procedures](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/CALLABLES.md),
-[transactions](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/TRANSACTIONS.md), and
-[relationship changes](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/QUERY_RELATIONSHIPS.md) as your queries grow.
+Browse the [documentation index](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/README.md) for guides grouped by task.
+
+Add [stored procedures](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/queries/stored-procedures.md),
+[transactions](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/execution/transactions.md), and
+[relationship changes](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/queries/relationship-changes.md) as your queries grow.
 Database mappings and API JSON attributes can share a model without changing each other's behavior.
 
-Find more examples in the [query guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/QUERY_READ.md),
-[model guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/BUILDING_A_DATAMODEL.md), and
+Find more examples in the [query guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/queries/select.md),
+[model guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/getting-started/model-mapping.md), and
 [GitHub repository](https://github.com/Nulifyer/SqlLinqer).

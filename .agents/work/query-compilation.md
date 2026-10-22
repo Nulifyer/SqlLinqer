@@ -31,7 +31,7 @@ Next action: deliver the verified work as local commits. Optional live server va
 | --- | --- | --- |
 | Keep the public mutable fluent interface and both execution styles. | User approved the design and requested implementation. | Conversation |
 | Freeze at compilation entry; retain an explicit reusable capture interface. | Existing Table/Column aliases and nested query nodes are mutable. | Compilation/QuerySnapshot.cs; Compilation/SnapshotGraph.cs |
-| Cache runtime field layouts and isolate the existing graph before considering persistent immutable nodes. | Preserves current public node classes and virtual implementations without copying on each fluent call. | Compilation/SnapshotGraph.cs; docs/QUERY_COMPILATION.md |
+| Cache runtime field layouts and isolate the existing graph before considering persistent immutable nodes. | Preserves current public node classes and virtual implementations without copying on each fluent call. | Compilation/SnapshotGraph.cs; docs/contributing/implementation-notes.md |
 | Add sibling asynchronous interfaces. | Existing synchronous interface implementers need no new members. | Queries/Interfaces/IAsyncQueryExecutable*.cs |
 | Preserve ordinary legacy procedure TVP reference behavior; copy values in explicit captures and async execution. | Existing provider compatibility checks require ordinary rendering to retain the input table. | Queries/Core/Abstract/BaseQuery.cs; Queries/Typed/StoredProcedureQuery.Async.cs |
 | Use fresh compilation state and bindings for each render. | Count and normal rendering currently stash and restore shared collections. | Queries/Core/SelectQuery.cs |
@@ -56,7 +56,7 @@ Next action: deliver the verified work as local commits. Optional live server va
 | SqlLinqer/Queries | Async typed/aggregate/write/output/TVP/procedure/callable methods and sibling contracts; direct write rendering also isolates state. | Regression and both demo builds |
 | SqlLinqer/Components/Insert | Captures mapped entity values before batching and async suspension. | Entity mutation and multi-batch regression cases |
 | SqlLinqer.Tests | Snapshot and async regression cases, native provider checks in their own suites, opt-in external integration cases, allocation measurements. | Default test executable passed; external endpoints unavailable |
-| docs/EXECUTION.md; docs/QUERY_COMPILATION.md; README links | Usage, ownership, copying cost, provider limitations, and custom connector hooks. | Links checked; examples follow compiled interfaces |
+| docs/execution/sync-and-async.md; docs/contributing/implementation-notes.md; README links | Usage, ownership, copying cost, provider limitations, and custom connector hooks. | Links checked; examples follow compiled interfaces |
 | .agents/work/query-compilation.md | Implementation ledger included in the authorized delivery. | Final evidence recorded |
 
 ## Risks and unknowns

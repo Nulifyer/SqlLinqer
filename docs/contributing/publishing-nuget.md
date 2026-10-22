@@ -1,6 +1,8 @@
-# Publish a NuGet release
+[Contributor documentation](README.md) · [Project README](../../README.md)
 
-Publishing a GitHub release runs [.github/workflows/publish-nuget.yml](../.github/workflows/publish-nuget.yml).
+# Publishing NuGet releases
+
+Publishing a GitHub release runs [.github/workflows/publish-nuget.yml](../../.github/workflows/publish-nuget.yml).
 The workflow tests the tagged source, builds `SqlLinqer`, and pushes the package to nuget.org.
 It uses NuGet Trusted Publishing to obtain a temporary API key.
 

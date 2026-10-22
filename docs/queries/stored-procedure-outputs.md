@@ -1,12 +1,12 @@
-[README](../README.md)
+[Documentation](../README.md) · [Stored procedures](stored-procedures.md)
 
-# Call a typed stored procedure
+# Map multiple result sets and output parameters
 
-`SqlLinqerCallable<TCallable, TArgs, TResult>` maps a procedure to typed arguments and results.
-This interface supports SQL Server and Azure SQL. Other database flavors throw `NotSupportedException` before opening a connection.
-Scalar functions and table-valued function composition are not implemented by this interface.
+Use `SqlLinqerCallable<TCallable, TArgs, TResult>` when a procedure returns several result sets or application-specific output parameters.
+Its result model explicitly declares those sets and outputs.
+The following examples use that interface. Scalar functions and table-valued function composition are not implemented by it.
 
-## Define the contract
+## Define the procedure models
 
 Put `SqlProcedure` on the callable class. Its name identifies one SQL object; supply the schema separately.
 If `Schema` is omitted, the call uses `ConnectorOptions.DefaultSchema`.
@@ -57,7 +57,7 @@ public class UserSummary
 }
 ```
 
-This definition expects the following procedure contract. The procedure must already exist in the database.
+These models match the following SQL procedure. The procedure must already exist in the database.
 
 ```sql
 CREATE PROCEDURE dbo.SearchUsers
@@ -100,7 +100,6 @@ if (response.State == SqlLinqer.ResponseState.Valid)
 `Call` reads argument member values once and creates an invocation without executing SQL.
 Later assignments to argument properties do not change that invocation.
 Reference values, including arrays and `DataTable`, are not deep-copied. Keep them unchanged until execution finishes.
-Metadata is cached per callable definition. Each execution creates its own command, parameter bindings, and result object.
 
 Pass `Execute(connector, transaction)` to use an existing transaction.
 The connector never commits, rolls back, or disposes that caller-owned transaction or connection.
@@ -126,7 +125,6 @@ Use `DbType`, `SqlDbType`, `Size`, `Precision`, and `Scale` on `SqlParameter` or
 An input and output with the same SQL name form one input/output parameter.
 Their CLR types and explicitly supplied metadata must agree.
 The initial value comes from `Args`; the final value goes into `Result`. Execution does not assign output values to `Args`.
-Output values are read after closing the reader.
 
 The input attribute type is `SqlLinqer.Modeling.SqlParameterAttribute`, written as `[SqlParameter]` in declarations.
 Its full name avoids a collision with the provider's `SqlParameter` class.
@@ -176,14 +174,6 @@ Members not supplied by the constructor must be writable.
 Relationship members are not loaded from these flat result sets. Use a dedicated row model when the procedure returns a projection.
 
 Row loading uses SqlLinqer mappings directly and ignores API JSON attributes, as all SQL result loading does.
-Existing `BeginStoredProcedure`, `ExecuteJson`, and `ExecuteDataTable` calls retain their previous behavior.
 
 `call.Render(connector)` returns parameterized SQL and binding metadata without opening a connection.
-Diagnostic text from `GetTextWithParameterValues()` retains placeholders for output and input/output bindings.
-Keep output bindings intact when executing rendered calls; the invocation's `Execute` method also performs typed result mapping.
-
-## Validation
-
-The regression suite covers result sets, nulls, output timing, argument isolation, and transaction ownership with fake connections.
-The offline SQL Server/Azure SQL suite parses generated T-SQL and imports metadata into real SqlClient parameters without connecting.
-The full container runner verifies procedure execution against SQL Server. Direct Azure execution is optional within the same suite. See [SQL Server/Azure SQL tests](../SqlLinqer.Tests/SqlServer/README.md).
+Use `Execute` or `ExecuteAsync` to load the declared result sets and output parameters.

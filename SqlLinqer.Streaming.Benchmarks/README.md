@@ -5,7 +5,7 @@ Run from the repository root:
 ```sh
 python3 SqlLinqer.Streaming.Benchmarks/run.py \
   --rows 100000 1000000 --iterations 3 \
-  --output docs/experiments/result-streaming-results.json
+  --output TestResults/result-streaming-results.json
 ```
 
 This builds Release once and creates temporary file-backed SQLite and DuckDB fixtures. Each measurement runs in a fresh process.
@@ -45,7 +45,7 @@ It is an optional supplemental comparison:
 ```sh
 python3 SqlLinqer.Streaming.Benchmarks/run.py \
   --providers duckdb-scan --rows 100000 1000000 --iterations 3 \
-  --output docs/experiments/result-streaming-duckdb-scan-results.json
+  --output TestResults/result-streaming-duckdb-scan-results.json
 ```
 
 `sqlite-document` executes a real SQLite query that wraps the same root JSON objects in array fragments across rows.
@@ -67,7 +67,7 @@ Timing is diagnostic and has no pass threshold. The runner does not flush the OS
 Large sorts and provider-native buffers can affect process memory even when the connector retains no previous objects.
 Do not compare `first` throughput with modes that consume all rows.
 
-The [experiment report](../docs/experiments/result-streaming.md) describes measured results and the initial implementation that exposed hidden DuckDB buffering.
+Use the [result streaming guide](../docs/execution/result-streaming.md) for API examples and transport limits.
 
 ## Isolated mapping allocations
 
@@ -82,4 +82,4 @@ These measurements exclude database and network work. Compare allocated bytes pe
 The mapper uses UTF-8 property-name matching, and SQLite binary decoding uses spans for contiguous unescaped tokens.
 Regression checks cover case-insensitive and escaped names, escaped and segmented hex tokens, invalid hex, and independent result ownership.
 
-[Recorded review-fix samples](../docs/experiments/review-fix-mapping-results.json) show model allocations decreasing from 232 to 136 bytes per row and 4 KiB hex decoding from 151,600 to 4,120 bytes per operation on .NET 10.0.13.
+Run the command above to collect samples for the library version and runtime you are evaluating.

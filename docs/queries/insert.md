@@ -1,9 +1,9 @@
-[README](../README.md)
+[Documentation](../README.md) · [Project README](../../README.md)
 
 # Insert rows
 
-These examples use the [sample models](BUILDING_A_DATAMODEL.md) and a [configured connector](SETUP_A_CONNECTION.md).
-Import `SqlLinqer` for response states. See [response handling](RESPONSES.md) for `State`, `Result`, and `Error` examples.
+These examples use the [sample models](../getting-started/model-mapping.md) and a [configured connector](../getting-started/connections.md).
+Import `SqlLinqer` for response states. See [response handling](../execution/responses-and-errors.md) for `State`, `Result`, and `Error` examples.
 
 ## Insert one user
 
@@ -47,7 +47,7 @@ var batchResponse = batchQuery.Execute();
 
 `Execute` and `ExecuteWithOutput` split insert rows according to `ConnectorOptions.ParameterLimit`.
 SQL Server and Azure SQL also limit each command to 2,100 parameters and 1,000 `VALUES` rows.
-SQLite default-only inserts use one row per command.
+SQLite and DuckDB default-only inserts use one row per command.
 
 All batches use one connection and transaction. SqlLinqer commits once, after all batches succeed.
 A failed batch rolls back the transaction that SqlLinqer created. A rollback failure does not replace the original error.
@@ -88,5 +88,6 @@ On SQL Server, use `ExecuteTvp` as an alternative to `Execute` for a table-value
 var tvpResponse = batchQuery.ExecuteTvp();
 ```
 
-The insert uses one write transaction. Generated type creation and cleanup use separate autocommit connections to avoid SQL Server metadata deadlocks.
-The connector creates those connections even when you supply a transaction. See the [SQL Server TVP lifecycle](../SqlLinqer.Tests/SqlServer/README.md#native-behavior-and-limits) for ownership and cleanup details.
+`ExecuteTvp` creates and removes a SQL table type for the insert, so the database user needs permission to create types in the target schema.
+The connector must be able to create fresh connections to the same server, even when you pass your own transaction.
+For an existing table type, use a [stored-procedure table-valued input](stored-procedures.md#supply-optional-inputs) instead.

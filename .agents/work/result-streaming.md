@@ -27,7 +27,7 @@ Out: synchronous streaming, callable sets, write outputs, pushes, and pull reque
 ## Current state
 Phase: streaming, conversions, tabular mapping, provider test refactors, and scale checks are consolidated on local master.
 Next action: no implementation work remains for local integration. Remote publication requires a separate user request.
-Current behavior is documented in docs/RESULT_CONVERSIONS.md. Historical experiment evidence remains in docs/experiments/result-conversions-full-suite.json and its linked logs.
+Current behavior is documented in docs/execution/value-conversions.md. Historical experiment evidence remains in docs/experiments/result-conversions-full-suite.json and its linked logs.
 Local integration validation passed all 2629 checks across six suites, including live SQL Server, PostgreSQL, MySQL, and scale checks.
 It also passed 34 runner checks, 306 checks against SQLite 3.38.0, both compatibility builds, and 20 streaming worker smoke checks.
 Current logs are /tmp/sqllinqer-master-verification-9hm5l123/full-suite-final.log and the other logs in that directory.
@@ -73,10 +73,10 @@ Minimum-engine validation exposed a quoted-column fallback in the streaming erro
 | SqlLinqer/Connections/DbValueConversion.cs; Components/Modeling | Shared native conversion rules, checked integers, explicit date parsing and formatting, modern provider date/time adapters. | Generated scalar/tabular conversion matrix and real-provider fixtures |
 | SqlLinqer/Connections/BaseConnector.Tabular.cs; BaseConnector.Execution.cs | Preserve DateTime.Kind during model mapping and restore DuckDB TIMESTAMPTZ UTC metadata for scalar/tabular conversions. | Mixed-kind rows, date/string round trips, all real providers, and second-timezone checks |
 | SqlLinqer/Components/Json | Share native date parsing and reject nonfinite floating-point conversions. | All three JSON modes, all dialects, nullable and invalid input cases |
-| SqlLinqer.Tests/Regression/ValueConversion*; docs/RESULT_CONVERSIONS.md | Generated conversion matrix, native SQL fixtures, explicit behavior and compatibility changes. | 2629 full-suite checks and saved conversion evidence |
+| SqlLinqer.Tests/Regression/ValueConversion*; docs/execution/value-conversions.md | Generated conversion matrix, native SQL fixtures, explicit behavior and compatibility changes. | 2629 full-suite checks and saved conversion evidence |
 | SqlLinqer.Tests/SqlServer | Correct fixture-stage attribution and report nested exception types/numbers without provider messages. | Passing live SQL Server suite |
 | SqlLinqer.Streaming.Benchmarks | Independent Release benchmark and isolated-process runner. | 210 validated measurement processes across initial, final, and supplemental phases |
-| docs/RESULT_STREAMING.md; docs/experiments | Usage, measured report, raw data, and interactive comparison. | Link checks and desktop/mobile HTML previews |
+| docs/execution/result-streaming.md; docs/experiments | Usage, measured report, raw data, and interactive comparison. | Link checks and desktop/mobile HTML previews |
 
 ## Risks and unknowns
 - DuckDB native memory remains size-dependent even with UseStreamingMode and without ORDER BY. Managed retention stays small; end-to-end bounded process memory is unproven.

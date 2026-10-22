@@ -1,9 +1,9 @@
-[README](../README.md)
+[Documentation](../README.md) · [Project README](../../README.md)
 
-# Select rows
+# Selects, filtering, paging, and aggregates
 
-These examples use the [sample models](BUILDING_A_DATAMODEL.md) and a [configured connector](SETUP_A_CONNECTION.md).
-Import `System`, `System.Linq`, and `SqlLinqer` for the examples below. See [response handling](RESPONSES.md) for success and error examples.
+These examples use the [sample models](../getting-started/model-mapping.md) and a [configured connector](../getting-started/connections.md).
+Import `System`, `System.Linq`, and `SqlLinqer` for the examples below. See [response handling](../execution/responses-and-errors.md) for success and error examples.
 
 ## Select by primary key
 
@@ -34,7 +34,7 @@ var rootQuery = User.BeginSelect(connector)
 
 ## Select relationships
 
-Select relationship members to load related models. See [relationship updates](QUERY_RELATIONSHIPS.md) to change their links.
+Select relationship members to load related models. See [relationship updates](relationship-changes.md) to change their links.
 Use `First()` to reference a column through a collection relationship:
 
 ```csharp
@@ -49,8 +49,8 @@ var relatedQuery = User.BeginSelect(connector)
     .ThenBy(x => x.Name, SqlDir.ASC);
 ```
 
-See [sync and async execution](EXECUTION.md) for asynchronous methods and cancellation.
-See [query snapshots](QUERY_COMPILATION.md) for isolated repeated compilation.
+See [sync and async execution](../execution/sync-and-async.md) for asynchronous methods and cancellation.
+See [SQL inspection and query reuse](sql-and-query-reuse.md) to inspect generated SQL or keep a query definition for reuse.
 
 ## Execute a typed select
 
@@ -115,6 +115,10 @@ var aggregateResponse = aggregateQuery.Execute();
 ```
 
 `Execute` returns the type defined in `BuildQuery`. Use `new { ... }` for an anonymous result type.
+SqlLinqer groups the non-aggregate selections automatically when you add aggregates such as `Count`.
+In this example, the selected user ID and name identify each group.
+Sort a projection by its selected scalar members. Add a unique final sort field, such as `Id`, to keep paging stable when values tie.
+
 
 Apply a limit before requesting the total count:
 
@@ -125,7 +129,7 @@ var aggregatePage = aggregateQuery.ExecuteWithTotalCount();
 
 ## Add optional search filters
 
-Add the following methods to the injected `UserRepository` from the [connector guide](SETUP_A_CONNECTION.md#inject-a-connector).
+Add the following methods to the injected `UserRepository` from the [connector guide](../getting-started/connections.md#inject-a-connector).
 Import `System.Collections.Generic` for their return types.
 
 Build the query first, then add filters for supplied values. Pass null for a filter you do not need:

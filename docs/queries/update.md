@@ -1,9 +1,9 @@
-[README](../README.md)
+[Documentation](../README.md) · [Project README](../../README.md)
 
 # Update rows
 
-These examples use the [sample models](BUILDING_A_DATAMODEL.md) and a [configured connector](SETUP_A_CONNECTION.md).
-Import `SqlLinqer` for operators and response states. See [response handling](RESPONSES.md) for success and error examples.
+These examples use the [sample models](../getting-started/model-mapping.md) and a [configured connector](../getting-started/connections.md).
+Import `SqlLinqer` for operators and response states. See [response handling](../execution/responses-and-errors.md) for success and error examples.
 
 ## Update a user by primary key
 
@@ -132,3 +132,9 @@ var response = query.Execute();
 ```
 
 If `response.State` is `ResponseState.Valid`, `response.Result` contains the affected-row count. Otherwise, inspect `response.Error`.
+
+## Joined updates in DuckDB
+
+DuckDB joined updates require a mapped primary key and at most one source match per target row.
+If several source rows match, the statement fails instead of choosing one arbitrarily.
+Constrain the relationship or its filters to produce one source match per target key.

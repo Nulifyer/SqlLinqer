@@ -1,8 +1,8 @@
-[README](../README.md)
+[Documentation](../README.md) · [Project README](../../README.md)
 
-# Handle query responses
+# Query responses and errors
 
-These examples use the [sample models](BUILDING_A_DATAMODEL.md) and a [configured connector](SETUP_A_CONNECTION.md).
+These examples use the [sample models](../getting-started/model-mapping.md) and a [configured connector](../getting-started/connections.md).
 Import `System` and `SqlLinqer` for the examples below.
 
 ## Check state before reading the result
@@ -94,3 +94,15 @@ var users = pageResponse.Result;
 var total = pageResponse.TotalResults;
 Console.WriteLine($"Showing {users.Count} of {total} users.");
 ```
+
+## Read stored-procedure rows and metadata
+
+`StoredProcedureQuery<TInput, TOutput>.Execute()` returns `SqlStoredProcedureResponse<TOutput>`.
+`Result` contains the output rows, as it does for a select.
+`TotalResults` contains the optional unpaged count from a configured output parameter.
+`ReturnCode` contains SQL RETURN, and `RowsAffected` contains the provider's affected-row count when available.
+Unknown counts are `null`. A known zero is `0`.
+A nonzero return code does not automatically indicate execution failure. Check `State` first.
+Failure clears the rows and all metadata.
+
+See [stored procedures](../queries/stored-procedures.md) for input and output model definitions and execution examples.

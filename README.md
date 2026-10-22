@@ -7,7 +7,7 @@ build aggregate projections, and write changes. The same mappings carry through 
 
 Supports SQL Server, Azure SQL, PostgreSQL, MySQL, SQLite, and DuckDB. Targets .NET Standard 2.0.
 
-[NuGet package](https://www.nuget.org/packages/SqlLinqer/) · [Get started](docs/SETUP_A_CONNECTION.md) · [Model guide](docs/BUILDING_A_DATAMODEL.md)
+[NuGet package](https://www.nuget.org/packages/SqlLinqer/) · [Documentation](docs/README.md) · [Get started](docs/getting-started/connections.md)
 
 ## Describe the result you need
 
@@ -32,7 +32,7 @@ var totalMatches = response.TotalResults;
 ```
 
 `Result` contains typed `User` models and their selected relationships. `TotalResults` counts the matching users before paging.
-The example uses the [sample models](docs/BUILDING_A_DATAMODEL.md) and a [configured connector](docs/SETUP_A_CONNECTION.md).
+The example uses the [sample models](docs/getting-started/model-mapping.md) and a [configured connector](docs/getting-started/connections.md).
 Import `SqlLinqer` for operators and response states.
 
 ## Why SqlLinqer?
@@ -54,29 +54,19 @@ Database-specific capabilities and limits are covered in the guides.
 dotnet add package SqlLinqer
 ```
 
-Install your database's ADO.NET provider, [create a connector](docs/SETUP_A_CONNECTION.md), and [map your models](docs/BUILDING_A_DATAMODEL.md).
+Install your database's ADO.NET provider, [create a connector](docs/getting-started/connections.md), and [map your models](docs/getting-started/model-mapping.md).
 The [NuGet README](SqlLinqer/README.md) walks through relationships, projections, inserts, updates, and deletes with one example model.
-
-This development line targets 2.2.
 
 The NuGet page contains the latest published release. This repository also includes development features, including experimental result streaming.
 
 ## Explore the library
 
-- [Connections and dependency injection](docs/SETUP_A_CONNECTION.md)
-- [Models, keys, and relationships](docs/BUILDING_A_DATAMODEL.md)
-- [Selects, paging, and aggregate projections](docs/QUERY_READ.md)
-- [Inserts](docs/QUERY_CREATE.md), [updates](docs/QUERY_UPDATE.md), and [deletes](docs/QUERY_DELETE.md)
-- [Relationship changes](docs/QUERY_RELATIONSHIPS.md) and [transactions](docs/TRANSACTIONS.md)
-- [Synchronous and asynchronous execution](docs/EXECUTION.md)
-- [Experimental streaming and memory measurements](docs/RESULT_STREAMING.md)
-- [Result conversions](docs/RESULT_CONVERSIONS.md) and [response handling](docs/RESPONSES.md)
-- [Typed stored procedures](docs/CALLABLES.md)
-- [Query snapshots and compilation](docs/QUERY_COMPILATION.md)
-- [DuckDB support](docs/DUCKDB.md)
+The [documentation index](docs/README.md) groups the guides by task:
+
+- [Getting started](docs/README.md#getting-started): connections and model mappings.
+- [Queries](docs/README.md#queries): selects, writes, relationships, [stored procedures](docs/queries/stored-procedures.md), and SQL inspection.
+- [Execution and results](docs/README.md#execution-and-results): async methods, transactions, response handling, conversions, and streaming.
 
 ## Work on the project
 
-See the [contributor guide](docs/CONTRIBUTING.md) for builds, tests, and source organization.
-The [test guide](SqlLinqer.Tests/README.md) covers the complete container-backed suite and focused local runs.
-Release maintainers can follow the [NuGet publishing guide](docs/RELEASING.md).
+To change the library or publish a package, see the [contributor documentation](docs/contributing/README.md).

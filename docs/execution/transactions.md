@@ -1,11 +1,11 @@
-[README](../README.md)
+[Documentation](../README.md) · [Project README](../../README.md)
 
-# Run several writes in one transaction
+# Transactions
 
 Use a transaction when several changes must succeed together.
 This example creates a user and grants an existing permission. If either write fails, it rolls back both changes.
 
-The service uses the [sample models](BUILDING_A_DATAMODEL.md) and receives its connector through [constructor injection](SETUP_A_CONNECTION.md#inject-a-connector).
+The service uses the [sample models](../getting-started/model-mapping.md) and receives its connector through [constructor injection](../getting-started/connections.md#inject-a-connector).
 
 ```csharp
 using SqlLinqer;
@@ -61,4 +61,4 @@ public class UserRegistrationService
 Pass the same transaction to every query in the operation. Check each response before committing.
 The service owns the connection and transaction, so it also handles commit, rollback, and disposal.
 
-See [response handling](RESPONSES.md) for the difference between a successful result and an error.
+See [response handling](responses-and-errors.md) for the difference between a successful result and an error.

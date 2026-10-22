@@ -1,9 +1,9 @@
-[README](../README.md)
+[Documentation](../README.md) · [Project README](../../README.md)
 
 # Delete rows
 
-These examples use the [sample models](BUILDING_A_DATAMODEL.md) and a [configured connector](SETUP_A_CONNECTION.md).
-Import `SqlLinqer` for operators and response states. See [response handling](RESPONSES.md) for success and error examples.
+These examples use the [sample models](../getting-started/model-mapping.md) and a [configured connector](../getting-started/connections.md).
+Import `SqlLinqer` for operators and response states. See [response handling](../execution/responses-and-errors.md) for success and error examples.
 
 ## Delete one user by primary key
 
@@ -41,3 +41,7 @@ var response = query.Execute();
 
 If `response.State` is `ResponseState.Valid`, `response.Result` contains the affected-row count.
 `response.TouchedPrimaryKeys` contains the deleted keys. Otherwise, inspect `response.Error`.
+
+## Joined deletes in DuckDB
+
+DuckDB joined deletes require a mapped primary key. Each target row is deleted once even if several source rows match it.

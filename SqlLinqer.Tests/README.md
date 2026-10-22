@@ -96,7 +96,7 @@ Azure mode retains certificate validation and Azure engine identity checks.
 A skipped live check is never counted as a pass. `--temp-only` runs the temporary-table subset and omits procedures and TVPs.
 See the [SQL Server/Azure SQL guide](SqlServer/README.md) for endpoint and permission details.
 
-See the [SQLite guide](Sqlite/README.md) for minimum-engine validation and the [DuckDB guide](../docs/DUCKDB.md) for provider coverage.
+See the [SQLite guide](Sqlite/README.md) for minimum-engine validation and the [DuckDB connection notes](../docs/getting-started/connections.md#duckdb) for setup.
 
 ## Rendering benchmark
 
@@ -116,7 +116,7 @@ The container suites check actual provider SQL execution.
 
 ## Execution mode coverage
 
-The [result conversion matrix](../docs/RESULT_CONVERSIONS.md) covers signed and unsigned integer widths, decimal and floating-point values,
+The [result conversion matrix](../docs/execution/value-conversions.md) covers signed and unsigned integer widths, decimal and floating-point values,
 date/time parsing and formatting, offsets, nulls, GUIDs, enums, characters, booleans, and binary values.
 `Regression/ValueConversionRegressionTests.cs` runs generated cases through all three JSON execution modes and both native read modes.
 `Regression/ValueConversionProviderChecks.cs` verifies native database values and generated JSON through the shared provider checks.
@@ -139,4 +139,5 @@ They also verify captured queries, concurrent API serialization and SQL loading,
 The binary fixture crosses Base64 line boundaries and includes SQL NULL values in all three read modes.
 
 The render benchmark reports ordinary rendering allocations, snapshot capture allocations, and rendering allocations from a reused snapshot.
-See [query compilation](../docs/QUERY_COMPILATION.md) and [execution](../docs/EXECUTION.md) for the supported interfaces and ownership rules.
+See [query implementation notes](../docs/contributing/implementation-notes.md) for capture and rendering details.
+The [execution guide](../docs/execution/sync-and-async.md) covers supported methods and transaction use.

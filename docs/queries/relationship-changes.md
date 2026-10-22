@@ -1,9 +1,9 @@
-[README](../README.md)
+[Documentation](../README.md) · [Project README](../../README.md)
 
 # Change relationships
 
 Change a relationship by updating its foreign key or inserting or deleting a linking row.
-These methods use the [sample models](BUILDING_A_DATAMODEL.md). Add them to the injected `UserRepository` from the [connector guide](SETUP_A_CONNECTION.md#inject-a-connector).
+These methods use the [sample models](../getting-started/model-mapping.md). Add them to the injected `UserRepository` from the [connector guide](../getting-started/connections.md#inject-a-connector).
 Import `SqlLinqer` for operators and response states.
 
 ## Assign a manager
@@ -66,4 +66,4 @@ public int RevokePermission(string userId, int permissionId)
 ```
 
 Each method returns the affected-row count. A successful operation can affect zero rows.
-To combine changes into one operation, use a [transaction](TRANSACTIONS.md).
+To combine changes into one operation, use a [transaction](../execution/transactions.md).

@@ -1,6 +1,6 @@
-[README](../README.md)
+[Documentation](../README.md) · [Project README](../../README.md)
 
-# Build a data model
+# Model mappings, keys, and relationships
 
 The query examples use these models for users, permissions, and their linking table.
 Map models to existing tables with `SqlTable`. Use `SqlColumn` when a column name differs from its C# member name.
