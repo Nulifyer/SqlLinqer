@@ -4,6 +4,7 @@ using Microsoft.Data.SqlClient;
 using SqlLinqer;
 using SqlLinqer.Connections;
 using SqlLinqer.Modeling;
+using SqlLinqer.Queries.Typed;
 
 namespace SqlLinqer.Tests.SqlServer;
 
@@ -36,6 +37,21 @@ internal static class CallableChecks
             require(message.Direction == ParameterDirection.Output && message.Size == 80, "Output string binding differs");
             var letter = parameters.Single(p => p.SqlDbType == SqlDbType.NChar);
             require(letter.Direction == ParameterDirection.Output && letter.Size == 1, "Character output buffer differs");
+        });
+        local("two-model procedure SQL syntax and SqlClient metadata binding", () =>
+        {
+            var connector = new ConnectionFactoryConnector(() => throw new InvalidOperationException("Must not open"),
+                DbFlavor.SqlServer, new ConnectorOptions { DefaultSchema = "probe" });
+            var query = new StoredProcedureQuery<PageInput, ProcedureRow>("ProcedurePage", new PageInput(), totalResultsParameter: "total_count").Render(connector);
+            using var command = new SqlCommand();
+            typeof(BaseConnector).GetMethod("ImportFromTempQueryData", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(connector, new object[] { command, query });
+            LocalChecks.Parse(command.CommandText);
+            LocalChecks.Parse(query.GetTextWithParameterValues());
+            var outputs = command.Parameters.Cast<Microsoft.Data.SqlClient.SqlParameter>().Where(p => p.Direction == ParameterDirection.Output).ToArray();
+            require(outputs.Length == 2 && outputs.Count(p => p.SqlDbType == SqlDbType.BigInt) == 1
+                && outputs.Count(p => p.SqlDbType == SqlDbType.Int) == 1, "Standard total or RETURN metadata differs");
+            LocalChecks.Parse(PageProcedure("probe"));
         });
         local("typed callable live procedure parses", () => LocalChecks.Parse(Procedure("probe")));
     }
@@ -76,6 +92,7 @@ internal static class CallableChecks
 
     internal static void RunLive(BaseConnector connector, SqlConnection connection, Action<string, Action> live)
     {
+        RunPageLive(connector, connection, live);
         live("typed callable result sets defaults outputs and return code", () =>
         {
             var args = new LiveCall.Args { MinId = 0, Counter = 5 };
@@ -92,6 +109,65 @@ internal static class CallableChecks
             LiveSuite.Require(result.Rows.Count == 0 && result.Total == 0 && result.Message == null
                 && result.Counter == 2 && transaction.Connection == connection, "Empty rows, NULL, or transaction ownership differs");
             transaction.Rollback();
+        });
+    }
+
+    public sealed class PageInput
+    {
+        public int MinId { get; set; }
+        public bool SuppressCount { get; set; }
+        public bool EmptyPage { get; set; }
+    }
+
+    private static string PageProcedure(string schema) => $"""
+        CREATE PROCEDURE [{schema}].[ProcedurePage]
+            @MinId int, @SuppressCount bit, @EmptyPage bit, @total_count bigint OUTPUT
+        AS BEGIN
+            IF @SuppressCount = 1 SET NOCOUNT ON ELSE SET NOCOUNT OFF;
+            UPDATE [{schema}].[Rows] SET Name = Name WHERE Id >= @MinId;
+            SET @total_count = (SELECT COUNT_BIG(*) FROM [{schema}].[Rows] WHERE Id >= @MinId);
+            SELECT Id, Name FROM [{schema}].[Rows] WHERE Id >= @MinId AND @EmptyPage = 0 ORDER BY Id;
+            RETURN 17;
+        END
+        """;
+
+    private static void RunPageLive(BaseConnector connector, SqlConnection connection, Action<string, Action> live)
+    {
+        live("two-model procedure rows totals NOCOUNT and caller transactions sync and async", () =>
+        {
+            var schema = connector.Options.DefaultSchema;
+            using (var create = new SqlCommand(PageProcedure(schema), connection)) create.ExecuteNonQuery();
+            try
+            {
+                foreach (bool asynchronous in new[] { false, true })
+                    foreach (bool suppressCount in new[] { false, true })
+                        foreach (bool emptyPage in new[] { false, true })
+                        {
+                            var query = new StoredProcedureQuery<PageInput, ProcedureRow>("ProcedurePage",
+                                new PageInput { MinId = 0, SuppressCount = suppressCount, EmptyPage = emptyPage }, totalResultsParameter: "total_count");
+                            var response = asynchronous ? query.ExecuteAsync(connector).GetAwaiter().GetResult() : query.Execute(connector);
+                            var rows = LiveSuite.Valid(response);
+                            LiveSuite.Require(response.TotalResults > 0 && response.ReturnCode == 17
+                                && rows.Count == (emptyPage ? 0 : response.TotalResults)
+                                && response.RowsAffected == (suppressCount ? null : (int?)response.TotalResults),
+                                $"Procedure page metadata differs: async={asynchronous}, NOCOUNT={suppressCount}, empty={emptyPage}");
+                        }
+                foreach (bool asynchronous in new[] { false, true })
+                {
+                    using var transaction = connection.BeginTransaction();
+                    var query = new StoredProcedureQuery<PageInput, ProcedureRow>("ProcedurePage",
+                        new PageInput { MinId = int.MaxValue }, totalResultsParameter: "total_count");
+                    var response = asynchronous ? query.ExecuteAsync(connector, transaction).GetAwaiter().GetResult() : query.Execute(connector, transaction);
+                    LiveSuite.Require(LiveSuite.Valid(response).Count == 0 && response.TotalResults == 0 && response.RowsAffected == 0
+                        && transaction.Connection == connection, "Zero totals or caller ownership differs");
+                    transaction.Rollback();
+                }
+            }
+            finally
+            {
+                using var drop = new SqlCommand($"DROP PROCEDURE [{schema}].[ProcedurePage]", connection);
+                drop.ExecuteNonQuery();
+            }
         });
     }
 

@@ -288,7 +288,7 @@ internal static partial class CallableRegressionTests
     }
 
     // Output values become available on Close, as with SqlClient. A premature output read sees DBNull.
-    private sealed class ClosingReader(DbDataReader inner, Action closed) : DbDataReader
+    private sealed class ClosingReader(DbDataReader inner, Action closed, int? recordsAffected = null) : DbDataReader
     {
         private bool _closed;
         public override void Close() { if (_closed) return; _closed = true; inner.Close(); closed(); }
@@ -299,7 +299,7 @@ internal static partial class CallableRegressionTests
         public override int FieldCount => inner.FieldCount;
         public override bool HasRows => inner.HasRows;
         public override bool IsClosed => _closed;
-        public override int RecordsAffected => inner.RecordsAffected;
+        public override int RecordsAffected => recordsAffected ?? inner.RecordsAffected;
         public override bool Read() => inner.Read();
         public override bool NextResult() => inner.NextResult();
         public override string GetName(int ordinal) => inner.GetName(ordinal);

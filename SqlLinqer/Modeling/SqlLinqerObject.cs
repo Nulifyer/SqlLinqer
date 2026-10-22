@@ -127,6 +127,17 @@ namespace SqlLinqer.Modeling
         {
             return new StoredProcedureQuery<TObj>(name, schema);
         }
+        /// <summary>Creates a stored-procedure query with a typed input model and this model as the returned row type.</summary>
+        /// <typeparam name="TInput">The input model. Public readable members become parameters unless marked SqlIgnore.</typeparam>
+        /// <param name="name">One procedure identifier, without a schema prefix.</param>
+        /// <param name="input">The input values captured by the query.</param>
+        /// <param name="connector">The retained connector, or null to use the current default at execution time.</param>
+        /// <param name="schema">An explicit procedure schema, or null to use the execution connector default.</param>
+        /// <param name="totalResultsParameter">The optional output parameter supplying an unpaged total. Null requests no total.</param>
+        /// <returns>A query whose Execute methods return output rows and standard procedure metadata.</returns>
+        public static StoredProcedureQuery<TInput, TObj> BeginStoredProcedure<TInput>(string name, TInput input,
+            BaseConnector connector, string schema = null, string totalResultsParameter = null) where TInput : class
+            => new StoredProcedureQuery<TInput, TObj>(name, input, schema, totalResultsParameter) { BoundConnector = connector };
         #endregion
 
         /// <summary>

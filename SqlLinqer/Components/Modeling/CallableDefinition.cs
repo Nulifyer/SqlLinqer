@@ -16,10 +16,11 @@ namespace SqlLinqer.Components.Modeling
         internal readonly CallableBinding[] Parameters;
         internal readonly CallableResultSet[] ResultSets;
         internal readonly MemberInfo ReturnValue;
+        internal readonly string TotalResultsParameter;
 
-        internal CallableDefinition(Type callable, Type args, Type result)
+        internal CallableDefinition(Type callable, Type args, Type result, SqlProcedure procedure = null, string totalResultsParameter = null)
         {
-            Procedure = (SqlProcedure)Attribute.GetCustomAttribute(callable, typeof(SqlProcedure), false)
+            Procedure = procedure ?? (SqlProcedure)Attribute.GetCustomAttribute(callable, typeof(SqlProcedure), false)
                 ?? throw new InvalidOperationException($"Callable '{callable}' needs a SqlProcedure attribute.");
             if (string.IsNullOrWhiteSpace(Procedure.Name) || Procedure.Schema != null && string.IsNullOrWhiteSpace(Procedure.Schema))
                 throw new InvalidOperationException("Procedure name and schema must not be empty.");
@@ -66,6 +67,12 @@ namespace SqlLinqer.Components.Modeling
             }
             Parameters = bindings.Values.OrderBy(x => x.Metadata.Order).ThenBy(x => x.Name, StringComparer.Ordinal).ToArray();
             foreach (var parameter in Parameters) parameter.Validate();
+            if (totalResultsParameter != null)
+            {
+                TotalResultsParameter = ParameterName(totalResultsParameter);
+                if (bindings.ContainsKey(TotalResultsParameter))
+                    throw new InvalidOperationException("The total results output parameter must not also be declared on the input model.");
+            }
             ResultSets = sets.OrderBy(x => x.Index).ToArray();
             for (int i = 0; i < ResultSets.Length; i++)
                 if (ResultSets[i].Index != i)

@@ -24,13 +24,18 @@ namespace SqlLinqer.Queries.Typed
     {
         private static readonly Lazy<CallableDefinition> Definition = new Lazy<CallableDefinition>(() =>
             new CallableDefinition(typeof(TCallable), typeof(TArgs), typeof(TResult)));
+        private readonly CallableDefinition _definition;
         private readonly object[] _values;
         private readonly bool[] _specified;
 
         internal CallableInvocation(TArgs args)
+            : this(args, args == null ? throw new ArgumentNullException(nameof(args)) : Definition.Value) { }
+
+        internal CallableInvocation(TArgs args, CallableDefinition definition)
         {
+            _definition = definition;
             if (args == null) throw new ArgumentNullException(nameof(args));
-            var parameters = Definition.Value.Parameters;
+            var parameters = _definition.Parameters;
             _values = new object[parameters.Length];
             _specified = new bool[parameters.Length];
             for (int i = 0; i < parameters.Length; i++)
@@ -86,47 +91,90 @@ namespace SqlLinqer.Queries.Typed
         {
             if (connector == null) throw new ArgumentNullException(nameof(connector));
             var plan = Build(connector.DbFlavor, connector.Options.DefaultSchema);
-            return connector.ExecuteCallable(plan.Query, transaction, command =>
-            {
-                var result = new TResult();
-                int setIndex = 0;
-                using (var reader = command.ExecuteReader())
-                {
-                    do
-                    {
-                        // Update counts are not tabular result sets and do not consume a declared index.
-                        if (reader.FieldCount == 0) continue;
-                        if (setIndex >= Definition.Value.ResultSets.Length)
-                            throw new InvalidOperationException("The procedure returned an undeclared result set.");
-                        var set = Definition.Value.ResultSets[setIndex++];
-                        set.Member.SetFieldOrPropValue(result, set.Read(reader));
-                    } while (reader.NextResult());
-                }
-                if (setIndex != Definition.Value.ResultSets.Length)
-                    throw new InvalidOperationException($"The procedure returned {setIndex} result sets; expected {Definition.Value.ResultSets.Length}.");
-                // SQL Server populates output parameters only after the reader closes.
-                foreach (var output in plan.Outputs)
-                {
-                    var parameter = (DbParameter)command.Parameters[output.Key];
-                    output.Value.SetFieldOrPropValue(result,
-                        TabularValue.Convert(parameter.Value, output.Value.GetFieldOrPropValueType()));
-                }
-                return result;
-            });
+            return connector.ExecuteCallable(plan.Query, transaction, command => ReadResults(command, plan, false).Result);
         }
 
-        private Plan Build(DbFlavor flavor, string defaultSchema)
+        internal RenderedQuery RenderWithMetadata(BaseConnector connector)
+            => Build(connector.DbFlavor, connector.Options.DefaultSchema, true).Query;
+
+        internal RenderedQuery RenderWithMetadata(DbFlavor flavor) => Build(flavor, null, true).Query;
+
+        internal SqlResponse<ProcedureResult> ExecuteWithMetadata(BaseConnector connector, DbTransaction transaction)
+        {
+            if (connector == null) throw new ArgumentNullException(nameof(connector));
+            var plan = Build(connector.DbFlavor, connector.Options.DefaultSchema, true);
+            return connector.ExecuteCallable(plan.Query, transaction, command => ReadResults(command, plan, true));
+        }
+
+        private ProcedureResult ReadResults(DbCommand command, Plan plan, bool metadata)
+        {
+            var result = new ProcedureResult(new TResult());
+            int setIndex = 0;
+            using (var reader = command.ExecuteReader())
+            {
+                do
+                {
+                    // Update counts do not consume a declared tabular result-set index.
+                    if (reader.FieldCount == 0) continue;
+                    if (setIndex >= _definition.ResultSets.Length)
+                        throw new InvalidOperationException("The procedure returned an undeclared result set.");
+                    var set = _definition.ResultSets[setIndex++];
+                    set.Member.SetFieldOrPropValue(result.Result, set.Read(reader));
+                } while (reader.NextResult());
+                if (metadata && reader.RecordsAffected >= 0) result.RowsAffected = reader.RecordsAffected;
+            }
+            CompleteResults(command, plan, ref result, setIndex, metadata);
+            return result;
+        }
+
+        private void CompleteResults(DbCommand command, Plan plan, ref ProcedureResult result, int setIndex, bool metadata)
+        {
+            if (setIndex != _definition.ResultSets.Length)
+                throw new InvalidOperationException($"The procedure returned {setIndex} result sets; expected {_definition.ResultSets.Length}.");
+            // SQL Server populates output parameters only after the reader closes.
+            foreach (var output in plan.Outputs)
+            {
+                var parameter = (DbParameter)command.Parameters[output.Key];
+                output.Value.SetFieldOrPropValue(result.Result,
+                    TabularValue.Convert(parameter.Value, output.Value.GetFieldOrPropValueType()));
+            }
+            if (!metadata) return;
+            result.ReturnCode = (int?)TabularValue.Convert(command.Parameters[plan.ReturnCode].Value, typeof(int?));
+            if (plan.TotalResults != null)
+            {
+                result.TotalResults = (long?)TabularValue.Convert(command.Parameters[plan.TotalResults].Value, typeof(long?));
+                if (result.TotalResults < 0) throw new InvalidOperationException("The procedure total result count cannot be negative.");
+            }
+        }
+
+        internal struct ProcedureResult
+        {
+            internal ProcedureResult(TResult result)
+            {
+                Result = result;
+                TotalResults = null;
+                ReturnCode = null;
+                RowsAffected = null;
+            }
+            internal readonly TResult Result;
+            internal long? TotalResults;
+            internal int? ReturnCode;
+            internal int? RowsAffected;
+        }
+
+        private Plan Build(DbFlavor flavor, string defaultSchema, bool metadata = false)
         {
             if (flavor != DbFlavor.SqlServer && flavor != DbFlavor.AzureSql)
                 throw new NotSupportedException("Typed procedure callables currently support SQL Server and Azure SQL only.");
-            var definition = Definition.Value;
+            var definition = _definition;
             var plan = new Plan();
             string returnPrefix = "";
-            if (definition.ReturnValue != null)
+            if (definition.ReturnValue != null || metadata)
             {
                 var id = plan.Query.Parameters.AddCallableParameter(null, DbType.Int32,
                     ParameterDirection.Output, new SqlParameterAttribute());
-                plan.Outputs.Add(id, definition.ReturnValue);
+                if (definition.ReturnValue != null) plan.Outputs.Add(id, definition.ReturnValue);
+                plan.ReturnCode = id;
                 returnPrefix = id + " = ";
             }
             var assignments = new List<string>();
@@ -139,6 +187,12 @@ namespace SqlLinqer.Queries.Typed
                 var id = plan.Query.Parameters.AddCallableParameter(_values[i], binding.DbType, direction, binding.Metadata);
                 assignments.Add("@" + binding.Name + " = " + id + (binding.Output != null ? " OUTPUT" : ""));
                 if (binding.Output != null) plan.Outputs.Add(id, binding.Output);
+            }
+            if (definition.TotalResultsParameter != null)
+            {
+                plan.TotalResults = plan.Query.Parameters.AddCallableParameter(null, DbType.Int64,
+                    ParameterDirection.Output, new SqlParameterAttribute());
+                assignments.Add("@" + definition.TotalResultsParameter + " = " + plan.TotalResults + " OUTPUT");
             }
             var schema = definition.Procedure.Schema ?? defaultSchema;
             if (schema != null && string.IsNullOrWhiteSpace(schema))
@@ -153,6 +207,8 @@ namespace SqlLinqer.Queries.Typed
         private sealed class Plan
         {
             internal readonly RenderedQuery Query = new RenderedQuery();
+            internal string TotalResults;
+            internal string ReturnCode;
             internal readonly Dictionary<string, System.Reflection.MemberInfo> Outputs = new Dictionary<string, System.Reflection.MemberInfo>();
         }
     }

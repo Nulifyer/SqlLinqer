@@ -410,6 +410,7 @@ internal static class RegressionSuite
         TvpRegressionTests.Run(Test);
         CallableRegressionTests.RunAsync(Test);
         CallableRegressionTests.Run(Test);
+        CallableRegressionTests.RunResponses(Test);
         JsonRegressionTests.Run(Test);
         ReviewRegressionTests.Run(Test);
         ComplexRelationshipChecks.RunRendering(Test);

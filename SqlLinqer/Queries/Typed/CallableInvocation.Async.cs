@@ -4,7 +4,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using SqlLinqer.Connections;
 using SqlLinqer.Extensions.MemberInfoExtensions;
-using SqlLinqer.Components.Modeling;
 
 namespace SqlLinqer.Queries.Typed
 {
@@ -38,30 +37,39 @@ namespace SqlLinqer.Queries.Typed
             var plan = Build(connector.DbFlavor, connector.Options.DefaultSchema);
             var query = SqlLinqer.Compilation.SnapshotGraph.Capture(plan.Query);
             return connector.ExecuteCallableAsync(query, transaction, async command =>
+                (await ReadResultsAsync(command, plan, false, cancellationToken).ConfigureAwait(false)).Result, cancellationToken);
+        }
+
+        internal Task<SqlResponse<ProcedureResult>> ExecuteWithMetadataAsync(BaseConnector connector, DbTransaction transaction,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (connector == null) throw new ArgumentNullException(nameof(connector));
+            var plan = Build(connector.DbFlavor, connector.Options.DefaultSchema, true);
+            var query = SqlLinqer.Compilation.SnapshotGraph.Capture(plan.Query);
+            return connector.ExecuteCallableAsync(query, transaction,
+                command => ReadResultsAsync(command, plan, true, cancellationToken), cancellationToken);
+        }
+
+        private async Task<ProcedureResult> ReadResultsAsync(DbCommand command, Plan plan, bool metadata, CancellationToken cancellationToken)
+        {
+            var result = new ProcedureResult(new TResult());
+            int setIndex = 0;
+            using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
             {
-                var result = new TResult();
-                int setIndex = 0;
-                using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                do
                 {
-                    do
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        if (reader.FieldCount == 0) continue;
-                        if (setIndex >= Definition.Value.ResultSets.Length)
-                            throw new InvalidOperationException("The procedure returned an undeclared result set.");
-                        var set = Definition.Value.ResultSets[setIndex++];
-                        set.Member.SetFieldOrPropValue(result, await set.ReadAsync(reader, cancellationToken).ConfigureAwait(false));
-                    } while (await reader.NextResultAsync(cancellationToken).ConfigureAwait(false));
-                }
-                if (setIndex != Definition.Value.ResultSets.Length)
-                    throw new InvalidOperationException($"The procedure returned {setIndex} result sets; expected {Definition.Value.ResultSets.Length}.");
-                foreach (var output in plan.Outputs)
-                {
-                    var parameter = (DbParameter)command.Parameters[output.Key];
-                    output.Value.SetFieldOrPropValue(result, TabularValue.Convert(parameter.Value, output.Value.GetFieldOrPropValueType()));
-                }
-                return result;
-            }, cancellationToken);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (reader.FieldCount == 0) continue;
+                    if (setIndex >= _definition.ResultSets.Length)
+                        throw new InvalidOperationException("The procedure returned an undeclared result set.");
+                    var set = _definition.ResultSets[setIndex++];
+                    set.Member.SetFieldOrPropValue(result.Result, await set.ReadAsync(reader, cancellationToken).ConfigureAwait(false));
+                } while (await reader.NextResultAsync(cancellationToken).ConfigureAwait(false));
+                if (metadata && reader.RecordsAffected >= 0) result.RowsAffected = reader.RecordsAffected;
+            }
+            CompleteResults(command, plan, ref result, setIndex, metadata);
+            return result;
         }
     }
 }
