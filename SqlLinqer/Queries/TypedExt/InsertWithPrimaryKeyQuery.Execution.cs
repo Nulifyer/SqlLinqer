@@ -1,20 +1,44 @@
+using System.Collections.Generic;
+using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
-using System;
-using System.Linq;
-using System.Data.Common;
-using System.Linq.Expressions;
-using System.Collections.Generic;
 using SqlLinqer.Connections;
-using SqlLinqer.Components.Modeling;
-using SqlLinqer.Queries.Interfaces;
-using SqlLinqer.Queries.Typed;
-using SqlLinqer.Components.Outputs;
+using SqlLinqer.Queries.Execution;
 
 namespace SqlLinqer.Queries.TypedExt
 {
     public partial class InsertWithPrimaryKeyQuery<T, TPk>
     {
+        /// <inheritdoc/>
+        public new SqlPrimaryKeysResponse<int, TPk> Execute(DbTransaction transaction = null)
+        {
+            return Execute(ExecutionConnector, transaction);
+        }
+        /// <inheritdoc/>
+        public new SqlPrimaryKeysResponse<int, TPk> Execute(BaseConnector connector, DbTransaction transaction = null)
+        {
+            var primaryKeys = new List<object>();
+
+            var baseRes = base.ExecuteAndCapturePrimaryKeys(connector, transaction, primaryKeys);
+
+            return PrimaryKeyResults.Create<TPk>(baseRes, primaryKeys, connector.DbFlavor);
+        }
+
+        /// <inheritdoc/>
+        public new SqlPrimaryKeysResponse<int, TPk> ExecuteTvp(DbTransaction transaction = null)
+        {
+            return ExecuteTvp(ExecutionConnector, transaction);
+        }
+        /// <inheritdoc/>
+        public new SqlPrimaryKeysResponse<int, TPk> ExecuteTvp(BaseConnector connector, DbTransaction transaction = null)
+        {
+            var primaryKeys = new List<object>();
+
+            var baseRes = base.ExecuteTvpAndCapturePrimaryKeys(connector, transaction, primaryKeys);
+
+            return PrimaryKeyResults.Create<TPk>(baseRes, primaryKeys, connector.DbFlavor);
+        }
+
         /// <inheritdoc/>
         public new async Task<SqlPrimaryKeysResponse<int, TPk>> ExecuteAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
@@ -26,26 +50,11 @@ namespace SqlLinqer.Queries.TypedExt
         public new async Task<SqlPrimaryKeysResponse<int, TPk>> ExecuteAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var response = new SqlPrimaryKeysResponse<int, TPk>();
             var primaryKeys = new List<object>();
 
             var baseRes = await base.ExecuteAndCapturePrimaryKeysAsync(connector, transaction, primaryKeys, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-            switch (baseRes.State)
-            {
-                case ResponseState.Valid:
-                    response.SetResult(baseRes.Result, primaryKeys.Select(x => connector.DbFlavor == DbFlavor.Sqlite
-                        ? Components.Render.SqliteValue.ConvertTo<TPk>(x) : connector.DbFlavor == DbFlavor.DuckDb
-                        ? DbValueConversion.ConvertTo<TPk>(x) : (TPk)x).ToList());
-                    break;
-                case ResponseState.Error:
-                    response.SetError(baseRes.Error);
-                    break;
-                default:
-                    throw new System.NotSupportedException($"The {nameof(ResponseState)} {baseRes.State} is not supported");
-            }
-
-            return response;
+            return PrimaryKeyResults.Create<TPk>(baseRes, primaryKeys, connector.DbFlavor);
         }
 
         /// <inheritdoc/>
@@ -59,26 +68,11 @@ namespace SqlLinqer.Queries.TypedExt
         public new async Task<SqlPrimaryKeysResponse<int, TPk>> ExecuteTvpAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var response = new SqlPrimaryKeysResponse<int, TPk>();
             var primaryKeys = new List<object>();
 
             var baseRes = await base.ExecuteTvpAndCapturePrimaryKeysAsync(connector, transaction, primaryKeys, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-            switch (baseRes.State)
-            {
-                case ResponseState.Valid:
-                    response.SetResult(baseRes.Result, primaryKeys.Select(x => connector.DbFlavor == DbFlavor.Sqlite
-                        ? Components.Render.SqliteValue.ConvertTo<TPk>(x) : connector.DbFlavor == DbFlavor.DuckDb
-                        ? DbValueConversion.ConvertTo<TPk>(x) : (TPk)x).ToList());
-                    break;
-                case ResponseState.Error:
-                    response.SetError(baseRes.Error);
-                    break;
-                default:
-                    throw new System.NotSupportedException($"The {nameof(ResponseState)} {baseRes.State} is not supported");
-            }
-
-            return response;
+            return PrimaryKeyResults.Create<TPk>(baseRes, primaryKeys, connector.DbFlavor);
         }
     }
 }

@@ -4,6 +4,9 @@ using SqlLinqer.Components.Modeling;
 using SqlLinqer.Components.Render;
 using SqlLinqer.Queries.Core.Abstract;
 using System.Linq;
+using System;
+using System.Reflection;
+using SqlLinqer.Modeling;
 
 namespace SqlLinqer.Components.Joins
 {
@@ -43,6 +46,18 @@ namespace SqlLinqer.Components.Joins
             DataTarget = data_target;
             LinkCol = link_col;
             Joins = new List<Join>();
+        }
+
+        internal void ApplyConditions(MemberInfo member)
+        {
+            foreach (var condition in member.GetCustomAttributes<SqlCondition>())
+            {
+                if (condition.ApplyToIdx < 0 || condition.ApplyToIdx >= Joins.Count)
+                    throw new IndexOutOfRangeException($"Invalid join index when processing additional condittions for table relationship between '{ParentTable.Name}' - '{ChildTable.Name}'.");
+                var join = Joins[condition.ApplyToIdx];
+                if (condition.Override) join.Condition.Clear();
+                condition.AddToJoin(this, join);
+            }
         }
 
         /// <summary>Returns reversed joins ordered from the deepest child toward the parent.</summary>

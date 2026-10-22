@@ -411,6 +411,9 @@ internal static class RegressionSuite
         JsonRegressionTests.Run(Test);
         ReviewRegressionTests.Run(Test);
         ComplexRelationshipChecks.RunRendering(Test);
+        RelationshipMappingChecks.Run(Test);
+        SelectResponseChecks.Run(Test);
+        WriteResponseChecks.Run(Test);
         StableContractChecks.Run(Test);
         CompatibleQueryRegressionTests.Run(Test);
         if (benchmark) CompatibleQueryRegressionTests.MeasureRendering();

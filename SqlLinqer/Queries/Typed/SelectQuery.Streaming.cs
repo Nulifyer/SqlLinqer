@@ -1,9 +1,9 @@
-using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
 using SqlLinqer.Connections;
+using SqlLinqer.Queries.Execution;
 
 namespace SqlLinqer.Queries.Typed
 {
@@ -16,19 +16,6 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public IAsyncEnumerable<T> ExecuteAsyncStream(BaseConnector connector, DbTransaction transaction = null,
             CancellationToken cancellationToken = default)
-        {
-            if (connector == null) throw new ArgumentNullException(nameof(connector));
-            cancellationToken.ThrowIfCancellationRequested();
-            var snapshot = Capture();
-            return ExecuteCapturedAsyncStream(connector, snapshot, transaction, cancellationToken);
-        }
-
-        private static async IAsyncEnumerable<T> ExecuteCapturedAsyncStream(BaseConnector connector, Compilation.QuerySnapshot snapshot,
-            DbTransaction transaction, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            await foreach (var row in connector.ExecuteReaderJsonAsyncStream<T>(snapshot.Render(connector), transaction, cancellationToken).ConfigureAwait(false))
-                yield return row;
-        }
+            => SelectExecution.ExecuteAsyncStream<T>(this, connector, transaction, cancellationToken);
     }
 }

@@ -1,22 +1,55 @@
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
-using System;
-using System.Data.Common;
-using System.Linq.Expressions;
-using System.Collections.Generic;
 using SqlLinqer.Connections;
-using SqlLinqer.Components.Modeling;
-using SqlLinqer.Components.Where;
-using SqlLinqer.Queries.Interfaces;
-using SqlLinqer.Extensions.MemberExpressionExtensions;
-using SqlLinqer.Components.Outputs;
-using SqlLinqer.Components.Update;
-using System.Data;
+using SqlLinqer.Queries.Execution;
 
 namespace SqlLinqer.Queries.Typed
 {
-    public partial class UpdateQuery<T>
+    public partial class DeleteQuery<T>
     {
+        /// <inheritdoc/>
+        public SqlResponse<int> Execute(DbTransaction transaction = null)
+        {
+            return Execute(ExecutionConnector, transaction);
+        }
+        /// <inheritdoc/>
+        public SqlResponse<int> Execute(BaseConnector connector, DbTransaction transaction = null)
+        {
+            return ExecuteAndCapturePrimaryKeys(connector, transaction, null);
+        }
+
+        /// <inheritdoc/>
+        public SqlResponse<DataTable> ExecuteWithOutput(DbTransaction transaction = null)
+        {
+            return ExecuteWithOutput(ExecutionConnector, transaction);
+        }
+        /// <inheritdoc/>
+        public SqlResponse<DataTable> ExecuteWithOutput(BaseConnector connector, DbTransaction transaction = null)
+        {
+            if (connector == null)
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            var rendered = this.Render(connector);
+            return connector.ExecuteReaderDataTable(rendered, transaction);
+        }
+
+        /// <summary>
+        /// Executes the query. Returning the results and capturing any errors.
+        /// </summary>
+        /// <param name="connector">The connector used to execute the query.</param>
+        /// <param name="existingTransaction">An optional caller-owned transaction with an open connection. The caller commits, rolls back, and disposes it.</param>
+        /// <param name="primaryKeys">If a list is passed, the updated primary keys will be captured in this list.</param>
+        /// <returns>The result of the query in a state based wrapper including the affected primary keys.</returns>
+        protected SqlResponse<int> ExecuteAndCapturePrimaryKeys(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null)
+        {
+            if (connector == null)
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            return WriteExecution.Execute(Render(connector), connector, existingTransaction, primaryKeys);
+        }
+
         /// <inheritdoc/>
         public async Task<SqlResponse<int>> ExecuteAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
@@ -49,7 +82,7 @@ namespace SqlLinqer.Queries.Typed
         }
 
         /// <summary>
-        /// Executes the update asynchronously, optionally collecting returned primary keys. Requested cancellation throws.
+        /// Executes the deletion asynchronously, optionally collecting returned primary keys. Requested cancellation throws.
         /// </summary>
         /// <param name="connector">The connector used for this execution.</param>
         /// <param name="existingTransaction">An optional caller-owned transaction with an open connection.</param>
@@ -61,37 +94,7 @@ namespace SqlLinqer.Queries.Typed
             cancellationToken.ThrowIfCancellationRequested();
             if (connector == null)
                 throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
-
-            var rendered = this.Render(connector);
-
-            var response = new SqlResponse<int>();
-            ISqlResponse executedRes;
-            if (primaryKeys == null)
-            {
-                var resNon = await connector.ExecuteNonQueryAsync(rendered, existingTransaction, cancellationToken: cancellationToken).ConfigureAwait(false);
-                if (resNon.State == ResponseState.Valid)
-                    response.SetResult(resNon.Result);
-                executedRes = resNon;
-            }
-            else
-            {
-                var primaryKeyData = await connector.ExecuteReaderDataTableAsync(rendered, existingTransaction, cancellationToken: cancellationToken).ConfigureAwait(false);
-                if (primaryKeyData.State == ResponseState.Valid)
-                {
-                    using (var table = primaryKeyData.Result)
-                        foreach (System.Data.DataRow row in table.Rows)
-                        {
-                            primaryKeys.Add(row[0]);
-                        }
-                    response.SetResult(primaryKeys.Count);
-                }
-                executedRes = primaryKeyData;
-            }
-
-            if (executedRes.State == ResponseState.Error)
-                response.SetError(executedRes.Error);
-
-            return response;
+            return await WriteExecution.ExecuteAsync(Render(connector), connector, existingTransaction, primaryKeys, cancellationToken).ConfigureAwait(false);
         }
     }
 }

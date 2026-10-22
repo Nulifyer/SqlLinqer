@@ -24,16 +24,7 @@ namespace SqlLinqer.Components.Caching
         }
         public TValue Get(TKey key)
         {
-            if (_cacheDictionary.TryGetValue(key, out CacheItem<TValue> cacheItem) && !cacheItem.HasExpired)
-            {
-                if (_keepAliveWhenUsed)
-                {
-                    var renewed = cacheItem.GetRenewed();
-                    _cacheDictionary.AddOrUpdate(key, renewed, (k, v) => renewed);
-                }
-                return cacheItem.Value;
-            }
-            return default(TValue);
+            return TryGetValue(key, out var value) ? value : default(TValue);
         }
         public bool TryGetValue(TKey key, out TValue value)
         {

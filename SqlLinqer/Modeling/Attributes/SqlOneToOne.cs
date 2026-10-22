@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Reflection;
 using SqlLinqer.Components.Joins;
 using SqlLinqer.Components.Modeling;
 using SqlLinqer.Components.Where;
@@ -81,16 +80,7 @@ namespace SqlLinqer.Modeling
 
             relationship.Joins.Add(join);
 
-            var additionalConditions = unprocessed.UnprocessedMember.Member.GetCustomAttributes<SqlCondition>();
-            foreach (var condition in additionalConditions)
-            {
-                if (condition.ApplyToIdx < 0 || condition.ApplyToIdx > relationship.Joins.Count - 1)
-                    throw new IndexOutOfRangeException($"Invalid join index when processing additional condittions for table relationship between '{relationship.ParentTable.Name}' - '{relationship.ChildTable.Name}'.");
-                var apply_to_join = relationship.Joins[condition.ApplyToIdx];
-                if (condition.Override == true)
-                    apply_to_join.Condition.Clear();
-                condition.AddToJoin(relationship, apply_to_join);
-            }
+            relationship.ApplyConditions(unprocessed.UnprocessedMember.Member);
 
             related_table.ParentRelationship = relationship;
 

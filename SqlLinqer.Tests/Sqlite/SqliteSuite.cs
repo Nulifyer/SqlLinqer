@@ -75,6 +75,7 @@ internal static class SqliteSuite
                 WriteChecks.Insert(connector, item, label, Test);
                 MappingChecks.Run(connector, keeper, item, label, Test);
                 QueryChecks.Run(connector, keeper, item, label, Test);
+                RelationshipChecks.Run(connector, keeper, label, Test);
                 WriteChecks.UpdateAndDelete(connector, keeper, item, label, Test);
                 SqlLinqer.Tests.Regression.CompatibleDatabaseTests.Run(connector, (name, action) => Test($"{label}: {name}", action));
                 SqlLinqer.Tests.Regression.SqlJsonContractChecks.Run(connector, (name, action) => Test($"{label}: {name}", action));

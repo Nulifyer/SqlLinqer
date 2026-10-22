@@ -23,8 +23,8 @@ In: compilation, result mapping, connectors, executable interfaces and query typ
 Out: full LINQ translation, schema generation, compilation caches, public immutable fluent builders, streaming, publication.
 
 ## Current state
-Phase: locally verified implementation complete; local Git delivery authorized
-Next action: deliver the verified work as local commits. Optional live server validation requires Docker access or configured disposable endpoints.
+Phase: verified code reuse and callable design implementation complete. Local Git delivery is authorized.
+Next action: await the next user task. Current verification and intentional duplication are recorded below.
 
 ## Decisions
 | Decision | Reason | Evidence |
@@ -33,7 +33,7 @@ Next action: deliver the verified work as local commits. Optional live server va
 | Freeze at compilation entry; retain an explicit reusable capture interface. | Existing Table/Column aliases and nested query nodes are mutable. | Compilation/QuerySnapshot.cs; Compilation/SnapshotGraph.cs |
 | Cache runtime field layouts and isolate the existing graph before considering persistent immutable nodes. | Preserves current public node classes and virtual implementations without copying on each fluent call. | Compilation/SnapshotGraph.cs; docs/contributing/implementation-notes.md |
 | Add sibling asynchronous interfaces. | Existing synchronous interface implementers need no new members. | Queries/Interfaces/IAsyncQueryExecutable*.cs |
-| Preserve ordinary legacy procedure TVP reference behavior; copy values in explicit captures and async execution. | Existing provider compatibility checks require ordinary rendering to retain the input table. | Queries/Core/Abstract/BaseQuery.cs; Queries/Typed/StoredProcedureQuery.Async.cs |
+| Procedure rendering retains TVP references; async callable execution snapshots mutable inputs. Earlier procedure factories and capture APIs have been retired. | The sole procedure interface is now the attribute-based two-model callable. | Modeling/SqlLinqerCallable.cs; Queries/Typed/CallableQuery.Execution.cs |
 | Use fresh compilation state and bindings for each render. | Count and normal rendering currently stash and restore shared collections. | Queries/Core/SelectQuery.cs |
 | Preserve pre-existing changes. | Workspace contains connector binding and ongoing SQL Server suite work. | Baseline patch and hashes in /tmp/sqllinqer-implementation-baseline |
 
@@ -66,3 +66,28 @@ Next action: deliver the verified work as local commits. Optional live server va
 - Provider-specific scalar objects and extension-owned reference data must remain immutable. Builders must not be mutated during capture.
 - Async provider contracts can complete synchronously in embedded providers. The netstandard2.0 transaction lifecycle remains synchronous.
 - The user authorized committing all pending changes. The delivery includes connector binding, compilation and async execution, compatibility project renames, and the existing review-document removal. The SQL Server suite migration and container runner were committed separately before this delivery.
+
+## Current code reuse and design audit
+
+The user requested a full duplication pass with reusable behavior where it has a clear owner, plus consistent callable naming and layout.
+The earlier procedure interfaces remain removed. `SqlLinqerCallable<TInput, TOutput>` is the sole public entry point, and now returns `SqlCallableResponse<TOutput>`.
+The previous interface-removal evidence remains in `/tmp/sqllinqer-single-procedure-full.log`. Its source and binary removals were intentional; wire-format checks do not establish compatibility for removed interfaces.
+
+Current ownership:
+- `Queries/Execution/SelectExecution.cs` shares buffered, counted, and streaming behavior across model and projection selects.
+- `Queries/Execution/WriteExecution.cs` shares single-command update/delete key capture. `PrimaryKeyResults.cs` owns response assembly and provider key conversion across insert/update/delete and TVP inserts.
+- `Components/Joins/ManyToManyRelationship.cs` shares mapping across both directions. `Relationship.ApplyConditions` owns additional join-condition application for all relationship attributes. Bidirectional mappings now propagate the configured default schema.
+- Callable attributes and public methods live in `Modeling`; internal call state lives in `Queries/Typed/CallableQuery*`; SQL preparation lives in `Compilation/CallablePreparation.cs`; provider reads and delayed output metadata live in `Connections/BaseConnector.Callable.cs`.
+- Removed forwarding-only tabular conversion and moved SQLite key conversion into its sole owning result module. Cache lookup/renewal has one implementation.
+
+Intentional duplication remains in typed fluent overloads and response-specific reset rules. Sync/async methods retain their separate I/O contracts. Provider SQL differences and insert batch aggregation/transaction lifetime remain explicit. Compatibility demos retain separate call sites for their target runtimes. Small local test assertions remain near their fixtures.
+
+Verification:
+- All six suites passed, 3,201 checks, including 37 added checks: `/tmp/sqllinqer-reuse-full.log`. The added SQLite schema fixture includes conflicting main-schema data to detect incorrect schema resolution.
+- .NET 10 and .NET Framework 4.8 Release compatibility builds passed with zero warnings/errors: `/tmp/sqllinqer-reuse-net10.log`, `/tmp/sqllinqer-reuse-net48.log`.
+- Public/protected signature comparison against the pre-pass working library found no differences after normalizing the requested callable response rename: `/tmp/sqllinqer-reuse-api.log`. This is not a comparison against a published release.
+- All 27 shared 2.1.0 wire-format fixtures passed: `/tmp/sqllinqer-reuse-contracts.log`.
+- All 18 compiled usage snippets and all 144 documentation links/anchors passed. Evidence: `/tmp/sqllinqer-reuse-doc-examples.log` and the local documentation validation scripts.
+- Both whitespace verification commands and `git diff --check` passed. Local commits are authorized for this verified work; remote delivery is outside the current request.
+
+This repository retains its existing `.agents/work` record format. The current continuity validator expects a newer root/index/plan/status document layout that is not present; that metadata migration was left outside this code refactor.

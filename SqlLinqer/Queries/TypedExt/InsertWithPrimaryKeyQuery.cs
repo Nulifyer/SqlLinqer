@@ -1,9 +1,6 @@
 using System;
-using System.Linq;
-using System.Data.Common;
 using System.Linq.Expressions;
 using System.Collections.Generic;
-using SqlLinqer.Connections;
 using SqlLinqer.Components.Modeling;
 using SqlLinqer.Queries.Interfaces;
 using SqlLinqer.Queries.Typed;
@@ -62,66 +59,6 @@ namespace SqlLinqer.Queries.TypedExt
         {
             base.Output<TProperty>(expression);
             return this;
-        }
-
-        /// <inheritdoc/>
-        public new SqlPrimaryKeysResponse<int, TPk> Execute(DbTransaction transaction = null)
-        {
-            return Execute(ExecutionConnector, transaction);
-        }
-        /// <inheritdoc/>
-        public new SqlPrimaryKeysResponse<int, TPk> Execute(BaseConnector connector, DbTransaction transaction = null)
-        {
-            var response = new SqlPrimaryKeysResponse<int, TPk>();
-            var primaryKeys = new List<object>();
-
-            var baseRes = base.ExecuteAndCapturePrimaryKeys(connector, transaction, primaryKeys);
-
-            switch (baseRes.State)
-            {
-                case ResponseState.Valid:
-                    response.SetResult(baseRes.Result, primaryKeys.Select(x => connector.DbFlavor == DbFlavor.Sqlite
-                        ? Components.Render.SqliteValue.ConvertTo<TPk>(x) : connector.DbFlavor == DbFlavor.DuckDb
-                        ? DbValueConversion.ConvertTo<TPk>(x) : (TPk)x).ToList());
-                    break;
-                case ResponseState.Error:
-                    response.SetError(baseRes.Error);
-                    break;
-                default:
-                    throw new System.NotSupportedException($"The {nameof(ResponseState)} {baseRes.State} is not supported");
-            }
-
-            return response;
-        }
-
-        /// <inheritdoc/>
-        public new SqlPrimaryKeysResponse<int, TPk> ExecuteTvp(DbTransaction transaction = null)
-        {
-            return ExecuteTvp(ExecutionConnector, transaction);
-        }
-        /// <inheritdoc/>
-        public new SqlPrimaryKeysResponse<int, TPk> ExecuteTvp(BaseConnector connector, DbTransaction transaction = null)
-        {
-            var response = new SqlPrimaryKeysResponse<int, TPk>();
-            var primaryKeys = new List<object>();
-
-            var baseRes = base.ExecuteTvpAndCapturePrimaryKeys(connector, transaction, primaryKeys);
-
-            switch (baseRes.State)
-            {
-                case ResponseState.Valid:
-                    response.SetResult(baseRes.Result, primaryKeys.Select(x => connector.DbFlavor == DbFlavor.Sqlite
-                        ? Components.Render.SqliteValue.ConvertTo<TPk>(x) : connector.DbFlavor == DbFlavor.DuckDb
-                        ? DbValueConversion.ConvertTo<TPk>(x) : (TPk)x).ToList());
-                    break;
-                case ResponseState.Error:
-                    response.SetError(baseRes.Error);
-                    break;
-                default:
-                    throw new System.NotSupportedException($"The {nameof(ResponseState)} {baseRes.State} is not supported");
-            }
-
-            return response;
         }
     }
 }
