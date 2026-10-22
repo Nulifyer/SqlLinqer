@@ -41,30 +41,6 @@ internal static class CompilationRegressionTests
                 "Rendered binding mutated future renders");
         });
 
-        test("capture owns stored procedure TVP values", () =>
-        {
-            using var values = new DataTable();
-            values.Columns.Add("Id", typeof(int)); values.Rows.Add(3);
-            var snapshot = new StoredProcedureQuery<Row>("probe").AddTvpParameter("ids", values, "dbo.Ids").Capture();
-            values.Rows[0][0] = 99;
-            using var first = (DataTable)snapshot.Render(DbFlavor.SqlServer).Parameters.GetAll().Single().Value;
-            Check((int)first.Rows[0][0] == 3, "TVP data was not captured");
-            first.Rows[0][0] = 42;
-            using var next = (DataTable)snapshot.Render(DbFlavor.SqlServer).Parameters.GetAll().Single().Value;
-            Check((int)next.Rows[0][0] == 3, "TVP bindings were reused");
-        });
-
-        test("capture isolates read-only TVP binary cells", () =>
-        {
-            using var values = new DataTable();
-            var column = values.Columns.Add("Payload", typeof(byte[]));
-            byte[] bytes = [1, 2]; values.Rows.Add((object)bytes); column.ReadOnly = true;
-            var snapshot = new StoredProcedureQuery<Row>("probe").AddTvpParameter("rows", values, "dbo.Payloads").Capture();
-            bytes[0] = 9;
-            using var captured = (DataTable)snapshot.Render(DbFlavor.SqlServer).Parameters.GetAll().Single().Value;
-            Check(captured.Columns[0].ReadOnly && ((byte[])captured.Rows[0][0])[0] == 1, "Read-only TVP capture lost cell isolation or metadata");
-        });
-
         test("insert capture reads mapped values once and isolates entity mutations", () =>
         {
             var row = new Row { Name = "original", Payload = [1, 2] };

@@ -99,7 +99,7 @@ internal static class QueryChecks
         });
         Test("imported named parameters avoid generated placeholder collisions", () =>
         {
-            var source = new NamedParameterCollection(); source.AddParameter("$P1", 100);
+            var source = new ParameterCollection(DbFlavor.DuckDb); source.AddParameter(100);
             var parameters = new ImportedParameters(); parameters.Import(source);
             Expect(parameters.AddParameter(101) == "$P2", "Imported parameter was overwritten");
             var query = new RenderedQuery("SELECT $P1 + $P2") { Parameters = parameters };

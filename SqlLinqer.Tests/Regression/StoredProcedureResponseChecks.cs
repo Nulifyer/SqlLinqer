@@ -2,27 +2,80 @@ using System.Data;
 using System.Text.RegularExpressions;
 using SqlLinqer.Connections;
 using SqlLinqer.Modeling;
-using SqlLinqer.Queries.Typed;
-using SqlLinqer.Queries.Interfaces;
 
 namespace SqlLinqer.Tests.Regression;
 
-internal static partial class CallableRegressionTests
+internal static partial class StoredProcedureRegressionTests
 {
     internal static void RunResponses(Action<string, Action> test)
     {
+        RunCallableModels(test);
         foreach (var flavor in new[] { DbFlavor.SqlServer, DbFlavor.AzureSql })
             foreach (bool asynchronous in new[] { false, true })
             {
-                SqlStoredProcedureResponse<UserRow> Run(StoredProcedureQuery<ExternalArgs, UserRow> query, BaseConnector connector,
-                    System.Data.Common.DbTransaction transaction = null)
-                    => asynchronous ? query.ExecuteAsync(connector, transaction).GetAwaiter().GetResult()
-                        : query.Execute(connector, transaction);
+                SqlCallableResponse<TOutput> Run<TInput, TOutput>(SqlLinqerCallable<TInput, TOutput> procedure, TInput input, BaseConnector connector,
+                    System.Data.Common.DbTransaction transaction = null) where TInput : class
+                    => asynchronous ? procedure.ExecuteAsync(input, connector, transaction).GetAwaiter().GetResult()
+                        : procedure.Execute(input, connector, transaction);
 
+                test($"procedure ordinary inputs omit null and preserve empty and supplied values, {flavor}, async={asynchronous}", () =>
+                {
+                    foreach (string name in new[] { null, string.Empty, "  ", "雪" })
+                    {
+                        var input = new OrdinaryProcedureInput
+                        {
+                            Name = name,
+                            PlainName = name!,
+                            Count = name == null ? null : 0,
+                            Enabled = name == null ? null : false,
+                            Amount = name == null ? null : 0m
+                        };
+                        var procedure = new InputProcedure();
+                        var database = InputDatabase();
+                        var response = Run(procedure, input, new FakeConnector(database, flavor));
+                        Check(response.State == ResponseState.Valid, response.Error?.ToString());
+                        var command = database.Executed.Single();
+                        if (name == null)
+                            Check(command.Parameters.Count == 2 && !command.CommandText.Contains("@name =")
+                                && !command.CommandText.Contains("@PlainName =") && !command.CommandText.Contains("@Count =")
+                                && !command.CommandText.Contains("@Enabled =") && !command.CommandText.Contains("@Amount ="),
+                                "Null input properties were not omitted");
+                        else
+                            Check((string)Parameter(command, "name").Value == name && (string)Parameter(command, "PlainName").Value == name
+                                && (int)Parameter(command, "Count").Value == 0 && !(bool)Parameter(command, "Enabled").Value
+                                && (decimal)Parameter(command, "Amount").Value == 0m, "Supplied input values changed");
+                    }
+                });
+                test($"procedure explicit arguments distinguish omission SQL NULL and values, {flavor}, async={asynchronous}", () =>
+                {
+                    var inputs = new[]
+                    {
+                        new ExplicitProcedureInput(),
+                        new ExplicitProcedureInput { Name = new SqlArgument<string>(null), Count = new SqlArgument<int?>(null), Enabled = new SqlArgument<bool?>(null) },
+                        new ExplicitProcedureInput { Name = string.Empty, Count = 0, Enabled = false },
+                        new ExplicitProcedureInput { Name = "雪", Count = 7, Enabled = true }
+                    };
+                    for (int i = 0; i < inputs.Length; i++)
+                    {
+                        var procedure = new ExplicitInputProcedure();
+                        var database = InputDatabase();
+                        var response = Run(procedure, inputs[i], new FakeConnector(database, flavor));
+                        Check(response.State == ResponseState.Valid, response.Error?.ToString());
+                        var command = database.Executed.Single();
+                        if (i == 0) Check(command.Parameters.Count == 2, "Omitted arguments were sent");
+                        else if (i == 1)
+                            Check(Parameter(command, "name").Value == DBNull.Value && Parameter(command, "Count").Value == DBNull.Value
+                                && Parameter(command, "Enabled").Value == DBNull.Value, "Explicit SQL NULL was omitted or replaced");
+                        else
+                            Check((string)Parameter(command, "name").Value == (i == 2 ? string.Empty : "雪")
+                                && (int)Parameter(command, "Count").Value == (i == 2 ? 0 : 7)
+                                && (bool)Parameter(command, "Enabled").Value == (i == 3), "Explicit values changed");
+                    }
+                });
                 test($"procedure response exposes standard metadata without result fields, {flavor}, async={asynchronous}", () =>
                 {
                     var database = MetadataDatabase(22L, rowsAffected: 3);
-                    var response = Run(PagedUsers(), new FakeConnector(database, flavor));
+                    var response = Run(PagedUsers(), new ExternalArgs(), new FakeConnector(database, flavor));
                     Check(response.State == ResponseState.Valid && response.Result.Single().Name == "雪"
                         && response.TotalResults == 22 && response.ReturnCode == 17 && response.RowsAffected == 3, response.Error?.ToString());
                     Check(Parameter(database.Executed.Single(), "total_count").DbType == DbType.Int64, "Standard count must preserve Int64 totals");
@@ -35,7 +88,7 @@ internal static partial class CallableRegressionTests
                 {
                     foreach (object total in new object[] { 22L, 0L, DBNull.Value, long.MaxValue })
                     {
-                        var response = Run(PagedUsers(), new FakeConnector(MetadataDatabase(total, empty: true), flavor));
+                        var response = Run(PagedUsers(), new ExternalArgs(), new FakeConnector(MetadataDatabase(total, empty: true), flavor));
                         Check(response.State == ResponseState.Valid && response.Result.Count == 0 && response.RowsAffected == null
                             && response.TotalResults == (total == DBNull.Value ? null : (long?)total), response.Error?.ToString());
                     }
@@ -43,13 +96,13 @@ internal static partial class CallableRegressionTests
                 test($"procedure query captures inputs and renders metadata, {flavor}, async={asynchronous}", () =>
                 {
                     var input = new ExternalArgs { Value = 7 };
-                    var query = new StoredProcedureQuery<ExternalArgs, UserRow>("PagedUsers", input, "dbo", "total_count");
-                    input.Value = 99;
+                    var procedure = new PagedSchemaProcedure();
                     var database = MetadataDatabase(22L);
                     var connector = new FakeConnector(database, flavor);
-                    var rendered = query.Render(connector);
+                    var rendered = procedure.Render(input, connector);
                     Check(rendered.Text.Contains("[dbo].[PagedUsers]") && rendered.Text.Contains(" OUTPUT"), "Render lost schema or metadata");
-                    var response = Run(query, connector);
+                    var response = Run(procedure, input, connector);
+                    input.Value = 99;
                     Check(response.State == ResponseState.Valid && (int)Parameter(database.Executed.Single(), "Value").Value == 7,
                         response.Error?.ToString());
                     Check(database.Executed.Single().CommandText == rendered.Text, "Rendered and executed commands differ");
@@ -62,7 +115,7 @@ internal static partial class CallableRegressionTests
                             : failure == "overflow" ? ulong.MaxValue : failure == "invalid" ? "bad" : 22L;
                         var database = MetadataDatabase(total, missingSet: failure == "missing-set");
                         if (failure is "commit" or "dispose-command") database.FailAt = failure;
-                        var response = Run(PagedUsers(), new FakeConnector(database, flavor));
+                        var response = Run(PagedUsers(), new ExternalArgs(), new FakeConnector(database, flavor));
                         Check(response.State == ResponseState.Error && response.Result == null && response.TotalResults == null
                             && response.ReturnCode == null && response.RowsAffected == null, "Partial metadata escaped after " + failure);
                         Check(database.Connections.Single().IsDisposed, "Failure leaked connection: " + failure);
@@ -75,7 +128,7 @@ internal static partial class CallableRegressionTests
                     var database = MetadataDatabase(-1L); var connector = new FakeConnector(database, flavor);
                     using var connection = new FakeConnection(database); connection.Open();
                     using var transaction = (FakeTransaction)connection.BeginTransaction();
-                    var response = Run(PagedUsers(), connector, transaction);
+                    var response = Run(PagedUsers(), new ExternalArgs(), connector, transaction);
                     Check(response.State == ResponseState.Error && !connection.IsDisposed && !transaction.IsDisposed
                         && transaction.Commits == 0 && transaction.Rollbacks == 0 && connector.Created == 0, "Invalid total changed caller ownership");
                 });
@@ -86,7 +139,7 @@ internal static partial class CallableRegressionTests
                         ReaderFactory = command => new ClosingReader(Users().CreateDataReader(),
                         () => SetReturnCode(command, 9), 0)
                     };
-                    var response = Run(new StoredProcedureQuery<ExternalArgs, UserRow>("PagedUsers", new ExternalArgs()), new FakeConnector(database, flavor));
+                    var response = Run(PagedUsers(), new ExternalArgs(), new FakeConnector(database, flavor));
                     Check(response.State == ResponseState.Valid && response.TotalResults == null && response.RowsAffected == 0 && response.ReturnCode == 9,
                         response.Error?.ToString());
                 });
@@ -94,7 +147,7 @@ internal static partial class CallableRegressionTests
 
         test("procedure response resets metadata on errors and result replacement", () =>
         {
-            var response = new SqlStoredProcedureResponse<string>();
+            var response = new SqlCallableResponse<string>();
             Check(response.State == ResponseState.Error && response.TotalResults == null && response.ReturnCode == null && response.RowsAffected == null,
                 "Unset response exposes metadata");
             response.SetResult(new List<string> { "first" }, 22, 17, 3);
@@ -111,12 +164,12 @@ internal static partial class CallableRegressionTests
         });
         test("procedure count mappings validate before execution", () =>
         {
-            Throws<InvalidOperationException>(() => new StoredProcedureQuery<ExternalArgs, UserRow>("Invalid", new ExternalArgs(), totalResultsParameter: "invalid;name"));
-            Throws<InvalidOperationException>(() => new StoredProcedureQuery<ExternalArgs, UserRow>("Invalid", new ExternalArgs(), totalResultsParameter: "Value"));
-            Throws<InvalidOperationException>(() => new StoredProcedureQuery<ExternalArgs, UserRow>(" ", new ExternalArgs()));
-            Throws<InvalidOperationException>(() => new StoredProcedureQuery<ExternalArgs, UserRow>("Valid", new ExternalArgs(), schema: " "));
-            Throws<ArgumentNullException>(() => new StoredProcedureQuery<ExternalArgs, UserRow>("Valid", null));
-            Throws<NotSupportedException>(() => PagedUsers().Render(DbFlavor.PostgreSql));
+            Throws<InvalidOperationException>(() => new InvalidStandardCountProcedure().Render(new StandardCountInput(), DbFlavor.SqlServer));
+            Throws<InvalidOperationException>(() => new InvalidAliasCountProcedure().Render(new AliasCountInput(), DbFlavor.SqlServer));
+            Throws<InvalidOperationException>(() => new EmptyProcedureMapping());
+            Throws<InvalidOperationException>(() => new EmptySchemaMapping());
+            Throws<ArgumentNullException>(() => PagedUsers().Render(null, DbFlavor.SqlServer));
+            Throws<NotSupportedException>(() => PagedUsers().Render(new ExternalArgs(), DbFlavor.PostgreSql));
         });
         test("procedure metadata async cancellation preserves token and ownership", () =>
         {
@@ -125,7 +178,7 @@ internal static partial class CallableRegressionTests
             database.BeforeAsyncRead = _ => { cancellation.Cancel(); return Task.CompletedTask; };
             try
             {
-                PagedUsers().ExecuteAsync(new FakeConnector(database, DbFlavor.SqlServer),
+                PagedUsers().ExecuteAsync(new ExternalArgs(), new FakeConnector(database, DbFlavor.SqlServer),
                     cancellationToken: cancellation.Token).GetAwaiter().GetResult();
                 throw new Exception("Expected cancellation");
             }
@@ -139,8 +192,8 @@ internal static partial class CallableRegressionTests
             try
             {
                 Default.Connector = new FakeConnector(MetadataDatabase(22L), DbFlavor.SqlServer);
-                Check(PagedUsers().Execute().TotalResults == 22, "Sync default connector differs");
-                Check(PagedUsers().ExecuteAsync().GetAwaiter().GetResult().TotalResults == 22,
+                Check(PagedUsers().Execute(new ExternalArgs()).TotalResults == 22, "Sync default connector differs");
+                Check(PagedUsers().ExecuteAsync(new ExternalArgs()).GetAwaiter().GetResult().TotalResults == 22,
                     "Async default connector differs");
             }
             finally { Default.Connector = previous; }
@@ -158,32 +211,40 @@ internal static partial class CallableRegressionTests
                 }
                 };
                 var connector = new FakeConnector(database, DbFlavor.SqlServer);
-                var query = new StoredProcedureQuery<EmptyInput, int>("ScalarOutput", new EmptyInput());
-                var response = asynchronous ? query.ExecuteAsync(connector).GetAwaiter().GetResult() : query.Execute(connector);
+                var procedure = new ScalarProcedure();
+                var response = asynchronous ? procedure.ExecuteAsync(new EmptyInput(), connector).GetAwaiter().GetResult() : procedure.Execute(new EmptyInput(), connector);
                 Check(response.State == ResponseState.Valid && response.Result.Single() == 42 && response.ReturnCode == 0
                     && response.TotalResults == null && response.RowsAffected == null, response.Error?.ToString());
-                Check(database.Executed.Single().Parameters.Count == 1, "Empty input generated a parameter");
+                Check(database.Executed.Single().Parameters.Count == 2, "Empty input generated a parameter");
             }
         });
-        test("procedure query supports select execution interfaces and retained connectors", () =>
-        {
-            var database = MetadataDatabase(22L);
-            var connector = new FakeConnector(database, DbFlavor.SqlServer);
-            var query = FactoryRow.BeginStoredProcedure("PagedUsers", new ExternalArgs(), connector, totalResultsParameter: "total_count");
-            var first = ((IQueryExecutable<List<FactoryRow>>)query).Execute();
-            var second = ((IAsyncQueryExecutable<List<FactoryRow>>)query).ExecuteAsync().GetAwaiter().GetResult();
-            var third = ((IQueryExecutable<List<FactoryRow>>)query).Execute(connector);
-            var fourth = ((IAsyncQueryExecutable<List<FactoryRow>>)query).ExecuteAsync(connector).GetAwaiter().GetResult();
-            Check(new[] { first, second, third, fourth }.All(r => r.State == ResponseState.Valid && r.Result.Single().Id == 7
-                && r is SqlStoredProcedureResponse<FactoryRow> metadata && metadata.TotalResults == 22), "Execution interface lost row data or metadata");
-            Check(database.Executed.Count == 4, "Retained connector was not used");
-            StoredProcedureQuery<FactoryRow> legacy = FactoryRow.BeginStoredProcedure("Legacy", connector);
-            Check(legacy != null && FactoryRow.BeginStoredProcedure("Legacy", "dbo") != null, "Legacy overload resolution changed");
-        });
+
     }
 
+#nullable enable
+    private class OrdinaryProcedureInput
+    {
+        [SqlParameter("name", Size = 80)] public string? Name { get; set; }
+        public string PlainName { get; set; } = null!;
+        public int? Count { get; set; }
+        public bool? Enabled { get; set; }
+        public decimal? Amount { get; set; }
+    }
+    private class ExplicitProcedureInput
+    {
+        [SqlParameter("name", Size = 80)] public SqlArgument<string?> Name { get; set; }
+        public SqlArgument<int?> Count { get; set; }
+        public SqlArgument<bool?> Enabled { get; set; }
+    }
+#nullable restore
+    private static FakeDatabase InputDatabase() => new()
+    {
+        ReaderFactory = command => new ClosingReader(Users().CreateDataReader(), () => SetReturnCode(command, 0))
+    };
+
+    private class StandardCountInput { public long TotalResults { get; set; } }
+    private class AliasCountInput { public long total_count { get; set; } }
     private class EmptyInput { }
-    private class FactoryRow : SqlLinqerObject<FactoryRow> { public int Id { get; set; } }
 
     private static void SetReturnCode(FakeCommand command, int value)
         => command.Parameters[Regex.Match(command.CommandText, @"EXEC (@P\d+) =").Groups[1].Value].Value = value;
@@ -197,6 +258,15 @@ internal static partial class CallableRegressionTests
         }, rowsAffected),
     };
 
-    private static StoredProcedureQuery<ExternalArgs, UserRow> PagedUsers()
-        => new("PagedUsers", new ExternalArgs(), totalResultsParameter: "@total_count");
+    [SqlProcedure("PagedUsers")]
+    private sealed class PagedProcedure : SqlLinqerCallable<ExternalArgs, UserRow> { }
+    [SqlProcedure("PagedUsers", Schema = "dbo")]
+    private sealed class PagedSchemaProcedure : SqlLinqerCallable<ExternalArgs, UserRow> { }
+    [SqlProcedure("Invalid")]
+    private sealed class InvalidStandardCountProcedure : SqlLinqerCallable<StandardCountInput, UserRow> { }
+    [SqlProcedure("Invalid")]
+    private sealed class InvalidAliasCountProcedure : SqlLinqerCallable<AliasCountInput, UserRow> { }
+    [SqlProcedure("ScalarOutput")]
+    private sealed class ScalarProcedure : SqlLinqerCallable<EmptyInput, int> { }
+    private static PagedProcedure PagedUsers() => new();
 }

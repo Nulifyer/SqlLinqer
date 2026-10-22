@@ -96,9 +96,6 @@ namespace SqlLinqer.Connections
             });
         }
 
-        internal SqlResponse<T> ExecuteCallable<T>(RenderedQuery query, DbTransaction transaction, Func<DbCommand, T> action)
-            => ExecuteOnConnection(query, transaction, true, action);
-
         /// <summary>
         /// Intercepts synchronous command execution and converts execution failures into error responses.
         /// Override both ExecuteCommand and ExecuteCommandAsync when a policy must cover both execution styles.
@@ -278,10 +275,6 @@ namespace SqlLinqer.Connections
                 return new SqlResponse<T>(new SqlResponseException(query, error));
             }
         }
-
-        internal Task<SqlResponse<T>> ExecuteCallableAsync<T>(RenderedQuery query, DbTransaction transaction,
-            Func<DbCommand, Task<T>> action, CancellationToken cancellationToken)
-            => ExecuteOnConnectionAsync(query, transaction, true, action, cancellationToken);
 
         /// <summary>
         /// Asynchronously reads the first row's first value and converts it to T. SQL NULL is allowed only when T can hold null. Requested cancellation throws.

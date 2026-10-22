@@ -41,7 +41,7 @@ internal static class DuckDbSuite
             WriteChecks.Delete(connector, Test);
             Test("stored procedures, TVPs and unsupported functions reject before execution", () =>
             {
-                Reject(() => new StoredProcedureQuery<Person>("example").Render(DbFlavor.DuckDb));
+                Reject(() => new SqlLinqer.Tests.Regression.ProcedureProbe().Render(new SqlLinqer.Tests.Regression.ProcedureProbe.Input(), DbFlavor.DuckDb));
                 Reject(() => new InsertQuery<Person>().InsertAuto(person).ExecuteTvp(connector));
                 Reject(() => new ParameterCollection(DbFlavor.DuckDb).AddTvpParameter(new DataTable(), "unused"));
                 Reject(() => new SelectQueryInitializer<Person>().BuildQuery(x => new { Value = x.SOUNDDEX(p => p.Name) }).Render(DbFlavor.DuckDb));

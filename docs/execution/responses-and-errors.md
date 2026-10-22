@@ -97,7 +97,7 @@ Console.WriteLine($"Showing {users.Count} of {total} users.");
 
 ## Read stored-procedure rows and metadata
 
-`StoredProcedureQuery<TInput, TOutput>.Execute()` returns `SqlStoredProcedureResponse<TOutput>`.
+`SqlLinqerCallable<TInput, TOutput>.Execute(input)` returns `SqlCallableResponse<TOutput>`.
 `Result` contains the output rows, as it does for a select.
 `TotalResults` contains the optional unpaged count from a configured output parameter.
 `ReturnCode` contains SQL RETURN, and `RowsAffected` contains the provider's affected-row count when available.

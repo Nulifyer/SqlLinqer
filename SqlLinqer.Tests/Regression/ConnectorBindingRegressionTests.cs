@@ -43,8 +43,6 @@ internal static class ConnectorBindingRegressionTests
             ["delete-key-auto"] = c => new Item { Id = 7 }.BeginDeleteAuto(c).Execute,
             ["exists"] = c => Item.BeginPrimaryKeyExists(7, c).Execute,
             ["truncate"] = c => Item.BeginTruncate(c).Execute,
-            ["procedure-json"] = c => Item.BeginStoredProcedure("sample", c).ExecuteJson,
-            ["procedure-table"] = c => Item.BeginStoredProcedure("sample", c).ExecuteDataTable,
         };
 
         foreach (var factory in factories)

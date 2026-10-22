@@ -8,7 +8,7 @@ namespace SqlLinqer.Modeling
 
     /// <summary>
     /// Distinguishes an omitted procedure argument from a supplied value, including SQL NULL. The default struct value omits the SQL assignment.
-    /// Omission allows a procedure default to apply. Input/output parameters cannot be omitted.
+    /// Omission allows a procedure default to apply.
     /// </summary>
     /// <typeparam name="T">The declared input value type.</typeparam>
     /// <example>

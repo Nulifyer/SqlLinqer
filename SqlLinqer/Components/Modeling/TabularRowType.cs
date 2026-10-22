@@ -8,7 +8,7 @@ using SqlLinqer.Extensions.MemberInfoExtensions;
 
 namespace SqlLinqer.Components.Modeling
 {
-    // Shared SQL row contract for callable result sets and connector model lists.
+    // Shared SQL row contract for procedure rows and connector model lists.
     internal sealed class TabularRowType
     {
         private static readonly ConcurrentDictionary<Type, TabularRowType> Types = new ConcurrentDictionary<Type, TabularRowType>();
@@ -98,11 +98,11 @@ namespace SqlLinqer.Components.Modeling
 
         internal object Read(DbDataReader reader, int[] ordinals, object[] rowValues = null, object[] mappedValues = null)
         {
-            if (_scalar) return TabularValue.Convert(rowValues == null ? reader.GetValue(0) : rowValues[0], Type);
+            if (_scalar) return SqlLinqer.Connections.DbValueConversion.ConvertTo(rowValues == null ? reader.GetValue(0) : rowValues[0], Type);
             var values = mappedValues ?? CreateBuffer();
             for (int i = 0; i < values.Length; i++)
             {
-                try { values[i] = TabularValue.Convert(rowValues == null ? reader.GetValue(ordinals[i]) : rowValues[ordinals[i]], _memberTypes[i]); }
+                try { values[i] = SqlLinqer.Connections.DbValueConversion.ConvertTo(rowValues == null ? reader.GetValue(ordinals[i]) : rowValues[ordinals[i]], _memberTypes[i]); }
                 catch (Exception error) when (error is InvalidCastException || error is FormatException || error is OverflowException)
                 { throw new InvalidCastException($"Cannot load column '{reader.GetName(ordinals[i])}' into '{Type}.{_members[i].Member.Name}'.", error); }
             }

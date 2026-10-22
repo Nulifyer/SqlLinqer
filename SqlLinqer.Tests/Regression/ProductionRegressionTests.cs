@@ -56,9 +56,9 @@ internal static class ProductionRegressionTests
             var query = new SelectQuery<CompilationRegressionTests.Row>();
             CheckConnectorArgument(() => query.Execute((SqlLinqer.Connections.BaseConnector)null));
             CheckConnectorArgument(() => query.ExecuteAsync((SqlLinqer.Connections.BaseConnector)null).GetAwaiter().GetResult());
-            var procedure = new StoredProcedureQuery<CompilationRegressionTests.Row>("sample");
-            CheckConnectorArgument(() => procedure.ExecuteJson((SqlLinqer.Connections.BaseConnector)null));
-            CheckConnectorArgument(() => procedure.ExecuteJsonAsync((SqlLinqer.Connections.BaseConnector)null).GetAwaiter().GetResult());
+            var procedure = new ProcedureProbe();
+            CheckConnectorArgument(() => procedure.Execute(new ProcedureProbe.Input(), (SqlLinqer.Connections.BaseConnector)null));
+            CheckConnectorArgument(() => procedure.ExecuteAsync(new ProcedureProbe.Input(), (SqlLinqer.Connections.BaseConnector)null).GetAwaiter().GetResult());
         });
     }
 

@@ -56,16 +56,41 @@ internal static class LocalChecks
         local("provider binds stored procedure typed null and Structured TVP", () =>
         {
             using var ids = new DataTable(); ids.Columns.Add("Id", typeof(int)); ids.Rows.Add(3);
-            var query = new StoredProcedureQuery<ProcedureRow>("ReadJson", "probe")
-                .AddParameter("name", null, DbType.String).AddTvpParameter("Ids", ids, "probe.IdList").Render(DbFlavor.AzureSql);
+            var connector = new ConnectionFactoryConnector(() => throw new InvalidOperationException("Must not open"),
+                DbFlavor.AzureSql, new ConnectorOptions { DefaultSchema = "probe" });
+            var query = new NativeProcedure().Render(new NativeInput
+            { Name = new SqlLinqer.Modeling.SqlArgument<string>(null), Ids = ids }, connector);
             using var command = new SqlCommand();
-            // Exercise the actual provider-independent import using real SqlParameter instances without a connection.
-            var connector = new ConnectionFactoryConnector(() => throw new InvalidOperationException("Must not open"), DbFlavor.AzureSql);
-            var import = typeof(BaseConnector).GetMethod("ImportFromTempQueryData", BindingFlags.Instance | BindingFlags.NonPublic);
-            import.Invoke(connector, new object[] { command, query });
-            require(command.Parameters.Count == 2 && command.Parameters[0].Value == DBNull.Value
-                && command.Parameters[0].DbType == DbType.String && command.Parameters[1].SqlDbType == SqlDbType.Structured
-                && command.Parameters[1].TypeName == "probe.IdList" && ReferenceEquals(command.Parameters[1].Value, ids), "Provider parameter metadata changed");
+            typeof(BaseConnector).GetMethod("ImportFromTempQueryData", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(connector, new object[] { command, query });
+            var inputs = command.Parameters.Cast<Microsoft.Data.SqlClient.SqlParameter>().Where(p => p.Direction == ParameterDirection.Input).ToArray();
+            var name = inputs.Single(p => p.SqlDbType == SqlDbType.NVarChar);
+            var tvp = inputs.Single(p => p.SqlDbType == SqlDbType.Structured);
+            require(inputs.Length == 2 && name.Value == DBNull.Value && name.DbType == DbType.String
+                && tvp.TypeName == "probe.IdList" && ReferenceEquals(tvp.Value, ids), "Provider parameter metadata changed");
+            Parse(command.CommandText);
+        });
+        local("procedure native precision temporal scale enums and character metadata", () =>
+        {
+            var connector = new ConnectionFactoryConnector(() => throw new InvalidOperationException("Must not open"), DbFlavor.SqlServer);
+            var query = new NativeTypesProcedure().Render(new NativeTypesInput
+            {
+                Amount = new SqlLinqer.Modeling.SqlArgument<decimal?>(null),
+                Stamp = new DateTime(2026, 10, 22).AddTicks(1234567),
+                Status = NativeStatus.Active,
+                Letter = '雪'
+            }, connector);
+            using var command = new SqlCommand();
+            typeof(BaseConnector).GetMethod("ImportFromTempQueryData", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(connector, new object[] { command, query });
+            var inputs = command.Parameters.Cast<SqlParameter>().Where(p => p.Direction == ParameterDirection.Input).ToArray();
+            var amount = inputs.Single(p => p.SqlDbType == SqlDbType.Decimal);
+            var stamp = inputs.Single(p => p.SqlDbType == SqlDbType.DateTime2);
+            var status = inputs.Single(p => p.SqlDbType == SqlDbType.SmallInt);
+            var letter = inputs.Single(p => p.SqlDbType == SqlDbType.NChar);
+            require(inputs.Length == 4 && amount.Value == DBNull.Value && amount.Precision == 12 && amount.Scale == 2
+                && stamp.Scale == 7 && (DateTime)stamp.Value == new DateTime(2026, 10, 22).AddTicks(1234567)
+                && (short)status.Value == 1 && letter.Size == 1 && Convert.ToChar(letter.Value) == '雪', "Native input metadata or values changed");
             Parse(command.CommandText);
         });
         foreach (var test in QueryCases.All())
@@ -111,7 +136,25 @@ internal static class LocalChecks
         {
             Parse(LiveSuite.TempSetup); Parse(LiveSuite.TempCleanup);
             Parse(LiveSuite.ScopedTableSetup("probe")); Parse(LiveSuite.TableProcedure("probe"));
-            Parse(LiveSuite.JsonProcedure("probe")); Parse(LiveSuite.ScopedCleanup("probe"));
+            Parse(LiveSuite.IdsProcedure("probe")); Parse(LiveSuite.ScopedCleanup("probe"));
         });
     }
+    [SqlLinqer.Modeling.SqlProcedure("ReadIds")]
+    private sealed class NativeProcedure : SqlLinqer.Modeling.SqlLinqerCallable<NativeInput, ProcedureRow> { }
+    private sealed class NativeInput
+    {
+        [SqlLinqer.Modeling.SqlParameter(Size = 200)] public SqlLinqer.Modeling.SqlArgument<string> Name { get; set; }
+        [SqlLinqer.Modeling.SqlParameter(TypeName = "IdList")] public DataTable Ids { get; set; }
+    }
+    private enum NativeStatus : short { Active = 1 }
+    [SqlLinqer.Modeling.SqlProcedure("InputTypes")]
+    private sealed class NativeTypesProcedure : SqlLinqer.Modeling.SqlLinqerCallable<NativeTypesInput, ProcedureRow> { }
+    private sealed class NativeTypesInput
+    {
+        [SqlLinqer.Modeling.SqlParameter(Precision = 12, Scale = 2)] public SqlLinqer.Modeling.SqlArgument<decimal?> Amount { get; set; }
+        [SqlLinqer.Modeling.SqlParameter(SqlDbType = SqlDbType.DateTime2, Scale = 7)] public DateTime Stamp { get; set; }
+        public NativeStatus Status { get; set; }
+        [SqlLinqer.Modeling.SqlParameter(SqlDbType = SqlDbType.NChar)] public char Letter { get; set; }
+    }
+
 }

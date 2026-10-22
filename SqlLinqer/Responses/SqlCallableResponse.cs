@@ -8,9 +8,9 @@ namespace SqlLinqer
     /// A missing count differs from a known zero, and a nonzero return code does not automatically indicate failure.
     /// </summary>
     /// <typeparam name="T">The output row model.</typeparam>
-    public class SqlStoredProcedureResponse<T> : SqlResponse<List<T>>
+    public class SqlCallableResponse<T> : SqlResponse<List<T>>
     {
-        /// <summary>The unpaged result count supplied by the configured output parameter, or null when unavailable.</summary>
+        /// <summary>The unpaged count from the procedure standard total output, detected automatically, or null when unavailable.</summary>
         public long? TotalResults { get; private set; }
         /// <summary>The procedure RETURN code, or null when unavailable. Check State for execution failure.</summary>
         public int? ReturnCode { get; private set; }
@@ -18,7 +18,7 @@ namespace SqlLinqer
         public int? RowsAffected { get; private set; }
 
         /// <summary>Creates an unset error response with no result or metadata.</summary>
-        public SqlStoredProcedureResponse() { }
+        public SqlCallableResponse() { }
 
         /// <inheritdoc/>
         public override void SetResult(List<T> result)

@@ -10,14 +10,14 @@ namespace SqlLinqer.Queries.Interfaces
     {
         /// <summary>
         /// Renders SQL and fresh parameter bindings for the selected database dialect without opening a connection.
-        /// Execution-time insert batching is not applied. Legacy procedure TVP values retain their references; Capture detaches supported mutable values.
+        /// Execution-time insert batching is not applied.
         /// </summary>
         /// <param name="connector">The connector whose dialect is used. This does not replace the query's retained connector or rebuild its model schema.</param>
         /// <returns>The command text, parameter bindings, and available SELECT result-shape metadata.</returns>
         RenderedQuery Render(BaseConnector connector);
         /// <summary>
         /// Renders SQL and fresh parameter bindings for the selected database dialect without opening a connection.
-        /// Execution-time insert batching is not applied. Legacy procedure TVP values retain their references; Capture detaches supported mutable values.
+        /// Execution-time insert batching is not applied.
         /// </summary>
         /// <param name="flavor">The SQL dialect to render.</param>
         /// <returns>The command text, parameter bindings, and available SELECT result-shape metadata.</returns>

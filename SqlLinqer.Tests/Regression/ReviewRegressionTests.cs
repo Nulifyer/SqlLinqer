@@ -176,7 +176,7 @@ internal static class ReviewRegressionTests
                 {
                     Renamed.BeginSelect(connector), Renamed.BeginInsert(connector).InsertAuto(new Renamed { Key = 7 }),
                     Renamed.BeginUpdate(connector).Update(x => x.Key, 8), Renamed.BeginDelete(connector),
-                    Renamed.BeginPrimaryKeyExists(7, connector), Renamed.BeginStoredProcedure("probe", connector)
+                    Renamed.BeginPrimaryKeyExists(7, connector)
                 };
                 foreach (var query in queries) Check(!query.Render(DbFlavor.SqlServer).Text.Contains("other_tenant"), "Global schema leaked into an explicit connector");
                 Check(!Renamed.BeginSelectBuilder(connector).BuildQuery(x => new { Key = x.Select(y => y.Key) }).Render(DbFlavor.Sqlite).Text.Contains("other_tenant"), "Projection schema leaked");

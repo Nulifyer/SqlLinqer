@@ -149,7 +149,7 @@ internal static class WriteChecks
             try { new UpdateQuery<Item>().Update(x => x.Category.Name, "bad"); throw new Exception("Expected root-column validation"); }
             catch (FormatException) { }
             Reject(() => new TruncateQuery<Item>().Render(DbFlavor.Sqlite));
-            Reject(() => new SqlLinqer.Queries.Core.StoredProcedureQuery("proc").Render(DbFlavor.Sqlite));
+            Reject(() => new SqlLinqer.Tests.Regression.ProcedureProbe().Render(new SqlLinqer.Tests.Regression.ProcedureProbe.Input(), DbFlavor.Sqlite));
             Reject(() => new InsertQuery<Item>().InsertAuto(item).RenderTVP(new ParameterCollection(), DbFlavor.Sqlite, null));
             Reject(() => new SelectQueryInitializer<Item>().BuildQuery(q => new { Value = q.REVERSE(x => x.Name) }).Render(DbFlavor.Sqlite));
         });

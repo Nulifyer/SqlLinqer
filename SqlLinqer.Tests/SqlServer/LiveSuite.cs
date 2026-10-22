@@ -253,15 +253,15 @@ internal static class LiveSuite
             SELECT Id, Name FROM [{schema}].[Rows] WHERE Id >= @MinId AND (@Name IS NULL OR Name = @Name) ORDER BY Id;
         END
         """;
-    internal static string JsonProcedure(string schema) => $"""
-        CREATE PROCEDURE [{schema}].[ReadJson] @Ids [{schema}].[IdList] READONLY
+    internal static string IdsProcedure(string schema) => $"""
+        CREATE PROCEDURE [{schema}].[ReadIds] @Ids [{schema}].[IdList] READONLY, @Name nvarchar(200) = NULL
         AS BEGIN SET NOCOUNT ON;
-            SELECT r.Id, r.Name FROM [{schema}].[Rows] AS r INNER JOIN @Ids AS i ON r.Id = i.Id ORDER BY r.Id FOR JSON PATH, INCLUDE_NULL_VALUES;
+            SELECT r.Id, r.Name FROM [{schema}].[Rows] AS r INNER JOIN @Ids AS i ON r.Id = i.Id
+            WHERE @Name IS NULL OR r.Name = @Name ORDER BY r.Id;
         END
         """;
     internal static string ScopedCleanup(string schema) => $"""
-        DROP PROCEDURE IF EXISTS [{schema}].[ReadJson];
-        DROP PROCEDURE IF EXISTS [{schema}].[TypedCallable];
+        DROP PROCEDURE IF EXISTS [{schema}].[ReadIds];
         DROP PROCEDURE IF EXISTS [{schema}].[ReadRows];
         DROP TABLE IF EXISTS [{schema}].[Rows];
         DECLARE @drop nvarchar(max) = N'';
@@ -288,8 +288,7 @@ internal static class LiveSuite
                 NonQuery(connection, $"CREATE SCHEMA [{schema}]"); created = true;
                 NonQuery(connection, ScopedTableSetup(schema));
                 NonQuery(connection, TableProcedure(schema));
-                NonQuery(connection, JsonProcedure(schema));
-                NonQuery(connection, CallableChecks.Procedure(schema));
+                NonQuery(connection, IdsProcedure(schema));
             });
             live("owned transactions commit and rollback failed batches", () =>
             {
@@ -303,8 +302,7 @@ internal static class LiveSuite
                 using var ids = new DataTable(); ids.Columns.Add("Id", typeof(int));
                 ids.Rows.Add(Scalar(connection, $"SELECT TOP (1) Id FROM [{schema}].[Rows] ORDER BY Id"));
                 using var transaction = connection.BeginTransaction();
-                var rows = Valid(new StoredProcedureQuery<ProcedureRow>("ReadJson", schema)
-                    .AddTvpParameter("Ids", ids, $"{schema}.IdList").ExecuteJson(connector, transaction));
+                var rows = Valid(new ReadIdsCall().Execute(new ReadIdsInput { Ids = ids }, connector, transaction));
                 Require(rows.Single().Name == "committed" && transaction.Connection == connection,
                     "Existing table type input or caller ownership differs");
                 transaction.Rollback();
@@ -356,19 +354,18 @@ internal static class LiveSuite
                 }
                 Require(RowCount() == beforeRows && TypeCount() == beforeTypes, "Failed caller TVP rollback leaked type");
             });
-            live("stored procedure typed null DataTable JSON and TVP execution", () =>
+            live("stored procedure ordinary rows explicit NULL and TVP execution", () =>
             {
-                using var table = Valid(new StoredProcedureQuery<ProcedureRow>("ReadRows", schema)
-                    .AddParameter("MinId", 0, DbType.Int32).AddParameter("Name", null, DbType.String).ExecuteDataTable(connector));
-                Require(table.Rows.Count == 4 && (string)table.Rows[0]["Name"] == "committed", "Procedure DataTable differs");
+                var selected = Valid(new ReadRowsCall().Execute(new ReadRowsInput { MinId = 0, Name = new SqlLinqer.Modeling.SqlArgument<string>(null) }, connector));
+                Require(selected.Count == 4 && selected[0].Name == "committed", "Procedure row mapping differs");
                 using var ids = new DataTable(); ids.Columns.Add("Id", typeof(int));
-                foreach (DataRow row in table.Rows) ids.Rows.Add(row["Id"]);
+                foreach (var row in selected) ids.Rows.Add(row.Id);
                 using var tx = connection.BeginTransaction();
-                var rows = Valid(new StoredProcedureQuery<ProcedureRow>("ReadJson", schema).AddTvpParameter("Ids", ids, $"{schema}.IdList").ExecuteJson(connector, tx));
-                Require(rows.Count == 4 && rows.Any(x => x.Name == null) && tx.Connection == connection, "Procedure JSON/TVP/caller ownership differs");
+                var rows = Valid(new ReadIdsCall().Execute(new ReadIdsInput { Ids = ids }, connector, tx));
+                Require(rows.Count == 4 && rows.Any(x => x.Name == null) && tx.Connection == connection, "Procedure TVP/caller ownership differs");
                 tx.Rollback();
                 ids.Clear();
-                Require(Valid(new StoredProcedureQuery<ProcedureRow>("ReadJson", schema).AddTvpParameter("Ids", ids, $"{schema}.IdList").ExecuteJson(connector)).Count == 0, "Empty procedure TVP differs");
+                Require(Valid(new ReadIdsCall().Execute(new ReadIdsInput { Ids = ids }, connector)).Count == 0, "Empty procedure TVP differs");
             });
             TvpChecks.RunLive(connector, connection, connectionString, schema, live);
             CurrentCheck = "SQL JSON contract fixture setup";
@@ -393,4 +390,18 @@ internal static class LiveSuite
             }
         }
     }
+    [SqlLinqer.Modeling.SqlProcedure("ReadRows")]
+    internal sealed class ReadRowsCall : SqlLinqer.Modeling.SqlLinqerCallable<ReadRowsInput, ProcedureRow> { }
+    internal sealed class ReadRowsInput
+    {
+        public int MinId { get; set; }
+        [SqlLinqer.Modeling.SqlParameter(Size = 200)] public SqlLinqer.Modeling.SqlArgument<string> Name { get; set; }
+    }
+    [SqlLinqer.Modeling.SqlProcedure("ReadIds")]
+    internal sealed class ReadIdsCall : SqlLinqer.Modeling.SqlLinqerCallable<ReadIdsInput, ProcedureRow> { }
+    internal sealed class ReadIdsInput
+    {
+        [SqlLinqer.Modeling.SqlParameter(TypeName = "IdList")] public DataTable Ids { get; set; }
+    }
+
 }

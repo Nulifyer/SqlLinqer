@@ -2,22 +2,24 @@
 
 # Stored procedures
 
-`StoredProcedureQuery<TInput, TOutput>` executes a procedure with an input model and an output row model.
-Like a select, `Execute()` returns rows directly in `response.Result`.
-`SqlStoredProcedureResponse<TOutput>` also provides `TotalResults`, `ReturnCode`, and `RowsAffected`.
+Define a procedure class with `SqlLinqerCallable<TInput, TOutput>`.
+The `SqlProcedure` attribute names the database procedure, `TInput` describes its arguments, and `TOutput` describes each returned row.
+Call `Execute(input)` or `ExecuteAsync(input)` to get rows and standard response fields, as you do with a select.
 
 Typed procedures support SQL Server and Azure SQL.
-Other database flavors throw `NotSupportedException` before opening a connection.
 The procedure must already exist in the database.
 
-## Define input and output models
+## Define the procedure and models
 
-Input members become procedure parameters. Output members map to columns in the procedure's single tabular result set.
-Use `SqlParameter` and `SqlColumn` when database names differ from member names.
-Neither model needs a table mapping or primary key.
+Use ordinary properties for inputs, including `string`, `string?`, and nullable value types.
+Null inputs omit the parameter so the procedure can use its default.
+Empty strings, zero, false, and other supplied values are sent as provided.
 
 ```csharp
 using SqlLinqer.Modeling;
+
+[SqlProcedure("PageUsers", Schema = "dbo")]
+public sealed class PageUsers : SqlLinqerCallable<UserPageInput, UserPageRow> { }
 
 public class UserPageInput
 {
@@ -25,34 +27,34 @@ public class UserPageInput
     public int? ManagerId { get; set; }
 
     [SqlParameter("name", Size = 200)]
-    public SqlArgument<string> Name { get; set; }
+    public string? Name { get; set; }
 
-    public int Offset { get; set; }
-    public int PageSize { get; set; } = 20;
+    public int? Offset { get; set; }
+    public int? PageSize { get; set; }
 }
 
-public class UserPageRow : SqlLinqerObject<UserPageRow>
+public class UserPageRow
 {
     public int Id { get; set; }
 
     [SqlColumn("display_name")]
-    public string Name { get; set; }
+    public string? Name { get; set; }
 }
 ```
 
-`SqlLinqerObject<UserPageRow>` enables the model factory used below.
-Plain output classes also work with the query constructor.
-The output type describes each row. It does not need a wrapper containing lists, totals, or return codes.
+Neither model needs a table mapping, primary key, or model base class.
+Enable nullable reference types in your application to use `string?`.
+The runtime behavior for null is the same for `string` and `string?` properties.
+
+Use `SqlParameter` and `SqlColumn` when database names differ from member names.
+Use `SqlProcedure` on the procedure class for its database name and optional schema. No constructor is required.
 
 ## Execute and read the response
 
 ```csharp
+var procedure = new PageUsers();
 var input = new UserPageInput { ManagerId = 12, Offset = 0, PageSize = 20 };
-var query = UserPageRow.BeginStoredProcedure(
-    "PageUsers", input, connector,
-    schema: "dbo", totalResultsParameter: "total_count");
-
-var response = query.Execute();
+var response = procedure.Execute(input, connector);
 if (response.State != SqlLinqer.ResponseState.Valid)
     throw response.Error;
 
@@ -62,35 +64,35 @@ int? returnCode = response.ReturnCode;    // SQL RETURN value
 int? rowsAffected = response.RowsAffected;
 ```
 
-The factory requires the connector argument. Pass `null` to use the current default connector at execution time.
-An explicit connector passed to `Execute(connector)` applies to that execution only.
+`Execute(input)` uses the current default connector.
+Pass a connector to `Execute(input, connector)` to use it for that call.
+A derived class can retain an injected connector through `base(connector)` when needed.
 
-For plain output classes, construct the query directly:
+For asynchronous execution:
 
 ```csharp
-using SqlLinqer.Queries.Typed;
-
-var query = new StoredProcedureQuery<UserPageInput, UserPageRow>(
-    "PageUsers", input, schema: "dbo", totalResultsParameter: "total_count");
-var response = await query.ExecuteAsync(connector, cancellationToken: cancellationToken);
+var response = await new PageUsers().ExecuteAsync(
+    input, connector, cancellationToken: cancellationToken);
 ```
 
-The constructor captures input member values once. Later property assignments do not change the query.
-Reference values, including arrays and `DataTable`, are not deep-copied. Keep them unchanged until execution finishes.
+Reuse the procedure instance for later calls with different inputs.
+Each call reads the input member values before execution starts. Later property assignments do not change an active call.
+Async execution copies arrays and `DataTable` inputs before awaiting the provider.
+Keep input models unchanged while a call is capturing their values. Other provider-specific reference values must remain unchanged until the call finishes.
 
-The following procedure supplies an unpaged count even when the requested page is empty:
+The following procedure supplies defaults for omitted inputs and an unpaged count even when the requested page is empty:
 
 ```sql
 CREATE PROCEDURE dbo.PageUsers
-    @manager_id int,
-    @Offset int,
-    @PageSize int,
-    @total_count bigint OUTPUT,
+    @manager_id int = NULL,
+    @Offset int = 0,
+    @PageSize int = 20,
+    @TotalResults bigint OUTPUT,
     @name nvarchar(200) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT @total_count = COUNT_BIG(*)
+    SELECT @TotalResults = COUNT_BIG(*)
     FROM dbo.Users
     WHERE (@manager_id IS NULL OR ManagerId = @manager_id)
       AND (@name IS NULL OR display_name = @name);
@@ -105,30 +107,35 @@ BEGIN
 END;
 ```
 
-Supply the procedure name and schema separately. Without an explicit schema, execution uses the connector's default schema.
+Supply the procedure name and schema separately in `SqlProcedure`.
+Without an explicit schema, execution uses the connector's default schema.
 If both are absent, SQL Server resolves the unqualified name.
-`query.Render(connector)` returns SQL and its parameters without opening a connection.
+`procedure.Render(input, connector)` returns SQL and its parameters without opening a connection.
 
 ## Standard procedure response
+
+`Execute` returns `SqlCallableResponse<TOutput>`:
 
 | Member | Meaning |
 | --- | --- |
 | `State`, `Error` | Execution and mapping status, following other SqlLinqer responses. |
 | `Result` | `List<TOutput>`, including an empty list for an empty result set. |
-| `TotalResults` | Nullable `long` from the configured output parameter. `0` is a known zero. `null` means unavailable. |
+| `TotalResults` | Nullable `long` from a standard total output, detected automatically. `0` is a known zero. `null` means unavailable. |
 | `ReturnCode` | Nullable `int` from SQL `RETURN`. A nonzero code does not automatically set an error state. |
 | `RowsAffected` | Nullable `int` from the provider. `SET NOCOUNT ON` can suppress this count. It is separate from the unpaged total. |
 
-Set `totalResultsParameter` to the name of the output parameter supplying the unpaged count.
-The input model must not also declare that parameter. Prefer a `bigint OUTPUT` parameter in SQL.
-Without this setting, `TotalResults` remains `null`. SqlLinqer does not infer totals from returned rows or affected-row counts.
+Totals require no C# parameter configuration or extra properties on your input or output model.
+If the SQL procedure exposes `@TotalResults OUTPUT`, SqlLinqer reads it automatically.
+The earlier `@total_count OUTPUT` spelling is also recognized. Prefer `bigint` for the count.
+A procedure without either output returns `null` for `TotalResults`.
+Counts are never inferred from returned rows or affected-row counts.
+The standard count output must use an integer SQL type and must not also appear in the input model.
 A SQL NULL count remains `null`. Invalid, overflowing, fractional, or negative counts produce an error response.
 
-The procedure must return one tabular result set. An empty set is a successful empty list.
-Missing or additional tabular sets produce an error response.
+The procedure must return one tabular result set. Missing or additional sets produce an error response.
 Mapping and execution failures clear both rows and metadata. SqlLinqer rolls back a transaction it created for the failed call.
-Pass `Execute(connector, transaction)` or its async equivalent to use your own transaction.
-You control its commit, rollback, and disposal.
+Use `Execute(input, transaction)` with a default or retained connector, or `Execute(input, connector, transaction)` with an explicit connector.
+You control a supplied transaction's commit, rollback, and disposal.
 Requested async cancellation throws `OperationCanceledException`.
 
 ## Map output rows
@@ -149,16 +156,20 @@ Public readable input properties and fields become parameters. Use `SqlIgnore` f
 Use `SqlParameter` to set a SQL name, string size, precision, scale, or explicit database type.
 Parameter names may include a leading `@`.
 
-Use `SqlArgument<T>` when a procedure parameter has a database default:
-
 ```csharp
-var useDefault = new UserPageInput { Name = SqlArgument<string>.Omitted };
-var passNull = new UserPageInput { Name = new SqlArgument<string>(null) };
+var useDefault = new UserPageInput { Name = null };
+var passEmpty = new UserPageInput { Name = string.Empty };
 var passValue = new UserPageInput { Name = "Alice" };
 ```
 
-An unassigned `SqlArgument<T>` uses the procedure's default.
-An ordinary nullable member always supplies its value, including SQL NULL.
+Leaving a property null omits it. SqlLinqer does not insert a replacement value.
+The database applies the declared procedure default, which may itself be SQL NULL.
+If a required scalar parameter has no default, the database reports the missing argument.
+
+If you need to distinguish omission from an explicit SQL NULL, declare that property as `SqlArgument<string>` or `SqlArgument<string?>`.
+`SqlArgument<string>.Omitted` omits it, and `new SqlArgument<string>(null)` explicitly sends SQL NULL.
+A string value, including `string.Empty`, supplies that value.
+This wrapper is optional. Ordinary input properties do not need it.
 
 For a table-valued input, declare a `DataTable` property with the existing SQL table type:
 
@@ -166,14 +177,10 @@ For a table-valued input, declare a `DataTable` property with the existing SQL t
 public class BatchInput
 {
     [SqlParameter("ids", TypeName = "dbo.IdList")]
-    public System.Data.DataTable Ids { get; set; }
+    public System.Data.DataTable? Ids { get; set; }
 }
 ```
 
-The table type must already exist. Supply a non-null `DataTable` with matching column types and order.
-Use an empty table when there are no input rows.
-
-## Multiple result sets and custom output parameters
-
-If your procedure returns several result sets or additional output parameters, see
-[map multiple result sets and output parameters](stored-procedure-outputs.md).
+The table type must already exist. Supply a `DataTable` with matching column types and order when passing rows.
+Use an empty table for zero rows. A null property omits the parameter.
+An unqualified `TypeName`, such as `IdList`, uses the procedure schema or the connector's default schema. Use a qualified name when the table type belongs to another schema.

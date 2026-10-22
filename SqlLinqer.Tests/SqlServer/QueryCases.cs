@@ -39,7 +39,5 @@ internal static class QueryCases
         yield return ("identity insert", new InsertWithPrimaryKeyQuery<AzureParent, int>().InsertAuto(new AzureParent { Name = "雪", Enabled = true }));
         yield return ("type insert", new InsertQuery<AzureTypes>().InsertAuto(LiveSuite.SampleTypes()));
         yield return ("truncate", new TruncateQuery<AzureChild>());
-        yield return ("procedure", new StoredProcedureQuery<ProcedureRow>("ReadRows", "SqlLinqerAzure_Parse")
-            .AddParameter("MinId", 0, System.Data.DbType.Int32).AddParameter("Name", null, System.Data.DbType.String));
     }
 }

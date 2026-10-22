@@ -145,7 +145,7 @@ internal static class RegressionSuite
             Expect(result.TotalResults == 2 && database.Executed.Count == 1, "Unexpected count query");
         });
 
-        foreach (string operation in new[] { "select", "delete", "aggregate", "exists", "procedure-json", "procedure-table" })
+        foreach (string operation in new[] { "select", "delete", "aggregate", "exists" })
         {
             Test($"{operation} overload forwards caller transaction", () =>
             {
@@ -161,8 +161,7 @@ internal static class RegressionSuite
                     "delete" => new DeleteQuery<Item>().Where(x => x.Id, 7, SqlOp.EQ).Execute(transaction),
                     "aggregate" => Item.BeginSelectBuilder().BuildQuery(x => new { Id = x.Select(y => y.Id) }).Execute(transaction),
                     "exists" => new SelectPrimaryKeyExistsQuery<Item, int>(7).Execute(transaction),
-                    "procedure-json" => new StoredProcedureQuery<Item>("sample").ExecuteJson(transaction),
-                    _ => new StoredProcedureQuery<Item>("sample").ExecuteDataTable(transaction),
+                    _ => throw new InvalidOperationException(operation),
                 };
                 Expect(result.State == ResponseState.Valid, result.Error?.ToString());
                 Expect(connector.Created == 0, "Created another connection instead of using the caller's");
@@ -408,9 +407,7 @@ internal static class RegressionSuite
         ValueConversionRegressionTests.Run(Test);
         StreamingRegressionTests.Run(Test);
         TvpRegressionTests.Run(Test);
-        CallableRegressionTests.RunAsync(Test);
-        CallableRegressionTests.Run(Test);
-        CallableRegressionTests.RunResponses(Test);
+        StoredProcedureRegressionTests.Run(Test);
         JsonRegressionTests.Run(Test);
         ReviewRegressionTests.Run(Test);
         ComplexRelationshipChecks.RunRendering(Test);

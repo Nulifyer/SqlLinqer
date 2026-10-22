@@ -14,7 +14,7 @@ Insert capture reads only the mapped values, avoiding copies of application enti
 
 Arrays, binary buffers, and `DataTable` values are copied, including mutable cells in a `DataTable`.
 Other provider-specific scalar objects and extension-owned reference data must remain immutable for the snapshot's lifetime.
-Ordinary legacy procedure rendering retains its existing TVP reference behavior. Explicit procedure capture copies TVP data.
+Procedure rendering retains TVP references. Async procedure execution snapshots arrays and TVP data before awaiting the provider.
 
 `SnapshotGraph` caches field layouts by runtime type as a compatibility adapter for the existing public query objects.
 New reference fields on those objects participate in capture without a separate clone implementation for each dialect.

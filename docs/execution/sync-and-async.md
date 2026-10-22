@@ -32,9 +32,9 @@ Use the async counterpart of the method you would call synchronously:
 | `ExecuteWithOutput` | `ExecuteWithOutputAsync` | Modified rows in a `DataTable`, where the database supports it. |
 | `ExecuteTvp` | `ExecuteTvpAsync` | A SQL Server table-valued parameter insert. |
 | `ExecuteTvpWithOutput` | `ExecuteTvpWithOutputAsync` | A TVP insert with returned rows. |
-| `ExecuteJson`, `ExecuteDataTable` | `ExecuteJsonAsync`, `ExecuteDataTableAsync` | Results from the existing procedure interface. |
 
-See [stored procedures](../queries/stored-procedures.md) for typed input and output models.
+Procedure classes use `Execute(input)` and `ExecuteAsync(input)` with ordinary input and output models.
+See [stored procedures](../queries/stored-procedures.md) for a complete example.
 Async methods have the same database support as synchronous methods. For example, MySQL does not support modified-row output.
 
 ## Choose the connector and transaction
@@ -130,7 +130,6 @@ Single-column results can also use scalar types such as `int?`.
 
 An empty result returns an empty list. Mapping failures return an error without a partial list.
 These methods load the first tabular result and do not populate relationships.
-For multiple result sets, use [stored procedures with custom outputs](../queries/stored-procedure-outputs.md).
 See [result property types](value-conversions.md) for null, numeric, and date rules.
 
 ## Reuse query builders safely

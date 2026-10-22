@@ -41,14 +41,6 @@ namespace SqlLinqer.Queries.Core.Abstract
         /// <inheritdoc/>
         public RenderedQuery Render(DbFlavor flavor)
         {
-            // Procedure rendering only reads its bindings. Preserve the existing TVP
-            // identity contract; explicit Capture still freezes their mutable payloads.
-            if (this is SqlLinqer.Queries.Core.StoredProcedureQuery)
-            {
-                var result = new RenderedQuery();
-                result.Text = Render(result.Parameters, flavor);
-                return result;
-            }
             return QuerySnapshot.RenderQuery(this, flavor);
         }
 

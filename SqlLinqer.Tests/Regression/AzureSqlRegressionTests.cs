@@ -80,7 +80,6 @@ internal static class AzureSqlRegressionTests
             ["delete output"] = () => new DeleteQuery<Item>().Where(x => x.Id, 7, SqlOp.EQ).Output(x => x.Name),
             ["delete returned key with join"] = () => new DeleteWithPrimaryKeyQuery<Item, int>().Where(x => x.Category.Name, "category", SqlOp.EQ),
             ["truncate"] = () => new TruncateQuery<Item>(),
-            ["procedure"] = () => new StoredProcedureQuery<Item>("probe", "dbo").AddParameter("name", "a").AddParameter("id", 7),
         };
         foreach (var query in queries)
         {
@@ -104,17 +103,6 @@ internal static class AzureSqlRegressionTests
 
         foreach (var flavor in new[] { DbFlavor.SqlServer, DbFlavor.AzureSql })
         {
-            test($"{flavor} procedure preserves typed null and TVP metadata", () =>
-            {
-                using var values = new DataTable(); values.Columns.Add("Id", typeof(int)); values.Rows.Add(3);
-                var rendered = new StoredProcedureQuery<Item>("probe", "dbo")
-                    .AddParameter("name", null, DbType.String)
-                    .AddTvpParameter("ids", values, "dbo.Ids").Render(flavor);
-                Check(Regex.IsMatch(rendered.Text, @"EXEC \[dbo\]\.\[probe\] @name = @P1,@ids = @P2"), "Invalid SQL Server EXEC syntax");
-                var parameters = rendered.Parameters.GetAll().ToArray();
-                Check(parameters[0].DbType == DbType.String && parameters[0].Value == DBNull.Value, "Typed null lost");
-                Check(parameters[1] is TvpParameter tvp && tvp.TypeName == "dbo.Ids" && ReferenceEquals(tvp.Value, values), "TVP metadata lost");
-            });
             test($"{flavor} DISTINCT count retains projection and restores paging", () =>
             {
                 var query = new SelectQuery<Item>().Select(x => x.Name).Distinct().OrderBy(x => x.Name, SqlDir.ASC).Page(2, 1);
@@ -332,7 +320,7 @@ internal static class AzureSqlRegressionTests
                         if (tvp) TvpRegressionTests.CheckTypeDdl(db);
                     });
 
-        foreach (string operation in new[] { "insert", "update", "delete", "output", "select", "count", "exists", "procedure" })
+        foreach (string operation in new[] { "insert", "update", "delete", "output", "select", "count", "exists" })
             test($"Azure execution: {operation}", () =>
             {
                 var db = new FakeDatabase { JsonRows = new[] { "[{\"Id\":7,", "\"Name\":\"sample\"}]" } };
@@ -358,7 +346,7 @@ internal static class AzureSqlRegressionTests
                         var count = new SelectQuery<Item>().SelectRootColumns().Page(2, 1).ExecuteWithTotalCount(connector);
                         Check(count.TotalResults == 22 && db.Executed.Count == 2, "Total count missing"); result = count; break;
                     case "exists": result = new SelectPrimaryKeyExistsQuery<Item, int>(7).Execute(connector); break;
-                    default: result = new StoredProcedureQuery<Item>("probe").ExecuteJson(connector); break;
+                    default: throw new InvalidOperationException(operation);
                 }
                 Check(result.State == ResponseState.Valid, result.Error?.ToString());
                 Check(connector.DbFlavor == DbFlavor.AzureSql, "Execution changed flavor");

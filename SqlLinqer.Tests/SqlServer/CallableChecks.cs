@@ -1,48 +1,21 @@
 using System.Data;
 using System.Reflection;
 using Microsoft.Data.SqlClient;
-using SqlLinqer;
 using SqlLinqer.Connections;
 using SqlLinqer.Modeling;
-using SqlLinqer.Queries.Typed;
 
 namespace SqlLinqer.Tests.SqlServer;
 
-internal static class CallableChecks
+internal static partial class CallableChecks
 {
     internal static void RunLocal(Action<string, Action> local, Action<bool, string> require)
     {
-        local("typed callable SQL syntax and real SqlClient parameter binding", () =>
-        {
-            using var ids = new DataTable(); ids.Columns.Add("Id", typeof(int)); ids.Rows.Add(3);
-            var connector = new ConnectionFactoryConnector(() => throw new InvalidOperationException("Must not open"),
-                DbFlavor.AzureSql, new ConnectorOptions { DefaultSchema = "probe" });
-            var query = NativeCall.Call(new NativeCall.Args { Ids = ids, Counter = 5, Amount = null, Stamp = DateTime.UtcNow }).Render(connector);
-            using var command = new SqlCommand();
-            typeof(BaseConnector).GetMethod("ImportFromTempQueryData", BindingFlags.Instance | BindingFlags.NonPublic)
-                .Invoke(connector, new object[] { command, query });
-            LocalChecks.Parse(command.CommandText);
-            LocalChecks.Parse(query.GetTextWithParameterValues());
-            var parameters = command.Parameters.Cast<Microsoft.Data.SqlClient.SqlParameter>().ToArray();
-            require(command.CommandText.Contains("[probe].[TypedCallable]") && parameters.Length == 8, "Callable command differs");
-            require(parameters.Count(p => p.Direction == ParameterDirection.Output) == 4
-                && parameters.Count(p => p.Direction == ParameterDirection.InputOutput) == 1, "Output bindings differ");
-            var tvp = parameters.Single(p => p.SqlDbType == SqlDbType.Structured);
-            require(tvp.TypeName == "probe.IdList" && ReferenceEquals(tvp.Value, ids), "TVP binding differs");
-            var amount = parameters.Single(p => p.SqlDbType == SqlDbType.Decimal);
-            require(amount.Value == DBNull.Value && amount.Precision == 12 && amount.Scale == 2, "Typed decimal NULL lost metadata");
-            var stamp = parameters.Single(p => p.SqlDbType == SqlDbType.DateTime2);
-            require(stamp.Scale == 7, "Timestamp scale changed");
-            var message = parameters.Single(p => p.SqlDbType == SqlDbType.NVarChar);
-            require(message.Direction == ParameterDirection.Output && message.Size == 80, "Output string binding differs");
-            var letter = parameters.Single(p => p.SqlDbType == SqlDbType.NChar);
-            require(letter.Direction == ParameterDirection.Output && letter.Size == 1, "Character output buffer differs");
-        });
-        local("two-model procedure SQL syntax and SqlClient metadata binding", () =>
+        RunModelLocal(local, require);
+        local("procedure standard metadata syntax and real SqlClient binding", () =>
         {
             var connector = new ConnectionFactoryConnector(() => throw new InvalidOperationException("Must not open"),
                 DbFlavor.SqlServer, new ConnectorOptions { DefaultSchema = "probe" });
-            var query = new StoredProcedureQuery<PageInput, ProcedureRow>("ProcedurePage", new PageInput(), totalResultsParameter: "total_count").Render(connector);
+            var query = new PageCall().Render(new PageInput(), connector);
             using var command = new SqlCommand();
             typeof(BaseConnector).GetMethod("ImportFromTempQueryData", BindingFlags.Instance | BindingFlags.NonPublic)
                 .Invoke(connector, new object[] { command, query });
@@ -53,64 +26,15 @@ internal static class CallableChecks
                 && outputs.Count(p => p.SqlDbType == SqlDbType.Int) == 1, "Standard total or RETURN metadata differs");
             LocalChecks.Parse(PageProcedure("probe"));
         });
-        local("typed callable live procedure parses", () => LocalChecks.Parse(Procedure("probe")));
     }
-
-    [SqlProcedure("TypedCallable")]
-    public sealed class NativeCall : SqlLinqerCallable<NativeCall, NativeCall.Args, NativeCall.Result>
-    {
-        public class Args
-        {
-            [SqlParameter(TypeName = "probe.IdList")] public DataTable Ids { get; set; }
-            [SqlParameter(Precision = 12, Scale = 2)] public decimal? Amount { get; set; }
-            [SqlParameter(SqlDbType = SqlDbType.DateTime2, Scale = 7)] public DateTime Stamp { get; set; }
-            public int Counter { get; set; }
-        }
-        public class Result
-        {
-            [SqlOutputParameter] public char Letter { get; set; }
-            [SqlOutputParameter] public int Counter { get; set; }
-            [SqlOutputParameter] public int Total { get; set; }
-            [SqlOutputParameter(Size = 80)] public string Message { get; set; }
-            [SqlReturnValue] public int ReturnCode { get; set; }
-        }
-    }
-
-    internal static string Procedure(string schema) => $"""
-        CREATE PROCEDURE [{schema}].[TypedCallable]
-            @MinId int, @Counter int OUTPUT, @Total int OUTPUT,
-            @Message nvarchar(80) OUTPUT, @Name nvarchar(80) = N'default'
-        AS BEGIN SET NOCOUNT OFF;
-            SET @Counter = @Counter + 1;
-            SET @Total = (SELECT COUNT(*) FROM [{schema}].[Rows] WHERE Id >= @MinId);
-            SET @Message = @Name;
-            SELECT Id, Name FROM [{schema}].[Rows] WHERE Id >= @MinId ORDER BY Id;
-            SELECT CAST(@Total AS bigint) AS Total;
-            RETURN 17;
-        END
-        """;
-
     internal static void RunLive(BaseConnector connector, SqlConnection connection, Action<string, Action> live)
     {
+        RunModelLive(connector, connection, live);
         RunPageLive(connector, connection, live);
-        live("typed callable result sets defaults outputs and return code", () =>
-        {
-            var args = new LiveCall.Args { MinId = 0, Counter = 5 };
-            var result = LiveSuite.Valid(LiveCall.Call(args).Execute(connector));
-            LiveSuite.Require(result.Rows.Count == result.Total && result.Totals.Single() == result.Total
-                && result.Counter == 6 && result.Message == "default" && result.ReturnCode == 17 && args.Counter == 5,
-                "Typed result contract differs");
-        });
-        live("typed callable caller transaction and explicit NULL", () =>
-        {
-            using var transaction = connection.BeginTransaction();
-            var result = LiveSuite.Valid(LiveCall.Call(new LiveCall.Args
-            { MinId = int.MaxValue, Counter = 1, Name = new SqlArgument<string>(null) }).Execute(connector, transaction));
-            LiveSuite.Require(result.Rows.Count == 0 && result.Total == 0 && result.Message == null
-                && result.Counter == 2 && transaction.Connection == connection, "Empty rows, NULL, or transaction ownership differs");
-            transaction.Rollback();
-        });
     }
+
+    [SqlProcedure("ProcedurePage")]
+    public sealed class PageCall : SqlLinqerCallable<PageInput, ProcedureRow> { }
 
     public sealed class PageInput
     {
@@ -121,11 +45,11 @@ internal static class CallableChecks
 
     private static string PageProcedure(string schema) => $"""
         CREATE PROCEDURE [{schema}].[ProcedurePage]
-            @MinId int, @SuppressCount bit, @EmptyPage bit, @total_count bigint OUTPUT
+            @MinId int, @SuppressCount bit, @EmptyPage bit, @TotalResults bigint OUTPUT
         AS BEGIN
             IF @SuppressCount = 1 SET NOCOUNT ON ELSE SET NOCOUNT OFF;
             UPDATE [{schema}].[Rows] SET Name = Name WHERE Id >= @MinId;
-            SET @total_count = (SELECT COUNT_BIG(*) FROM [{schema}].[Rows] WHERE Id >= @MinId);
+            SET @TotalResults = (SELECT COUNT_BIG(*) FROM [{schema}].[Rows] WHERE Id >= @MinId);
             SELECT Id, Name FROM [{schema}].[Rows] WHERE Id >= @MinId AND @EmptyPage = 0 ORDER BY Id;
             RETURN 17;
         END
@@ -143,9 +67,9 @@ internal static class CallableChecks
                     foreach (bool suppressCount in new[] { false, true })
                         foreach (bool emptyPage in new[] { false, true })
                         {
-                            var query = new StoredProcedureQuery<PageInput, ProcedureRow>("ProcedurePage",
-                                new PageInput { MinId = 0, SuppressCount = suppressCount, EmptyPage = emptyPage }, totalResultsParameter: "total_count");
-                            var response = asynchronous ? query.ExecuteAsync(connector).GetAwaiter().GetResult() : query.Execute(connector);
+                            var input = new PageInput { MinId = 0, SuppressCount = suppressCount, EmptyPage = emptyPage };
+                            var procedure = new PageCall();
+                            var response = asynchronous ? procedure.ExecuteAsync(input, connector).GetAwaiter().GetResult() : procedure.Execute(input, connector);
                             var rows = LiveSuite.Valid(response);
                             LiveSuite.Require(response.TotalResults > 0 && response.ReturnCode == 17
                                 && rows.Count == (emptyPage ? 0 : response.TotalResults)
@@ -155,12 +79,34 @@ internal static class CallableChecks
                 foreach (bool asynchronous in new[] { false, true })
                 {
                     using var transaction = connection.BeginTransaction();
-                    var query = new StoredProcedureQuery<PageInput, ProcedureRow>("ProcedurePage",
-                        new PageInput { MinId = int.MaxValue }, totalResultsParameter: "total_count");
-                    var response = asynchronous ? query.ExecuteAsync(connector, transaction).GetAwaiter().GetResult() : query.Execute(connector, transaction);
+                    var procedure = new PageCall();
+                    var input = new PageInput { MinId = int.MaxValue };
+                    var response = asynchronous ? procedure.ExecuteAsync(input, connector, transaction).GetAwaiter().GetResult()
+                        : procedure.Execute(input, connector, transaction);
                     LiveSuite.Require(LiveSuite.Valid(response).Count == 0 && response.TotalResults == 0 && response.RowsAffected == 0
                         && transaction.Connection == connection, "Zero totals or caller ownership differs");
                     transaction.Rollback();
+                }
+                // Switching the output spelling exercises fresh server metadata without caller configuration.
+                using (var alter = new SqlCommand(PageProcedure(schema).Replace("CREATE PROCEDURE", "ALTER PROCEDURE")
+                    .Replace("@TotalResults", "@total_count"), connection)) alter.ExecuteNonQuery();
+                foreach (bool asynchronous in new[] { false, true })
+                {
+                    var input = new PageInput { EmptyPage = true };
+                    var procedure = new PageCall();
+                    var response = asynchronous ? procedure.ExecuteAsync(input, connector).GetAwaiter().GetResult() : procedure.Execute(input, connector);
+                    LiveSuite.Require(LiveSuite.Valid(response).Count == 0 && response.TotalResults > 0 && response.ReturnCode == 17,
+                        "The alternate standard output name was not discovered automatically");
+                }
+                using (var alter = new SqlCommand(PageProcedure(schema).Replace("CREATE PROCEDURE", "ALTER PROCEDURE")
+                    .Replace("@TotalResults bigint", "@TotalResults decimal(18,2)"), connection)) alter.ExecuteNonQuery();
+                foreach (bool asynchronous in new[] { false, true })
+                {
+                    var input = new PageInput();
+                    var procedure = new PageCall();
+                    var response = asynchronous ? procedure.ExecuteAsync(input, connector).GetAwaiter().GetResult() : procedure.Execute(input, connector);
+                    LiveSuite.Require(response.State == ResponseState.Error && response.Result == null && response.TotalResults == null
+                        && response.ReturnCode == null && response.RowsAffected == null, "A nonintegral standard total output was accepted");
                 }
             }
             finally
@@ -171,23 +117,4 @@ internal static class CallableChecks
         });
     }
 
-    [SqlProcedure("TypedCallable")]
-    public sealed class LiveCall : SqlLinqerCallable<LiveCall, LiveCall.Args, LiveCall.Result>
-    {
-        public class Args
-        {
-            public int MinId { get; set; }
-            public int Counter { get; set; }
-            [SqlParameter(Size = 80)] public SqlArgument<string> Name { get; set; }
-        }
-        public class Result
-        {
-            [SqlResultSet(0)] public List<ProcedureRow> Rows { get; set; }
-            [SqlResultSet(1)] public List<long> Totals { get; set; }
-            [SqlOutputParameter] public int Counter { get; set; }
-            [SqlOutputParameter] public int Total { get; set; }
-            [SqlOutputParameter(Size = 80)] public string Message { get; set; }
-            [SqlReturnValue] public int ReturnCode { get; set; }
-        }
-    }
 }

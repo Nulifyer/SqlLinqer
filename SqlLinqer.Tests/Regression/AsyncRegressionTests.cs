@@ -77,18 +77,11 @@ internal static class AsyncRegressionTests
 
         foreach (DbFlavor flavor in Enum.GetValues<DbFlavor>())
         {
-            Async($"async truncate and supported legacy procedure methods for {flavor}", async () =>
+            Async($"async truncate for {flavor}", async () =>
             {
                 var database = new FakeDatabase(); var connector = new Connector(database, flavor);
                 if (flavor == DbFlavor.Sqlite) await Rejected(() => new TruncateQuery<Row>().ExecuteAsync(connector));
                 else Result(await new TruncateQuery<Row>().ExecuteAsync(connector));
-                if (flavor != DbFlavor.Sqlite && flavor != DbFlavor.DuckDb)
-                {
-                    var procedure = new StoredProcedureQuery<Row>("probe").AddParameter("name", "value");
-                    Check(Result(await procedure.ExecuteJsonAsync(connector)).Count == 2, "Legacy async JSON differs");
-                    using var table = Result(await procedure.ExecuteDataTableAsync(connector));
-                    Check(table.Rows.Count == 2, "Legacy async tabular result differs");
-                }
                 Check(database.SyncCommands == 0, "Async method used a synchronous command");
             });
         }
