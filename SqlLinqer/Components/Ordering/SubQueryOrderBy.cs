@@ -52,7 +52,7 @@ namespace SqlLinqer.Components.Ordering
             sub_query.Joins.AddJoinsDirect(joins);
             sub_query.RootWhere.AddComponent(Relationship.ParentTableJoin.Condition);
             // select aggregate column
-            sub_query.Selects.AddStatement(new SelectFuncStatement(func, StringExtensions.GetRandomHashString(), Column));
+            sub_query.Selects.AddStatement(new SelectFuncStatement(func, "__sqlinqer_order_value", Column));
             // render and build order by
             string rendered = sub_query.Render(parameters, flavor, false);
             return $"({rendered}) {Dir.GetDescription()}";

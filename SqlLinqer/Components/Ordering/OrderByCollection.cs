@@ -14,6 +14,7 @@ namespace SqlLinqer.Components.Ordering
         /// <summary>Removes all sorting expressions.</summary>
         public new void Clear()
             => base.Clear();
+        internal System.Collections.Generic.IEnumerable<IOrderByStatement> Statements => GetAll();
         /// <summary>Renders this component for the selected database dialect.</summary>
         public string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
         {

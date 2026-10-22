@@ -39,6 +39,35 @@ namespace SqlLinqer.Components.Select
         /// <inheritdoc/>
         public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool forJson, bool include_alias)
         {
+            string val = parameters.FindExpressionOverride(this) ?? RenderValue(query, parameters, flavor);
+
+            if (flavor == DbFlavor.DuckDb)
+                parameters.RememberExpression(this, val);
+
+            if (forJson)
+            {
+                switch (flavor)
+                {
+                    case DbFlavor.Sqlite:
+                    case DbFlavor.DuckDb:
+                    case DbFlavor.PostgreSql:
+                    case DbFlavor.MySql:
+                        return $"{Alias.DbWrapString(flavor)}, {val}";
+                    case DbFlavor.SqlServer:
+                    case DbFlavor.AzureSql:
+                        return $"{val}{(include_alias ? $" AS {Alias.DbWrap(flavor)}" : null)}";
+                    default:
+                        throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(SelectFuncStatement)}.{nameof(Render)}");
+                }
+            }
+            else
+            {
+                return $"{val}{(include_alias ? $" AS {Alias.DbWrap(flavor)}" : null)}";
+            }
+        }
+
+        private string RenderValue(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
+        {
             var args_processed = new List<object>();
             for (int argumentIndex = 0; argumentIndex < Args.Length; argumentIndex++)
             {
@@ -57,13 +86,11 @@ namespace SqlLinqer.Components.Select
                         }
                         break;
                     case SelectStatement sub_statement:
-                        string rendered_sub_stm = sub_statement.Render(query, parameters, flavor, (flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb) ? false : forJson, false);
+                        string rendered_sub_stm = sub_statement.Render(query, parameters, flavor, false, false);
                         args_processed.Add($"({rendered_sub_stm})");
                         break;
                     default:
-                        string placeholder = flavor == DbFlavor.DuckDb
-                            ? parameters.AddExpressionParameter(this, argumentIndex, arg)
-                            : parameters.AddParameter(arg);
+                        string placeholder = parameters.AddExpressionParameter(this, argumentIndex, arg);
                         args_processed.Add(placeholder);
                         break;
                 }
@@ -109,29 +136,7 @@ namespace SqlLinqer.Components.Select
                     break;
             }
 
-            if (flavor == DbFlavor.DuckDb)
-                parameters.RememberExpression(this, val);
-
-            if (forJson)
-            {
-                switch (flavor)
-                {
-                    case DbFlavor.Sqlite:
-                    case DbFlavor.DuckDb:
-                    case DbFlavor.PostgreSql:
-                    case DbFlavor.MySql:
-                        return $"{Alias.DbWrapString(flavor)}, {val}";
-                    case DbFlavor.SqlServer:
-                    case DbFlavor.AzureSql:
-                        return $"{val}{(include_alias ? $" AS {Alias.DbWrap(flavor)}" : null)}";
-                    default:
-                        throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(SelectFuncStatement)}.{nameof(Render)}");
-                }
-            }
-            else
-            {
-                return $"{val}{(include_alias ? $" AS {Alias.DbWrap(flavor)}" : null)}";
-            }
+            return val;
         }
 
         private string RenderSqliteFunction(List<object> args)
@@ -180,7 +185,7 @@ namespace SqlLinqer.Components.Select
         }
 
         /// <inheritdoc/>
-        public override bool DoGroupBy() => Func.DoGroupBy() && Args.OfType<SelectFuncStatement>().All(x => x.DoGroupBy());
+        public override bool DoGroupBy() => Func.DoGroupBy() && Args.OfType<SelectStatement>().All(x => x.DoGroupBy());
 
         private IEnumerable<Column> GetTargetColumns()
         {
@@ -198,6 +203,11 @@ namespace SqlLinqer.Components.Select
         {
             if (!Func.DoGroupBy())
                 return null;
+
+            if (!DoGroupBy())
+                return Args.SelectMany(arg => arg is Column column ? new[] { column.Render(flavor) }
+                    : arg is SelectStatement statement ? statement.RenderForGroupBy(query, parameters, flavor) ?? Array.Empty<string>()
+                    : arg is IEnumerable<Column> columns ? columns.Select(c => c.Render(flavor)) : Array.Empty<string>()).ToArray();
 
             if (Func.GroupByOutput())
                 return new[] { flavor == DbFlavor.DuckDb

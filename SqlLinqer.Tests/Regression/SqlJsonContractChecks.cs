@@ -22,6 +22,7 @@ internal static class SqlJsonContractChecks
     internal static void Run(BaseConnector connector, Action<string, Action> test)
     {
         ValueConversionProviderChecks.Run(connector, test);
+        ComplexRelationshipChecks.Run(connector, test);
         string Q(string value) => value.DbWrap(connector.DbFlavor);
         string TableName(string value) => string.IsNullOrEmpty(connector.Options.DefaultSchema) ? Q(value)
             : Q(connector.Options.DefaultSchema) + "." + Q(value);
@@ -148,6 +149,25 @@ internal static class SqlJsonContractChecks
                     var aggregate = new SelectQueryInitializer<PlainRoot>(connector.Options.DefaultSchema)
                         .BuildQuery(x => new { Count = x.Count() });
                     Check(Read(aggregate, mode).Single().Count == 2, "Aggregate result changed");
+                });
+
+                test($"SQL JSON: DISTINCT paging preserves binary and relationship values, read={mode}", () =>
+                {
+                    var query = new SelectQueryInitializer<PlainRoot>(connector.Options.DefaultSchema).BuildQuery(q => new
+                    {
+                        Id = q.Select(x => x.Id),
+                        Payload = q.Select(x => x.Payload),
+                        Featured = q.Select(x => x.Featured),
+                        Children = q.Select(x => x.Children)
+                    }).Distinct().OrderBy(x => x.Id, SqlDir.ASC).Page(1, 1);
+                    var row = Read(query, mode).Single();
+                    Check(row.Id == 1 && row.Payload.SequenceEqual(RootPayload) && row.Featured.Name == "child 雪" && row.Children.Count == 2,
+                        "Derived DISTINCT projection changed binary or nested JSON encoding");
+                    var page = query.ExecuteWithTotalCount(connector);
+                    Check(page.State == ResponseState.Valid && page.TotalResults == 2, page.Error?.ToString() ?? "DISTINCT binary/relationship count differs");
+                    row = Read(query.Page(2, 1), mode).Single();
+                    Check(row.Id == 2 && row.Payload == null && row.Featured == null && row.Children.Count == 0,
+                        "Derived DISTINCT projection changed SQL nulls or empty collections");
                 });
 
                 test($"SQL JSON: large Unicode value survives native transport, read={mode}", () =>

@@ -21,6 +21,9 @@ namespace SqlLinqer.Components.Select
         /// <param name="for_json">If the intended output is to be in JSON format</param>
         /// <param name="include_alias">If to include the set alias in the render</param>
         public abstract string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool for_json, bool include_alias);
+
+        internal virtual string RenderJsonValue(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
+            => Render(query, parameters, flavor, false, false);
         /// <summary>
         /// Returns true if query should group by this statement
         /// </summary>

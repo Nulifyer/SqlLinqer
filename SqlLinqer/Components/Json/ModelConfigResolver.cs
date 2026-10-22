@@ -22,6 +22,7 @@ namespace SqlLinqer.Components.Json
                 TypeInfoResolver = new ModelConfigResolver(),
                 Converters =
                 {
+                    new DatabaseStringConverter(),
                     new DatabaseReadOnlyCollectionConverterFactory(),
                     new DatabaseModelConverterFactory(),
                     new DatabaseEnumConverterFactory(),

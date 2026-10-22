@@ -26,34 +26,39 @@ namespace SqlLinqer.Queries.Typed
         /// <summary>Projects a model member, optionally selecting specified nested members.</summary>
         public void Select(MemberInfo member, Expression expression)
         {
-            _Select(member, expression, null);
+            Select(member, expression, null);
         }
 
         /// <summary>Projects a model member, optionally selecting specified nested members.</summary>
         public void Select(MemberInfo member, Expression expression, Expression[] sub_expressions)
         {
-            _Select(member, expression, null);
-
-            if (sub_expressions != null)
-            {
-                var base_path = expression.GetMemberPath();
-                foreach (var expr in sub_expressions)
-                {
-                    _Select(member, expr, base_path);
-                }
-            }
-        }
-
-        private void _Select(MemberInfo member, Expression expression, IEnumerable<string> base_path)
-        {
-            IEnumerable<string> path = expression.GetMemberPath();
-            if (base_path != null)
-                path = base_path.Union(path);
-
+            var path = expression.GetMemberPath();
             var rel = Query.Table.FindRelationshipFromPath(path);
             if (rel != null)
             {
-                Query.SelectRelationship(rel, member.Name);
+                // A projected relationship is rooted at the selected target, not
+                // at intermediate ancestors, and each output alias owns its shape.
+                Query.AddTableAsRoot();
+                Query.Joins.AddTable(rel.ParentTable);
+                var selected = new SelectRelationship(Query, rel, member.Name);
+                Query.Selects.AddStatement(selected);
+                selected.SubQuery.SelectRootColumns();
+                if (sub_expressions == null) return;
+                foreach (var child in sub_expressions)
+                {
+                    // Resolve relative to this selected object. Combining paths
+                    // with Union removed repeated names such as Manager.Manager.
+                    var childPath = child.GetMemberPath();
+                    if (childPath.Count == 0) continue;
+                    var childRel = rel.ChildTable.FindRelationshipFromPath(childPath);
+                    if (childRel != null) selected.SubQuery.SelectRelationship(childRel);
+                    else
+                    {
+                        var column = rel.ChildTable.FindColumnFromPath(childPath);
+                        if (column == null) throw new SqlPathNotFoundException(rel.ChildTable, childPath);
+                        selected.SubQuery.SelectColumn(column);
+                    }
+                }
             }
             else
             {

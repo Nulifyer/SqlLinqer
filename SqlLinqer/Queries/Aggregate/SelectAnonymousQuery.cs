@@ -6,6 +6,7 @@ using SqlLinqer.Components.Select;
 using SqlLinqer.Components.Modeling;
 using SqlLinqer.Queries.Interfaces;
 using SqlLinqer.Extensions.MemberExpressionExtensions;
+using SqlLinqer.Components.Ordering;
 
 namespace SqlLinqer.Queries.Typed
 {
@@ -107,6 +108,13 @@ namespace SqlLinqer.Queries.Typed
         public SelectAnonymousQuery<TBase, TReturn> OrderBy<TProperty>(Expression<Func<TReturn, TProperty>> expression, SqlDir dir)
         {
             var path = expression.GetMemberPath();
+            if (path.Count > 1)
+            {
+                var order = GetProjectedPathOrder(path, dir);
+                OrderBys.Clear();
+                OrderBys.AddStatement(order);
+                return this;
+            }
             var col = ReturnTable.FindColumnFromPath(path);
             if (col == null)
                 throw new SqlLinqer.Exceptions.SqlPathNotFoundException(ReturnTable, path);
@@ -119,12 +127,36 @@ namespace SqlLinqer.Queries.Typed
         public SelectAnonymousQuery<TBase, TReturn> ThenBy<TProperty>(Expression<Func<TReturn, TProperty>> expression, SqlDir dir)
         {
             var path = expression.GetMemberPath();
+            if (path.Count > 1)
+            {
+                OrderBys.AddStatement(GetProjectedPathOrder(path, dir));
+                return this;
+            }
             var col = ReturnTable.FindColumnFromPath(path);
             if (col == null)
                 throw new SqlLinqer.Exceptions.SqlPathNotFoundException(ReturnTable, path);
 
             base.ThenBy(col, dir, false, false);
             return this;
+        }
+
+        private IOrderByStatement GetProjectedPathOrder(IReadOnlyList<string> path, SqlDir dir)
+        {
+            var relationship = Selects.TryGet(path[0]) as SelectRelationship;
+            SelectStatement selected = relationship;
+            for (int i = 1; i < path.Count; i++)
+            {
+                if (!(selected is SelectRelationship parent))
+                    throw new SqlLinqer.Exceptions.SqlPathNotFoundException(ReturnTable, path);
+                selected = parent.SubQuery.Selects.TryGet(path[i]);
+            }
+
+            if (relationship == null || !(selected is SelectColumn column))
+                throw new SqlLinqer.Exceptions.SqlPathNotFoundException(ReturnTable, path);
+
+            // Resolve aliases against the selected shape. A correlated MIN/MAX
+            // subquery also keeps collection ordering from duplicating root rows.
+            return new SubQueryOrderBy(relationship.Relationship, column.Column, dir);
         }
 
         /// <inheritdoc/>

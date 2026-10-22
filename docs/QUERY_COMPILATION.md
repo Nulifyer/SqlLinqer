@@ -74,6 +74,20 @@ Pagination, SELECT assembly, nested JSON projection, and relationship JSON wrapp
 Existing expression and write implementations retain their specialized dialect handling.
 Working graphs own discovered joins, CTEs, and temporary ordering. `RenderContext` owns the dialect and parameter collection.
 
+CASE expressions with aggregates group their predicate columns and non-aggregate branch inputs.
+Other CASE expressions group by their result, so equal results share one group.
+Relationship projections group by every outer column used by their correlation predicates, including additional join conditions.
+
+MySQL builds grouped fields before constructing JSON objects to satisfy `ONLY_FULL_GROUP_BY`.
+Computed scalar inputs inside aggregate expressions use lateral projections before grouping.
+MySQL and PostgreSQL apply `DISTINCT` to logical fields before JSON construction, with comparable JSON values for PostgreSQL relationships.
+Ordering and paging use the resulting logical fields. Binary and relationship fields retain their JSON encodings.
+
+Typed `BuildQuery()` ordering resolves nested members through the selected relationship aliases.
+Collection ordering uses the minimum member value for ascending order and the maximum for descending order.
+Missing relationships retain the provider's default NULL ordering. Add a unique final sort field for stable paging when values tie.
+Ordering paths must end at a selected scalar member.
+
 ## Logical result shape
 
 `RenderedQuery.ResultShape` describes the selected members of regular SELECT renders.

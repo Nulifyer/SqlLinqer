@@ -42,22 +42,7 @@ namespace SqlLinqer.Components.Select
                     case DbFlavor.DuckDb:
                     case DbFlavor.PostgreSql:
                     case DbFlavor.MySql:
-                        string value = Column.Render(flavor);
-                        if (Column.DbType == System.Data.DbType.Binary || Column.Table.Columns.GetAll<ReflectedColumn>()
-                            .Any(x => x.ColumnName == Column.ColumnName && x.ValueType == typeof(byte[])))
-                        {
-                            // Keep the library's byte[] JSON contract independent of
-                            // provider binary JSON encodings and Base64 line wrapping.
-                            value = flavor switch
-                            {
-                                DbFlavor.Sqlite => $"CASE WHEN {value} IS NULL THEN NULL ELSE hex({value}) END",
-                                DbFlavor.DuckDb => $"to_base64({value})",
-                                DbFlavor.PostgreSql => $"replace(encode({value}, 'base64'), chr(10), '')",
-                                DbFlavor.MySql => $"REPLACE(TO_BASE64({value}), CHAR(10), '')",
-                                _ => value,
-                            };
-                        }
-                        return $"{Alias.DbWrapString(flavor)}, {value}";
+                        return $"{Alias.DbWrapString(flavor)}, {RenderJsonValue(query, parameters, flavor)}";
                     case DbFlavor.SqlServer:
                     case DbFlavor.AzureSql:
                         string alias = include_alias ? $" AS {Alias.DbWrap(flavor)}" : null;
@@ -71,6 +56,27 @@ namespace SqlLinqer.Components.Select
                 string alias = include_alias ? $" AS {Alias.DbWrap(flavor)}" : null;
                 return Column.Render(flavor) + alias;
             }
+        }
+
+        internal override string RenderJsonValue(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
+        {
+            query.Joins.AddTable(Column.Table);
+            string value = Column.Render(flavor);
+            if (Column.DbType == System.Data.DbType.Binary || Column.Table.Columns.GetAll<ReflectedColumn>()
+                .Any(x => x.ColumnName == Column.ColumnName && x.ValueType == typeof(byte[])))
+            {
+                // Preserve the byte[] wire format when JSON is built outside a
+                // derived projection as well as when it is built directly.
+                return flavor switch
+                {
+                    DbFlavor.Sqlite => $"CASE WHEN {value} IS NULL THEN NULL ELSE hex({value}) END",
+                    DbFlavor.DuckDb => $"to_base64({value})",
+                    DbFlavor.PostgreSql => $"replace(encode({value}, 'base64'), chr(10), '')",
+                    DbFlavor.MySql => $"REPLACE(TO_BASE64({value}), CHAR(10), '')",
+                    _ => value,
+                };
+            }
+            return value;
         }
 
         /// <inheritdoc/>

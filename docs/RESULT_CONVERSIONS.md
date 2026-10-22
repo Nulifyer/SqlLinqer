@@ -51,6 +51,9 @@ Native date values converted to strings use the invariant round-trip `O` format.
 Native `TimeSpan` values converted to strings use the invariant constant `c` format.
 `TimeSpan` parsing accepts the constant format, including fractional seconds and day components.
 JSON date values are already strings. A string target receives the database's text without reformatting.
+String targets also accept JSON numbers and booleans, preserving the earlier SQL loader behavior.
+Numbers retain their JSON token text, including precision, trailing zeroes, and exponent notation. Booleans become `true` or `false`.
+JSON objects and arrays cannot load into string targets.
 Date/string round trips retain timestamp precision and any explicit offset.
 Reading offset-bearing text as `DateTime` normalizes it to UTC, so its wall-clock ticks can change.
 

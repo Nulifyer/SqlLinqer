@@ -1,11 +1,38 @@
 using System;
+using System.Buffers;
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using SqlLinqer.Connections;
 
 namespace SqlLinqer.Components.Json
 {
+    // Preserve the legacy SQL loader's scalar-to-string conversions. Numeric
+    // tokens stay as text so large integers and exponents never pass through double.
+    internal sealed class DatabaseStringConverter : JsonConverter<string>
+    {
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            switch (reader.TokenType)
+            {
+                case JsonTokenType.String: return reader.GetString();
+                case JsonTokenType.Number:
+                    return Encoding.UTF8.GetString(reader.HasValueSequence ? reader.ValueSequence.ToArray() : reader.ValueSpan.ToArray());
+                case JsonTokenType.True: return "true";
+                case JsonTokenType.False: return "false";
+                default: throw new JsonException("Expected a database string, number, or boolean value.");
+            }
+        }
+
+        public override string ReadAsPropertyName(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+            => reader.GetString();
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+            => writer.WriteStringValue(value);
+        public override void WriteAsPropertyName(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+            => writer.WritePropertyName(value);
+    }
+
     // SQLite JSON cannot contain BLOB values. Typed column projections use hex.
     internal sealed class DatabaseHexBytesConverter : JsonConverter<byte[]>
     {

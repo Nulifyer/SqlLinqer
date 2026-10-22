@@ -59,6 +59,9 @@ namespace SqlLinqer.Components.Joins
                 || DirectJoins.GetAll().Any(x => x.Child.UUID != root.UUID);
         }
 
+        internal bool ContainsLocalTable(Table table)
+            => HasKey(table.UUID) || DirectJoins.GetAll().Any(x => x.Child.UUID == table.UUID);
+
         /// <summary>Renders this component for the selected database dialect.</summary>
         public string Render(JoinQuery query, ParameterCollection parameters, DbFlavor flavor)
         {

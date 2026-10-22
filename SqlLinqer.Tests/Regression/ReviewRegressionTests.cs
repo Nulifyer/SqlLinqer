@@ -74,6 +74,21 @@ internal static class ReviewRegressionTests
             Check(result.SequenceEqual(new byte[] { 0, 170, 255 }), "Segmented decoding retained source memory");
         });
 
+        test("SQL string conversion preserves segmented numeric tokens", () =>
+        {
+            const string token = "1.234500000000000000000000000000000e+400";
+            byte[] json = Encoding.UTF8.GetBytes(token);
+            var first = new Segment(json.AsMemory(0, 10));
+            var last = first.Append(json.AsMemory(10));
+            var reader = new Utf8JsonReader(new ReadOnlySequence<byte>(first, 0, last, last.Memory.Length));
+            Check(reader.Read() && reader.HasValueSequence, "Fixture did not split a numeric token");
+            var type = typeof(BaseConnector).Assembly.GetType("SqlLinqer.Components.Json.DatabaseStringConverter", true);
+            var converter = (JsonConverter<string>)Activator.CreateInstance(type, true);
+            string result = converter.Read(ref reader, typeof(string), new JsonSerializerOptions());
+            Array.Fill(json, (byte)'0');
+            Check(result == token, "Numeric text lost precision, formatting, or ownership");
+        });
+
         foreach (bool asynchronous in new[] { false, true })
         {
             test($"review cached native mapping isolates concurrent readers, async={asynchronous}", () =>

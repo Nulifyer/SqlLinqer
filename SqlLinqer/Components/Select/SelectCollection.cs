@@ -42,8 +42,8 @@ namespace SqlLinqer.Components.Select
             if (group_by_statements.Count() == statements.Count())
                 return null;
 
-            var strs = group_by_statements
-                .SelectMany(x => x.RenderForGroupBy(query, parameters, flavor))
+            var strs = statements
+                .SelectMany(x => x.RenderForGroupBy(query, parameters, flavor) ?? Array.Empty<string>())
                 .Where(x => x != null)
                 .Distinct();
 

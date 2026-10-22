@@ -360,7 +360,12 @@ internal static class ValueConversionRegressionTests
             new("undefined enum value retained", 2, (SignedEnum)2), new("enum overflow", 32768, null, false), new("invalid enum", "bad", null, false)];
     private static IEnumerable<Case> StringJson()
         => [new("date string unchanged", "2024-02-29 13:14:15.1234567+05:30", "2024-02-29 13:14:15.1234567+05:30"),
-            new("unicode string", "雪😀", "雪😀"), new("empty string", "", ""), new("number not implicit text", 42, null, false)];
+            new("unicode string", "雪😀", "雪😀"), new("empty string", "", ""), new("integer to text", 42, "42"),
+            new("fraction to invariant text", 1.25m, "1.25"), new("true to text", true, "true"), new("false to text", false, "false"),
+            new("large integer text retains precision", null, "18446744073709551615", Token: "18446744073709551615"),
+            new("number text retains scale and exponent", null, "1.2345000e+400", Token: "1.2345000e+400"),
+            new("negative zero text", null, "-0", Token: "-0"),
+            new("object is not text", new { Id = 1 }, null, false), new("array is not text", new[] { 1, 2 }, null, false)];
     private static IEnumerable<Case> StringNative()
         => [new("clock to roundtrip string", Clock, "2024-02-29T13:14:15.1234567"),
             new("UTC to roundtrip string", DateTime.SpecifyKind(Clock, DateTimeKind.Utc), "2024-02-29T13:14:15.1234567Z"),

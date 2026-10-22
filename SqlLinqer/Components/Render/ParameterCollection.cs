@@ -27,14 +27,17 @@ namespace SqlLinqer.Components.Render
         private readonly Dictionary<(object Expression, int Argument), string> _expressionParameters = new Dictionary<(object Expression, int Argument), string>();
 
         private readonly Dictionary<object, string> _renderedExpressions = new Dictionary<object, string>();
+        private readonly Dictionary<object, string> _expressionOverrides = new Dictionary<object, string>();
 
         internal void RememberExpression(object expression, string sql) => _renderedExpressions[expression] = sql;
         internal string FindExpression(object expression) => _renderedExpressions.TryGetValue(expression, out var sql) ? sql : null;
+        internal void OverrideExpression(object expression, string sql) => _expressionOverrides[expression] = sql;
+        internal string FindExpressionOverride(object expression) => _expressionOverrides.TryGetValue(expression, out var sql) ? sql : null;
 
         internal string AddExpressionParameter(object expression, int argument, object value)
         {
-            // DuckDB requires the same placeholder identity when a function is repeated
-            // in SELECT, GROUP BY or ORDER BY, even if the argument values are equal.
+            // A repeated function must retain its parameter identities in SELECT,
+            // GROUP BY and ORDER BY so providers recognize the same expression.
             var key = (expression, argument);
             if (_expressionParameters.TryGetValue(key, out var id) && HasKey(id))
                 return id;

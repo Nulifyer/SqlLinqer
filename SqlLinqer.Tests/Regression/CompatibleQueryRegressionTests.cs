@@ -199,7 +199,8 @@ internal static class CompatibleQueryRegressionTests
             var query = new SelectQuery<Order>().Select(x => x.Billing.Name).Select(x => x.Shipping.Name).Distinct().Page(3, 2);
             string data = query.Render(DbFlavor.PostgreSql).Text;
             string count = query.RenderForCount(new ParameterCollection(), DbFlavor.PostgreSql);
-            Check(Regex.IsMatch(data, @"SELECT DISTINCT\s+jsonb_build_object") && Regex.IsMatch(count, @"SELECT DISTINCT\s+jsonb_build_object"), "DISTINCT compared PostgreSQL json values instead of jsonb");
+            Check(new[] { data, count }.All(sql => sql.Contains("SELECT DISTINCT") && sql.Contains(" AS jsonb)")),
+                "DISTINCT compared PostgreSQL relationship json values instead of jsonb");
             Check(!Regex.IsMatch(count, @"LIMIT 2\b|OFFSET 4\b") && count.Contains("LIMIT 1"), "Total changed root or relationship paging");
         });
         foreach (string stage in new[] { "open", "command", "parameter", "begin", "commit", "dispose-connection", "dispose-transaction" })

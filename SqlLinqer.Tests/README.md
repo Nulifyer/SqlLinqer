@@ -109,6 +109,11 @@ Benchmarks report measurements and do not make timing assertions.
 See the [scale guide](Scale/README.md) for larger datasets, measurement limits, and JSON result files.
 Run `python3 SqlLinqer.Tests/check-runner.py` to check command-line validation and exit codes without server endpoints.
 
+Run `bash TestDBs/test-stable-contracts.sh` to compile the same SQL JSON fixtures against `v2.1.0` and the working library.
+The script needs the stable Git tag and writes reference identity, fixture hashes, and both result logs under `/tmp`.
+These fixtures check materialization and shared BuildQuery contracts with controlled reader values.
+The container suites check actual provider SQL execution.
+
 ## Execution mode coverage
 
 The [result conversion matrix](../docs/RESULT_CONVERSIONS.md) covers signed and unsigned integer widths, decimal and floating-point values,

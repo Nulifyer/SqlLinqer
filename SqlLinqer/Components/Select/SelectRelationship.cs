@@ -53,6 +53,9 @@ namespace SqlLinqer.Components.Select
 
         /// <inheritdoc/>
         public override IEnumerable<string> RenderForGroupBy(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
-            => new[] { Relationship.ParentCol.Render(flavor) };
+            => SubQuery.RootWhere.GetColumnReferences()
+                .Where(column => !SubQuery.Joins.ContainsLocalTable(column.Table))
+                .Select(column => column.Render(flavor))
+                .Distinct();
     }
 }

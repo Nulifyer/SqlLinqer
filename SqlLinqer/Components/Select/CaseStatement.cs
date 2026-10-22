@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using SqlLinqer.Components.Modeling;
 using SqlLinqer.Components.Render;
@@ -30,21 +29,26 @@ namespace SqlLinqer.Components.Select
         /// <inheritdoc/>
         public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool for_json, bool include_alias)
         {
-            var builder = new StringBuilder();
-            builder.Append("case ");
-            bool first = true;
-            foreach (var con in Conditions)
+            string caseStr = parameters.FindExpressionOverride(this) ?? parameters.FindExpression(this);
+            if (caseStr == null)
             {
-                if (first) first = false;
-                else builder.Append(" ");
-                con.Render(query, parameters, flavor, builder);
+                var builder = new StringBuilder();
+                builder.Append("(case ");
+                bool first = true;
+                foreach (var con in Conditions)
+                {
+                    if (first) first = false;
+                    else builder.Append(" ");
+                    con.Render(query, parameters, flavor, builder);
+                }
+                builder.Append(" end)");
+                caseStr = builder.ToString();
+                // Reuse both predicates and result bindings when this expression
+                // appears again in GROUP BY or ORDER BY.
+                parameters.RememberExpression(this, caseStr);
             }
-            builder.Append(" end");
-            string caseStr = builder.ToString();
-            if (flavor == DbFlavor.DuckDb)
-                parameters.RememberExpression(this, $"({caseStr})");
 
-            if (for_json && (!query.IsSubQuery || flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb))
+            if (for_json)
             {
                 switch (flavor)
                 {
@@ -52,11 +56,11 @@ namespace SqlLinqer.Components.Select
                     case DbFlavor.DuckDb:
                     case DbFlavor.PostgreSql:
                     case DbFlavor.MySql:
-                        return $"{Alias.DbWrapString(flavor)}, ({caseStr})";
+                        return $"{Alias.DbWrapString(flavor)}, {caseStr}";
                     case DbFlavor.SqlServer:
                     case DbFlavor.AzureSql:
                         string alias = include_alias ? $" AS {Alias.DbWrap(flavor)}" : null;
-                        return $"({caseStr})" + alias;
+                        return caseStr + alias;
                     default:
                         throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(CaseStatement)}.{nameof(Render)}");
                 }
@@ -64,27 +68,28 @@ namespace SqlLinqer.Components.Select
             else
             {
                 string alias = include_alias ? $" AS {Alias.DbWrap(flavor)}" : null;
-                return $"({caseStr})" + alias;
+                return caseStr + alias;
             }
         }
 
         /// <inheritdoc/>
-        public override bool DoGroupBy() => true;
+        public override bool DoGroupBy() => Conditions.All(x => !(x.ReturnValue is SelectStatement statement) || statement.DoGroupBy());
 
         /// <inheritdoc/>
         public override IEnumerable<string> RenderForGroupBy(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
-            if (flavor == DbFlavor.Sqlite)
+            if (DoGroupBy())
                 return new[] { Render(query, parameters, flavor, false, false) };
-            if (flavor == DbFlavor.DuckDb)
-                return new[] { parameters.FindExpression(this) ?? Render(query, parameters, flavor, false, false) };
 
-            var cols = Conditions
+            // An aggregate-bearing CASE cannot itself be a grouping expression.
+            // Its predicates and non-aggregate branch inputs still need grouping.
+            return Conditions
                 .SelectMany(x => x.Condition?.GetColumnReferences() ?? Array.Empty<Column>())
-                .GroupBy(x => x.UUID)
-                .Select(x => x.First())
-                .Select(x => x.Render(flavor));
-            return cols;
+                .Select(x => x.Render(flavor))
+                .Concat(Conditions.SelectMany(x => x.ReturnValue is Column column ? new[] { column.Render(flavor) }
+                    : x.ReturnValue is SelectStatement statement ? statement.RenderForGroupBy(query, parameters, flavor) ?? Array.Empty<string>()
+                    : Array.Empty<string>()))
+                .Distinct();
         }
     }
 }
