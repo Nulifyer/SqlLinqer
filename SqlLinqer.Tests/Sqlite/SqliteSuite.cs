@@ -39,8 +39,8 @@ internal static class SqliteSuite
                     if (expectedRuntime != null)
                         Expect(runtime == expectedRuntime, $"Expected SQLite {expectedRuntime}, loaded {runtime}");
                 }
-                var connector = new ReplicatorConnector(keeper, DbFlavor.Sqlite,
-                    new ConnectorOptions { CommandTimeout = TimeSpan.FromSeconds(2), ConnectionTimeout = TimeSpan.FromSeconds(9) });
+                var connector = new ConnectionFactoryConnector(() => new SqliteConnection(connectionString), DbFlavor.Sqlite,
+                    new ConnectorOptions { CommandTimeout = TimeSpan.FromSeconds(2) });
                 void Run(string sql) => Result(connector.ExecuteNonQuery(new RenderedQuery(sql)));
                 Run("""
                     CREATE TABLE categories (Id INTEGER PRIMARY KEY, Name TEXT);

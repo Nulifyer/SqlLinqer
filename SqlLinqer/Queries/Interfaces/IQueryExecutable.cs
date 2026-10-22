@@ -1,3 +1,4 @@
+using System;
 using System.Data.Common;
 using SqlLinqer.Connections;
 
@@ -14,8 +15,9 @@ namespace SqlLinqer.Queries.Interfaces
         /// Uses the retained connector or the current default. Validation can throw before database execution.
         /// </summary>
         /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The query result and execution state. An empty result or zero affected rows can be successful.</returns>
-        SqlResponse<T> Execute(DbTransaction transaction = null);
+        SqlResponse<T> Execute(DbTransaction transaction = null, TimeSpan? commandTimeout = null);
 
         /// <summary>
         /// Executes the query and returns selected data or the affected-row count. Check the response State before reading its Result.
@@ -23,7 +25,8 @@ namespace SqlLinqer.Queries.Interfaces
         /// </summary>
         /// <param name="connector">The connector used for this call. It does not replace the retained connector or rebuild the query model mappings and schema.</param>
         /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The query result and execution state. An empty result or zero affected rows can be successful.</returns>
-        SqlResponse<T> Execute(BaseConnector connector, DbTransaction transaction = null);
+        SqlResponse<T> Execute(BaseConnector connector, DbTransaction transaction = null, TimeSpan? commandTimeout = null);
     }
 }

@@ -84,9 +84,16 @@ namespace SqlLinqer.Connections
             }
         }
 
-        private void PreProcessCommand(DbCommand command)
+        internal TimeSpan ResolveCommandTimeout(TimeSpan? commandTimeout)
         {
-            command.CommandTimeout = Convert.ToInt32(Options.CommandTimeout.TotalSeconds);
+            var timeout = commandTimeout ?? Options.CommandTimeout;
+            double maximumSeconds = DbFlavor == DbFlavor.DuckDb ? (uint.MaxValue - 1) / 1000.0 : int.MaxValue;
+            if (timeout < TimeSpan.Zero || timeout.TotalSeconds > maximumSeconds)
+                throw new ArgumentOutOfRangeException(nameof(commandTimeout), "Command timeout must be zero or a supported positive duration.");
+            return timeout;
         }
+
+        private static void PreProcessCommand(DbCommand command, TimeSpan commandTimeout)
+            => command.CommandTimeout = (int)Math.Ceiling(commandTimeout.TotalSeconds);
     }
 }

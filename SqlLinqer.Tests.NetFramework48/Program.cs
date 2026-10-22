@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using SqlLinqer;
 using SqlTest;
 using MySql.Data.MySqlClient;
@@ -12,12 +12,12 @@ namespace SqlLinqer.Tests.NetFramework48
         static void Main(string[] args)
         {
             // SqlLinqer.Default.Connector =
-            //     new SqlLinqer.Connections.ReplicatorConnector(new MySql.Data.MySqlClient.MySqlConnection(
+            //     new SqlLinqer.Connections.ConnectionFactoryConnector(() => new MySql.Data.MySqlClient.MySqlConnection(
             //         $"Server=localhost;Database=employees;Uid=dbuser;Pwd=dbpass;"
             //     ), DbFlavor.MySql);
 
             SqlLinqer.Default.Connector =
-                new SqlLinqer.Connections.ReplicatorConnector(new Npgsql.NpgsqlConnection(
+                new SqlLinqer.Connections.ConnectionFactoryConnector(() => new Npgsql.NpgsqlConnection(
                     $"Host=localhost;Database=employees;Username=dbuser;Password=dbpass;"),
                     DbFlavor.PostgreSql);
 

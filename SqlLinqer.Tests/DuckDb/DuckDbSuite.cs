@@ -20,8 +20,8 @@ internal static class DuckDbSuite
             catch (Exception error) { failed++; Console.WriteLine($"FAIL {name}\n{error}"); }
         }
         string path = Path.Combine(Path.GetTempPath(), $"sqlinqer-duckdb-{Guid.NewGuid():N}.db");
-        using var example = new DuckDBConnection($"Data Source={path}");
-        var connector = new ReplicatorConnector(example, DbFlavor.DuckDb);
+        string connectionString = $"Data Source={path}";
+        var connector = new ConnectionFactoryConnector(() => new DuckDBConnection(connectionString), DbFlavor.DuckDb);
         void Sql(string sql) => Result(connector.ExecuteNonQuery(new RenderedQuery(sql)));
         long Scalar(string sql) => Result(connector.ExecuteScalar<long>(new RenderedQuery(sql)));
         try
@@ -37,7 +37,7 @@ internal static class DuckDbSuite
             WriteChecks.Defaults(connector, Test);
             QueryChecks.Predicates(connector, Test);
             MappingChecks.WideScalars(connector, Test);
-            ConnectionChecks.Deadlines(connector, example, Test);
+            ConnectionChecks.Deadlines(connector, Test);
             WriteChecks.Delete(connector, Test);
             Test("stored procedures, TVPs and unsupported functions reject before execution", () =>
             {
@@ -46,10 +46,10 @@ internal static class DuckDbSuite
                 Reject(() => new ParameterCollection(DbFlavor.DuckDb).AddTvpParameter(new DataTable(), "unused"));
                 Reject(() => new SelectQueryInitializer<Person>().BuildQuery(x => new { Value = x.SOUNDDEX(p => p.Name) }).Render(DbFlavor.DuckDb));
             });
-            Test("replicated file connections persist with no injected timeout", () =>
+            Test("factory file connections preserve settings and persist data", () =>
             {
                 using var connection = connector.CreateConnection();
-                Expect(connection.ConnectionString == example.ConnectionString && !connection.ConnectionString.Contains("Timeout"), "Connection string changed");
+                Expect(connection.ConnectionString == connectionString && !connection.ConnectionString.Contains("Timeout"), "Connection string changed");
                 connection.Open(); using var command = connection.CreateCommand(); command.CommandText = "SELECT count(*) FROM people";
                 Expect(Convert.ToInt64(command.ExecuteScalar()) == 2 && File.Exists(path), "File persistence failed");
             });
@@ -64,7 +64,7 @@ internal static class DuckDbSuite
             {
                 using var memory = new DuckDBConnection("Data Source=:memory:"); memory.Open();
                 using (var command = memory.CreateCommand()) { command.CommandText = "CREATE TABLE people (Id INTEGER, Name VARCHAR); INSERT INTO people VALUES (1,'memory');"; command.ExecuteNonQuery(); }
-                var memConnector = new ReplicatorConnector(memory, DbFlavor.DuckDb);
+                var memConnector = new ConnectionFactoryConnector(() => new DuckDBConnection("Data Source=:memory:"), DbFlavor.DuckDb);
                 using var transaction = memory.BeginTransaction(IsolationLevel.Snapshot);
                 Expect(Result(new SelectQuery<MemoryPerson>().SelectRootColumns().Execute(memConnector, transaction)).Single().Name == "memory", "Memory transaction lost database");
                 using var separate = memConnector.CreateConnection(); separate.Open();

@@ -10,14 +10,14 @@ namespace SqlLinqer.Connections
 {
     public abstract partial class BaseConnector
     {
-        internal SqlCallableResponse<T> ExecuteCallable<T>(PreparedCallable prepared, TabularRowType row, DbTransaction transaction)
+        internal SqlCallableResponse<T> ExecuteCallable<T>(PreparedCallable prepared, TabularRowType row, DbTransaction transaction, TimeSpan? commandTimeout = null)
             => CreateCallableResponse(ExecuteOnConnection(prepared.Query, transaction, true,
-                command => ReadCallableResults<T>(command, prepared, row)));
+                command => ReadCallableResults<T>(command, prepared, row), commandTimeout: commandTimeout));
 
         internal async Task<SqlCallableResponse<T>> ExecuteCallableAsync<T>(PreparedCallable prepared, TabularRowType row,
-            DbTransaction transaction, CancellationToken cancellationToken)
+            DbTransaction transaction, CancellationToken cancellationToken, TimeSpan? commandTimeout = null)
             => CreateCallableResponse(await ExecuteOnConnectionAsync(prepared.Query, transaction, true,
-                command => ReadCallableResultsAsync<T>(command, prepared, row, cancellationToken), cancellationToken).ConfigureAwait(false));
+                command => ReadCallableResultsAsync<T>(command, prepared, row, cancellationToken), cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false));
 
         private static CallableResult<T> ReadCallableResults<T>(DbCommand command, PreparedCallable plan, TabularRowType row)
         {

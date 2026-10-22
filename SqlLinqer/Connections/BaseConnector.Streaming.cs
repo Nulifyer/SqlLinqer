@@ -22,13 +22,15 @@ namespace SqlLinqer.Connections
         /// <param name="query">SQL and bindings. Keep them unchanged until all enumerations finish.</param>
         /// <param name="transaction">An optional caller-owned transaction. Do not use its connection concurrently with enumeration.</param>
         /// <param name="cancellationToken">Cancels execution and result reading.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>A deferred sequence. Execution and mapping failures throw SqlResponseException during enumeration; requested cancellation throws.</returns>
         public IAsyncEnumerable<T> ExecuteReaderJsonAsyncStream<T>(RenderedQuery query, DbTransaction transaction = null,
-            CancellationToken cancellationToken = default) where T : class
+            CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null) where T : class
         {
             if (query == null) throw new ArgumentNullException(nameof(query));
             cancellationToken.ThrowIfCancellationRequested();
-            return ExecuteCommandAsyncStream(query, token => ExecuteOnConnectionAsyncStream<T>(query, transaction, token), cancellationToken);
+            commandTimeout = ResolveCommandTimeout(commandTimeout);
+            return ExecuteCommandAsyncStream(query, token => ExecuteOnConnectionAsyncStream<T>(query, transaction, token, commandTimeout: commandTimeout), cancellationToken);
         }
 
         /// <summary>
@@ -76,7 +78,7 @@ namespace SqlLinqer.Connections
         }
 
         private async IAsyncEnumerable<T> ExecuteOnConnectionAsyncStream<T>(RenderedQuery query, DbTransaction transaction,
-            [EnumeratorCancellation] CancellationToken cancellationToken) where T : class
+            [EnumeratorCancellation] CancellationToken cancellationToken, TimeSpan? commandTimeout = null) where T : class
         {
             cancellationToken.ThrowIfCancellationRequested();
             bool ownsConnection = transaction == null;
@@ -89,7 +91,8 @@ namespace SqlLinqer.Connections
                 using (var command = connection.CreateCommand())
                 {
                     ImportFromTempQueryData(command, query);
-                    PreProcessCommand(command);
+                    var timeout = commandTimeout.Value;
+                    PreProcessCommand(command, timeout);
                     if (DbFlavor == DbFlavor.DuckDb)
                     {
                         // SequentialAccess alone does not enable DuckDB.NET's
@@ -103,7 +106,7 @@ namespace SqlLinqer.Connections
                     // Also registers Cancel for text reads whose netstandard2.0
                     // TextReader contracts cannot receive a cancellation token.
                     using (var deadline = new CommandDeadline(command,
-                        DbFlavor == DbFlavor.DuckDb ? Options.CommandTimeout : TimeSpan.Zero, cancellationToken))
+                        DbFlavor == DbFlavor.DuckDb ? timeout : TimeSpan.Zero, cancellationToken))
                     {
                         DbDataReader reader;
                         try

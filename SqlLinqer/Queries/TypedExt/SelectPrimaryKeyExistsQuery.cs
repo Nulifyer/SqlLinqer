@@ -52,25 +52,27 @@ namespace SqlLinqer.Queries.Typed
         /// Checks for the primary key without loading a row. Check State before interpreting a false result.
         /// </summary>
         /// <param name="transaction">An optional caller-owned transaction with an open connection.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>A valid true result for an existing key, valid false when absent, or an error response.</returns>
-        public SqlResponse<bool> Execute(DbTransaction transaction = null)
+        public SqlResponse<bool> Execute(DbTransaction transaction = null, TimeSpan? commandTimeout = null)
         {
-            return Execute(ExecutionConnector, transaction);
+            return Execute(ExecutionConnector, transaction, commandTimeout: commandTimeout);
         }
         /// <summary>
         /// Checks for the primary key without loading a row. Check State before interpreting a false result.
         /// </summary>
         /// <param name="connector">The connector used for this execution only.</param>
         /// <param name="transaction">An optional caller-owned transaction with an open connection.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>A valid true result for an existing key, valid false when absent, or an error response.</returns>
-        public SqlResponse<bool> Execute(BaseConnector connector, DbTransaction transaction = null)
+        public SqlResponse<bool> Execute(BaseConnector connector, DbTransaction transaction = null, TimeSpan? commandTimeout = null)
         {
             if (connector == null)
                 throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
 
             var renderedQuery = new SqlLinqer.Components.Render.RenderedQuery();
             renderedQuery.Text = this.Render(renderedQuery.Parameters, connector.DbFlavor, false);
-            var response = connector.ExecuteScalar<int>(renderedQuery, transaction);
+            var response = connector.ExecuteScalar<int>(renderedQuery, transaction, commandTimeout: commandTimeout);
 
             var bool_response = new SqlResponse<bool>();
             if (response.State == ResponseState.Error)

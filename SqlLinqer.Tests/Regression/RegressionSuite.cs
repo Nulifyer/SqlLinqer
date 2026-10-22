@@ -34,6 +34,8 @@ internal static class RegressionSuite
             => Regex.Replace(query.Render(flavor).Text, @"\s+", " ").Trim();
 
         CacheRegressionTests.Run(Test);
+        ConnectionFactoryRegressionTests.Run(Test);
+        CommandTimeoutRegressionTests.Run(Test);
 
         foreach (DbFlavor flavor in Enum.GetValues<DbFlavor>())
         {
@@ -364,32 +366,6 @@ internal static class RegressionSuite
             Expect(database.Connections.Count == 0, "An unsupported request touched the database");
         });
 
-        foreach (string password in new[] { "abc=def", "abc;def=ghi", "both\"'quotes;=", "space at end " })
-        {
-            Test($"connection password survives rebuilding: {password}", () =>
-            {
-                var builder = new DbConnectionStringBuilder { ["Host"] = "localhost", ["Password"] = password, ["Timeout"] = 30 };
-                var connector = new ReplicatorConnector(new FakeConnection { ConnectionString = builder.ConnectionString }, DbFlavor.PostgreSql,
-                    new ConnectorOptions { ConnectionTimeout = TimeSpan.FromSeconds(7) });
-                using var copy = connector.CreateConnection();
-                var rebuilt = new DbConnectionStringBuilder { ConnectionString = copy.ConnectionString };
-                Expect((string)rebuilt["Password"] == password, "Password was corrupted");
-                Expect(rebuilt["Timeout"].ToString() == "7", "Timeout was not replaced");
-            });
-        }
-        foreach (DbFlavor flavor in new[] { DbFlavor.MySql, DbFlavor.SqlServer })
-        {
-            Test($"connection timeout aliases are replaced for {flavor}", () =>
-            {
-                var connector = new ReplicatorConnector(new FakeConnection { ConnectionString = "Server=localhost;ConnectionTimeout=30;CommandTimeout=99" }, flavor,
-                    new ConnectorOptions { ConnectionTimeout = TimeSpan.FromSeconds(7) });
-                using var connection = connector.CreateConnection();
-                var builder = new DbConnectionStringBuilder { ConnectionString = connection.ConnectionString };
-                Expect(!builder.ContainsKey("ConnectionTimeout"), "Left a duplicate timeout alias");
-                Expect(builder["Connect Timeout"].ToString() == "7", "Incorrect timeout");
-                Expect(builder["CommandTimeout"].ToString() == "99", "Changed command timeout");
-            });
-        }
         foreach (object value in new object[] { null, DBNull.Value, SqlNull.NULL })
         {
             Test($"NULL diagnostic formatting accepts {value?.GetType().Name ?? "null"}", () =>

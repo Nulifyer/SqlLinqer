@@ -58,16 +58,14 @@ using Microsoft.Data.SqlClient;
 using SqlLinqer;
 using SqlLinqer.Connections;
 
-using var template = new SqlConnection(connectionString);
-var connector = new ReplicatorConnector(template, DbFlavor.AzureSql,
+var connector = new ConnectionFactoryConnector(() => new SqlConnection(connectionString), DbFlavor.AzureSql,
     new ConnectorOptions
     {
-        ConnectionTimeout = TimeSpan.FromSeconds(30),
         CommandTimeout = TimeSpan.FromSeconds(30)
     });
 ```
 
-`ReplicatorConnector` copies the provider type and connection string, then replaces connection timeout aliases with `Connect Timeout`. It preserves connection-string authentication and encryption settings. Set `ConnectorOptions.ConnectionTimeout` to preserve your intended login timeout. Command timeout is separate. Reads use no owned transaction. Writes use `ReadCommitted` when the connector owns the transaction. When you supply a transaction, the connector uses its connection and leaves commit, rollback and disposal to you.
+Configure login timeout, authentication, encryption, and pooling in the factory or its connection string. SqlLinqer uses those settings without modification. Command timeout is separate. Reads use no owned transaction. Writes use `ReadCommitted` when the connector owns the transaction. When you supply a transaction, the connector uses its connection and leaves commit, rollback and disposal to you.
 
 Use these templates with your existing endpoint and database. Keep credentials out of source and logs. Each example requires encryption and certificate validation. The host must trust the certificate chain, and the endpoint name must match the certificate. Live Azure mode rejects `Encrypt=false` or `TrustServerCertificate=true`. See [encryption and certificate validation](https://learn.microsoft.com/en-us/sql/connect/ado-net/encryption-and-certificate-validation?view=sql-server-ver17).
 
@@ -97,8 +95,6 @@ The application host must expose an enabled managed identity, and that identity 
 
 ## Authentication supplied through connection properties
 
-`ReplicatorConnector` does not preserve `AccessToken`, `AccessTokenCallback`, `SqlCredential` or other provider properties. Do not pass it a template that relies on those properties. Local provider tests explicitly cover this limitation.
-
 Use `ConnectionFactoryConnector` to attach application-managed authentication to every new connection:
 
 ```csharp
@@ -115,7 +111,7 @@ var connector = new ConnectionFactoryConnector(
     new ConnectorOptions { CommandTimeout = TimeSpan.FromSeconds(30) });
 ```
 
-The factory must return a fresh connection on every call. The connector opens and disposes connections it requests. Caller transactions use their own connection and bypass the factory. Configure login timeout in the factory's connection string. `ConnectorOptions.ConnectionTimeout` does not rewrite factory connections. `CommandTimeout` still applies. Local provider tests check callback delegate identity, separate new connections, `AccessToken` and `SqlCredential`; regression tests check disposal and caller ownership. The core has no reference to SqlClient or Azure Identity.
+The factory must return a fresh connection on every call. The connector opens and disposes connections it requests. Caller transactions use their own connection and bypass the factory. Configure login timeout in the factory's connection string. `CommandTimeout` still applies. Local provider tests check callback delegate identity, separate new connections, `AccessToken` and `SqlCredential`; regression tests check disposal and caller ownership. The core has no reference to SqlClient or Azure Identity.
 
 Reuse the same callback delegate and credential for connections that should share a pool. Use an encrypted, certificate-validated connection string compatible with callback authentication. Do not combine it with `Authentication`, integrated security, `AccessToken` or `SspiContextProvider`. Callback token acquisition, expiry and renewal belong to your application and SqlClient. The connector does not add token management. See [AccessTokenCallback guidance](https://learn.microsoft.com/en-us/sql/connect/ado-net/sql/azure-active-directory-authentication?view=sql-server-ver17#use-accesstokencallback).
 

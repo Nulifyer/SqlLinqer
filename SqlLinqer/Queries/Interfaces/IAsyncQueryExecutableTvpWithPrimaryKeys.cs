@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Data.Common;
@@ -18,9 +19,10 @@ namespace SqlLinqer.Queries.Interfaces
         /// </summary>
         /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
         /// <param name="cancellationToken">Cancels provider connection opening, command execution, and result reading. Defaults to no requested cancellation.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The inserted-row count and captured primary keys, or an error response.</returns>
         /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
-        Task<SqlPrimaryKeysResponse<int, TPk>> ExecuteTvpAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default);
+        Task<SqlPrimaryKeysResponse<int, TPk>> ExecuteTvpAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null);
 
         /// <summary>
         /// Asynchronously inserts through a SQL Server or Azure SQL table-valued parameter and returns affected-row count and inserted primary keys. Requested cancellation throws.
@@ -29,8 +31,9 @@ namespace SqlLinqer.Queries.Interfaces
         /// <param name="connector">The connector used for this call. It does not replace the retained connector or rebuild the query model mappings and schema.</param>
         /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
         /// <param name="cancellationToken">Cancels provider connection opening, command execution, and result reading. Defaults to no requested cancellation.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The inserted-row count and captured primary keys, or an error response.</returns>
         /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
-        Task<SqlPrimaryKeysResponse<int, TPk>> ExecuteTvpAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default);
+        Task<SqlPrimaryKeysResponse<int, TPk>> ExecuteTvpAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null);
     }
 }

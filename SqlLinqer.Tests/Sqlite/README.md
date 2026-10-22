@@ -6,7 +6,7 @@ Run this executable from the repository root with the .NET 10 SDK:
 dotnet run --project SqlLinqer.Tests -- --suite sqlite
 ```
 
-It creates a temporary file database and a named shared-memory database, exercises both through `ReplicatorConnector`, and deletes its file afterward. No database server or cloud account is required. The project references `Microsoft.Data.Sqlite` 10.0.13. The suite runs against SQLite 3.53.3 and the minimum SQLite 3.38.0, with .NET 10.0.13. The executable prints the provider and runtime versions on each run.
+It creates a temporary file database and a named shared-memory database, exercises both through `ConnectionFactoryConnector`, and deletes its file afterward. No database server or cloud account is required. The project references `Microsoft.Data.Sqlite` 10.0.13. The suite runs against SQLite 3.53.3 and the minimum SQLite 3.38.0, with .NET 10.0.13. The executable prints the provider and runtime versions on each run.
 
 The core library remains `netstandard2.0` and has no SQLite provider dependency. Applications must reference their own provider package. This implementation requires SQLite 3.38 or newer with JSON enabled. SQLite builds can omit JSON, so check the runtime you deploy. See [SQLite JSON support](https://www.sqlite.org/json1.html#compiling_in_json_support).
 
@@ -30,12 +30,13 @@ using SqlLinqer.Modeling;
 using SqlLinqer.Queries.Typed;
 using SqlLinqer.Queries.TypedExt;
 
-using var example = new SqliteConnection("Data Source=example.db;Default Timeout=15");
-var connector = new ReplicatorConnector(example, DbFlavor.Sqlite,
+const string connectionString = "Data Source=example.db;Default Timeout=15";
+var connector = new ConnectionFactoryConnector(() => new SqliteConnection(connectionString), DbFlavor.Sqlite,
     new ConnectorOptions { CommandTimeout = TimeSpan.FromSeconds(15) });
 
-example.Open();
-using (var command = example.CreateCommand())
+using var setup = connector.CreateConnection();
+setup.Open();
+using (var command = setup.CreateCommand())
 {
     command.CommandText = "CREATE TABLE IF NOT EXISTS main.people (Id INTEGER PRIMARY KEY, Name TEXT)";
     command.ExecuteNonQuery();
@@ -61,17 +62,17 @@ public class Person
 
 `SqlPrimaryKey` defaults to a database-generated key. It excludes that column from `InsertAuto`. Use `SqlPrimaryKey(false)` for application-generated keys, including GUIDs. SQLite tables that generate integer keys should declare `INTEGER PRIMARY KEY`.
 
-For memory databases, keep an open connection to `Data Source=example;Mode=Memory;Cache=Shared` for the database's lifetime. `ReplicatorConnector` creates a new connection for each operation. A bare `Data Source=:memory:` creates a separate database on every connection. The integration executable demonstrates the keeper connection.
+For memory databases, keep an open connection to `Data Source=example;Mode=Memory;Cache=Shared` for the database's lifetime. `ConnectionFactoryConnector` creates a new connection for each operation. A bare `Data Source=:memory:` creates a separate database on every connection. The integration executable demonstrates the keeper connection.
 
 ## Schemas, connections, and transactions
 
 A model schema names a SQLite database. `main` names the primary database, `temp` names the connection's temporary database, and another name identifies an attached database. Names are quoted as identifiers, including embedded quotes. Supply raw names, without SQL quoting. A null schema leaves the table unqualified and follows SQLite's lookup rules. An explicit schema is never discarded or translated from `dbo`; an unattached name fails in SQLite.
 
-Attachments and temporary tables belong to a connection. `ReplicatorConnector` copies the connection string, not attachments. Attach databases on the connection used by an explicit transaction, then pass that transaction to every related query. Alternatively, implement `BaseConnector.CreateConnection()` to initialize each new connection. The executable tests attached reads, updates, deletes, and a missing database name.
+Attachments and temporary tables belong to a connection. Each factory connection has its own attachments and temporary tables. Attach databases on the connection used by an explicit transaction, then pass that transaction to every related query. Alternatively, initialize each new connection in the factory. The executable tests attached reads, updates, deletes, and a missing database name.
 
 Owned model writes use serializable transactions, including writes returning rows through `RETURNING`. Supplied transactions retain caller ownership after success or failure. The caller commits, rolls back, and disposes them. This also lets a caller keep several writes atomic. See [Microsoft.Data.Sqlite transactions](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/transactions).
 
-`ConnectorOptions.CommandTimeout` sets command lock-wait timeouts. `ReplicatorConnector` preserves SQLite's `Default Timeout` connection-string setting and does not inject `Connect Timeout`. `ConnectionTimeout` has no SQLite equivalent and is ignored. Provider-created commands, including transaction initialization, use the provider default timeout. See [provider connection strings](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/connection-strings).
+`ConnectorOptions.CommandTimeout` sets command lock-wait timeouts. Set SQLite's `Default Timeout` in the factory's connection string. The connector leaves connection settings unchanged. Provider-created commands, including transaction initialization, use the provider default timeout. See [provider connection strings](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/connection-strings).
 
 ## Query behavior
 

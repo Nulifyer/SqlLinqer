@@ -1,4 +1,3 @@
-using System.Data.Common;
 using DuckDB.NET.Data;
 using Microsoft.Data.Sqlite;
 using SqlLinqer;
@@ -17,9 +16,9 @@ internal static class AsyncProviderChecks
     {
         test($"real {flavor} sync/async scalar nulls, nullable values, GUIDs, enums, and invariant conversion", () =>
         {
-            using DbConnection template = flavor == DbFlavor.Sqlite
-                ? new SqliteConnection("Data Source=:memory:") : new DuckDBConnection("Data Source=:memory:");
-            ProductionRegressionTests.CheckScalars(new ReplicatorConnector(template, flavor)).GetAwaiter().GetResult();
+            var connector = new ConnectionFactoryConnector(() => flavor == DbFlavor.Sqlite
+                ? new SqliteConnection("Data Source=:memory:") : new DuckDBConnection("Data Source=:memory:"), flavor);
+            ProductionRegressionTests.CheckScalars(connector).GetAwaiter().GetResult();
         });
         test($"real {flavor} sync/async CRUD, totals, nesting, binary values, and caller rollback", () => CheckProvider(flavor).GetAwaiter().GetResult());
     }
@@ -29,9 +28,8 @@ internal static class AsyncProviderChecks
         string path = Path.Combine(Path.GetTempPath(), $"sqllinqer-async-{Guid.NewGuid():N}.db");
         try
         {
-            using DbConnection example = flavor == DbFlavor.Sqlite
-                ? new SqliteConnection($"Data Source={path};Pooling=False") : new DuckDBConnection($"Data Source={path}");
-            var connector = new ReplicatorConnector(example, flavor);
+            var connector = new ConnectionFactoryConnector(() => flavor == DbFlavor.Sqlite
+                ? new SqliteConnection($"Data Source={path};Pooling=False") : new DuckDBConnection($"Data Source={path}"), flavor);
             string identity = flavor == DbFlavor.Sqlite ? "INTEGER PRIMARY KEY" : "INTEGER PRIMARY KEY DEFAULT nextval('async_ids')";
             if (flavor == DbFlavor.DuckDb)
                 Result(await connector.ExecuteNonQueryAsync(new RenderedQuery("CREATE SEQUENCE async_ids START 100")));

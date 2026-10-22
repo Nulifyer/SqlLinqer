@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Threading;
@@ -12,14 +13,16 @@ namespace SqlLinqer.Queries.Interfaces
         /// <summary>Captures the query now and executes it on enumeration through the retained or default connector. Another enumeration reruns it.</summary>
         /// <param name="transaction">An optional caller-owned transaction. Keep its connection available until enumeration is disposed.</param>
         /// <param name="cancellationToken">Cancels execution and result reading.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>A deferred sequence. Mapping and database failures throw SqlResponseException during enumeration; requested cancellation throws.</returns>
-        IAsyncEnumerable<T> ExecuteAsyncStream(DbTransaction transaction = null, CancellationToken cancellationToken = default);
+        IAsyncEnumerable<T> ExecuteAsyncStream(DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null);
 
         /// <summary>Captures the query now and executes it on enumeration through the supplied connector. Another enumeration reruns it.</summary>
         /// <param name="connector">The connector used for this sequence.</param>
         /// <param name="transaction">An optional caller-owned transaction. Keep its connection available until enumeration is disposed.</param>
         /// <param name="cancellationToken">Cancels execution and result reading.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>A deferred sequence. Mapping and database failures throw SqlResponseException during enumeration; requested cancellation throws.</returns>
-        IAsyncEnumerable<T> ExecuteAsyncStream(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default);
+        IAsyncEnumerable<T> ExecuteAsyncStream(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null);
     }
 }

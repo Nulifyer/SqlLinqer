@@ -1,14 +1,13 @@
-﻿using SqlLinqer;
+using SqlLinqer;
 using SqlTest;
 using SqlTest.Models;
 
 // SqlLinqer.Default.Connector =
-//     new SqlLinqer.Connections.ReplicatorConnector(new MySql.Data.MySqlClient.MySqlConnection(
+//     new SqlLinqer.Connections.ConnectionFactoryConnector(() => new MySql.Data.MySqlClient.MySqlConnection(
 //         $"Server=localhost;Database=employees;Uid=dbuser;Pwd=dbpass;"
 //     ), DbFlavor.MySql);
 
-SqlLinqer.Default.Connector =
-    new SqlLinqer.Connections.ReplicatorConnector(new Npgsql.NpgsqlConnection(string.Join(";", [
+var connectionString = string.Join(";", [
         "Host=localhost",
         "Username=dbuser",
         "Password=dbpass",
@@ -16,7 +15,9 @@ SqlLinqer.Default.Connector =
         "KeepAlive=300",
         "CommandTimeout=300",
         "Timeout=30",
-    ])), DbFlavor.PostgreSql);
+    ]);
+SqlLinqer.Default.Connector =
+    new SqlLinqer.Connections.ConnectionFactoryConnector(() => new Npgsql.NpgsqlConnection(connectionString), DbFlavor.PostgreSql);
 
 var testconn = SqlLinqer.Default.Connector.ExecuteScalar<int>(new SqlLinqer.Components.Render.RenderedQuery("SELECT 1"));
 
@@ -28,7 +29,7 @@ var res1 = _Employee
     .ExecuteWithTotalCount();
 
 if (res1.State == ResponseState.Valid)
-    foreach(IDisplayable item in res1.Result)
+    foreach (IDisplayable item in res1.Result)
         Console.WriteLine(item.ToDisplayableString());
 else
 {
@@ -70,7 +71,7 @@ var res = q
     .ExecuteWithTotalCount();
 
 if (res.State == ResponseState.Valid)
-    foreach(IDisplayable item in res.Result)
+    foreach (IDisplayable item in res.Result)
         Console.WriteLine(item.ToDisplayableString());
 else
 {
@@ -95,7 +96,7 @@ var res_agg = _Employee_Departments
     .Execute();
 if (res_agg.State == ResponseState.Valid)
 {
-    foreach(var item in res_agg.Result)
+    foreach (var item in res_agg.Result)
         Console.WriteLine($"({item.Id}) {item.LastName}, {item.FirstName}");
 }
 else
@@ -119,7 +120,7 @@ var res_3 = _Employee_Departments
 
 if (res_3.State == ResponseState.Valid)
 {
-   foreach(IDisplayable item in res_3.Result)
+    foreach (IDisplayable item in res_3.Result)
         Console.WriteLine(item.ToDisplayableString());
 }
 else

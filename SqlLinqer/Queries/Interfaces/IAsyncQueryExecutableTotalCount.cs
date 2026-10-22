@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Data.Common;
@@ -17,9 +18,10 @@ namespace SqlLinqer.Queries.Interfaces
         /// </summary>
         /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
         /// <param name="cancellationToken">Cancels provider connection opening, command execution, and result reading. Defaults to no requested cancellation.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The selected rows in Result and the unpaged projection count in TotalResults. An error clears the rows and total.</returns>
         /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
-        Task<SqlSelectResponse<T>> ExecuteWithTotalCountAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default);
+        Task<SqlSelectResponse<T>> ExecuteWithTotalCountAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null);
 
         /// <summary>
         /// Asynchronously returns selected rows and the total root projection count before paging, including DISTINCT and grouping. Requested cancellation throws.
@@ -28,8 +30,9 @@ namespace SqlLinqer.Queries.Interfaces
         /// <param name="connector">The connector used for this call. It does not replace the retained connector or rebuild the query model mappings and schema.</param>
         /// <param name="transaction">An optional transaction with an open connection. The caller owns commit, rollback, and disposal, including after errors or cancellation.</param>
         /// <param name="cancellationToken">Cancels provider connection opening, command execution, and result reading. Defaults to no requested cancellation.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The selected rows in Result and the unpaged projection count in TotalResults. An error clears the rows and total.</returns>
         /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
-        Task<SqlSelectResponse<T>> ExecuteWithTotalCountAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default);
+        Task<SqlSelectResponse<T>> ExecuteWithTotalCountAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null);
     }
 }

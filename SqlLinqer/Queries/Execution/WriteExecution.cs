@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
@@ -11,14 +12,14 @@ namespace SqlLinqer.Queries.Execution
     // Single-command writes share key capture. Insert batching owns its aggregate count and transaction.
     internal static class WriteExecution
     {
-        internal static SqlResponse<int> Execute(RenderedQuery query, BaseConnector connector, DbTransaction transaction, List<object> primaryKeys)
-            => primaryKeys == null ? connector.ExecuteNonQuery(query, transaction)
-                : CapturePrimaryKeys(connector.ExecuteReaderDataTable(query, transaction), primaryKeys);
+        internal static SqlResponse<int> Execute(RenderedQuery query, BaseConnector connector, DbTransaction transaction, List<object> primaryKeys, TimeSpan? commandTimeout = null)
+            => primaryKeys == null ? connector.ExecuteNonQuery(query, transaction, commandTimeout: commandTimeout)
+                : CapturePrimaryKeys(connector.ExecuteReaderDataTable(query, transaction, commandTimeout: commandTimeout), primaryKeys);
 
         internal static async Task<SqlResponse<int>> ExecuteAsync(RenderedQuery query, BaseConnector connector, DbTransaction transaction,
-            List<object> primaryKeys, CancellationToken cancellationToken)
-            => primaryKeys == null ? await connector.ExecuteNonQueryAsync(query, transaction, cancellationToken).ConfigureAwait(false)
-                : CapturePrimaryKeys(await connector.ExecuteReaderDataTableAsync(query, transaction, cancellationToken).ConfigureAwait(false), primaryKeys);
+            List<object> primaryKeys, CancellationToken cancellationToken, TimeSpan? commandTimeout = null)
+            => primaryKeys == null ? await connector.ExecuteNonQueryAsync(query, transaction, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false)
+                : CapturePrimaryKeys(await connector.ExecuteReaderDataTableAsync(query, transaction, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false), primaryKeys);
 
         private static SqlResponse<int> CapturePrimaryKeys(SqlResponse<DataTable> response, List<object> primaryKeys)
         {

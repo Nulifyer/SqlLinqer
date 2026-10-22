@@ -42,8 +42,9 @@ using SqlLinqer;
 using SqlLinqer.Connections;
 using SqlLinqer.Modeling;
 
-using var template = new SqlConnection(connectionString);
-var connector = new ReplicatorConnector(template, DbFlavor.SqlServer);
+var connector = new ConnectionFactoryConnector(
+    () => new SqlConnection(connectionString),
+    DbFlavor.SqlServer);
 ```
 
 The examples below use this connector and the models in the next section. Create the matching tables in your database first.

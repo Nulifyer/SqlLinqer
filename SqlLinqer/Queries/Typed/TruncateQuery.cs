@@ -36,39 +36,39 @@ namespace SqlLinqer.Queries.Typed
         public TruncateQuery(Table table) : base(table) { }
 
         /// <inheritdoc/>
-        public SqlResponse<int> Execute(DbTransaction existingTransaction = null)
+        public SqlResponse<int> Execute(DbTransaction existingTransaction = null, TimeSpan? commandTimeout = null)
         {
-            return this.Execute(ExecutionConnector, existingTransaction);
+            return this.Execute(ExecutionConnector, existingTransaction, commandTimeout: commandTimeout);
         }
 
         /// <inheritdoc/>
-        public SqlResponse<int> Execute(BaseConnector connector, DbTransaction existingTransaction = null)
+        public SqlResponse<int> Execute(BaseConnector connector, DbTransaction existingTransaction = null, TimeSpan? commandTimeout = null)
         {
             if (connector == null)
                 throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
 
             var rendered = this.Render(connector);
-            var response = connector.ExecuteNonQuery(rendered, existingTransaction);
+            var response = connector.ExecuteNonQuery(rendered, existingTransaction, commandTimeout: commandTimeout);
 
             return response;
         }
 
         /// <inheritdoc/>
-        public async Task<SqlResponse<int>> ExecuteAsync(DbTransaction existingTransaction = null, CancellationToken cancellationToken = default)
+        public async Task<SqlResponse<int>> ExecuteAsync(DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await this.ExecuteAsync(ExecutionConnector, existingTransaction, cancellationToken: cancellationToken).ConfigureAwait(false);
+            return await this.ExecuteAsync(ExecutionConnector, existingTransaction, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        public async Task<SqlResponse<int>> ExecuteAsync(BaseConnector connector, DbTransaction existingTransaction = null, CancellationToken cancellationToken = default)
+        public async Task<SqlResponse<int>> ExecuteAsync(BaseConnector connector, DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (connector == null)
                 throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
 
             var rendered = this.Render(connector);
-            var response = await connector.ExecuteNonQueryAsync(rendered, existingTransaction, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var response = await connector.ExecuteNonQueryAsync(rendered, existingTransaction, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
 
             return response;
         }

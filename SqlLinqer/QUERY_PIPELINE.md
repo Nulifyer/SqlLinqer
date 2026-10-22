@@ -54,7 +54,7 @@ The calls above `Execute()` describe the query. They do not contact the database
    Compiler changes, such as discovering a join or adding paging order, stay in that copy.
 4. **Prepare and render SQL.** The compiler resolves selected members, relationship subqueries, filters, grouping, ordering, and paging.
    The dialect supplies database-specific SQL and JSON expressions.
-5. **Bind and execute.** The connector creates a provider connection and command.
+5. **Bind and execute.** The connector obtains a configured provider connection from the factory and creates a command.
    It puts SQL text in `CommandText` and values in `DbParameter` objects, then executes the command.
 6. **Load the result.** The mapper reads database JSON and constructs `User` objects.
    The nested manager JSON becomes the selected `Manager` property.
@@ -124,6 +124,10 @@ Each render still performs compilation and copies working state. A snapshot is n
 Supported arrays, binary buffers, and `DataTable` inputs are copied. Other provider-specific reference values require the documented immutable lifetime.
 
 Without a supplied transaction, the connector owns and disposes its execution connection.
+The application factory supplies connection settings, including login timeout, pooling, and authentication.
+SqlLinqer keeps those settings and applies its command execution options separately.
+Execution methods accept a per-call `commandTimeout` that overrides the connector default without mutating shared options.
+The effective timeout applies independently to each command in a page/count pair, insert batch, or TVP operation.
 Write execution normally also owns its transaction.
 With a supplied transaction, the caller keeps ownership of its connection, commit, rollback, and disposal.
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
@@ -18,10 +19,11 @@ namespace SqlLinqer.Connections
         /// </summary>
         /// <param name="query">The parameterized SQL text and bindings to execute.</param>
         /// <param name="existingTransaction">An optional caller-owned transaction with an active connection. The library does not complete or dispose it.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The buffered table and execution state. Dispose a successful Result table after use.</returns>
-        public SqlResponse<DataTable> ExecuteReaderDataTable(RenderedQuery query, DbTransaction existingTransaction = null)
+        public SqlResponse<DataTable> ExecuteReaderDataTable(RenderedQuery query, DbTransaction existingTransaction = null, TimeSpan? commandTimeout = null)
         {
-            return ExecuteOnConnection(query, existingTransaction, query.Transactional, ReadDataTable);
+            return ExecuteOnConnection(query, existingTransaction, query.Transactional, ReadDataTable, commandTimeout: commandTimeout);
         }
 
         private DataTable ReadDataTable(DbCommand command)
@@ -103,13 +105,14 @@ namespace SqlLinqer.Connections
         /// <param name="query">The parameterized SQL text and bindings to execute.</param>
         /// <param name="existingTransaction">An optional caller-owned transaction with an active connection. The library does not complete or dispose it.</param>
         /// <param name="cancellationToken">Cancels provider connection opening, command execution, and result loading.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The buffered table and execution state. Dispose a successful Result table after use.</returns>
         /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         public Task<SqlResponse<DataTable>> ExecuteReaderDataTableAsync(RenderedQuery query,
-            DbTransaction existingTransaction = null, CancellationToken cancellationToken = default)
+            DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             return ExecuteOnConnectionAsync(query, existingTransaction, query.Transactional,
-                command => ReadDataTableAsync(command, cancellationToken), cancellationToken);
+                command => ReadDataTableAsync(command, cancellationToken), cancellationToken, commandTimeout: commandTimeout);
         }
 
         private async Task<DataTable> ReadDataTableAsync(DbCommand command, CancellationToken cancellationToken)
@@ -170,8 +173,9 @@ namespace SqlLinqer.Connections
         /// <typeparam name="T">A concrete mapped row type, or a scalar type for a single-column result.</typeparam>
         /// <param name="query">The parameterized SQL text and bindings to execute.</param>
         /// <param name="existingTransaction">An optional caller-owned transaction with an active connection. The library does not complete or dispose it.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The mapped rows and execution state. Execution or mapping failures produce an error response without partial rows.</returns>
-        public SqlResponse<List<T>> ExecuteReaderList<T>(RenderedQuery query, DbTransaction existingTransaction = null)
+        public SqlResponse<List<T>> ExecuteReaderList<T>(RenderedQuery query, DbTransaction existingTransaction = null, TimeSpan? commandTimeout = null)
         {
             return ExecuteOnConnection(query, existingTransaction, query.Transactional, command =>
             {
@@ -199,7 +203,7 @@ namespace SqlLinqer.Connections
                     }
                     return rows;
                 }
-            });
+            }, commandTimeout: commandTimeout);
         }
 
         /// <summary>
@@ -210,10 +214,11 @@ namespace SqlLinqer.Connections
         /// <param name="query">The parameterized SQL text and bindings to execute.</param>
         /// <param name="existingTransaction">An optional caller-owned transaction with an active connection. The library does not complete or dispose it.</param>
         /// <param name="cancellationToken">Cancels provider connection opening, command execution, row loading, and model mapping.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The mapped rows and execution state. Execution or mapping failures produce an error response without partial rows.</returns>
         /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         public Task<SqlResponse<List<T>>> ExecuteReaderListAsync<T>(RenderedQuery query,
-            DbTransaction existingTransaction = null, CancellationToken cancellationToken = default)
+            DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             return ExecuteOnConnectionAsync(query, existingTransaction, query.Transactional, async command =>
             {
@@ -249,7 +254,7 @@ namespace SqlLinqer.Connections
                     cancellationToken.ThrowIfCancellationRequested();
                     return rows;
                 }
-            }, cancellationToken);
+            }, cancellationToken, commandTimeout: commandTimeout);
         }
     }
 }

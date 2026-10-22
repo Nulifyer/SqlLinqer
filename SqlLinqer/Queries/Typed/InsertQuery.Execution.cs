@@ -12,42 +12,44 @@ namespace SqlLinqer.Queries.Typed
     public partial class InsertQuery<T>
     {
         /// <inheritdoc/>
-        public SqlResponse<int> Execute(DbTransaction transaction = null)
+        public SqlResponse<int> Execute(DbTransaction transaction = null, TimeSpan? commandTimeout = null)
         {
-            return Execute(ExecutionConnector, transaction);
+            return Execute(ExecutionConnector, transaction, commandTimeout: commandTimeout);
         }
 
         /// <inheritdoc/>
-        public SqlResponse<int> Execute(BaseConnector connector, DbTransaction transaction = null)
+        public SqlResponse<int> Execute(BaseConnector connector, DbTransaction transaction = null, TimeSpan? commandTimeout = null)
         {
-            return ExecuteAndCapturePrimaryKeys(connector, transaction, null);
+            return ExecuteAndCapturePrimaryKeys(connector, transaction, null, commandTimeout: commandTimeout);
         }
 
         /// <inheritdoc/>
-        public SqlResponse<DataTable> ExecuteWithOutput(DbTransaction transaction = null)
+        public SqlResponse<DataTable> ExecuteWithOutput(DbTransaction transaction = null, TimeSpan? commandTimeout = null)
         {
-            return ExecuteWithOutput(ExecutionConnector, transaction);
+            return ExecuteWithOutput(ExecutionConnector, transaction, commandTimeout: commandTimeout);
         }
 
         /// <inheritdoc/>
-        public SqlResponse<DataTable> ExecuteWithOutput(BaseConnector connector, DbTransaction transaction = null)
+        public SqlResponse<DataTable> ExecuteWithOutput(BaseConnector connector, DbTransaction transaction = null, TimeSpan? commandTimeout = null)
         {
             if (connector == null)
                 throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            commandTimeout = connector.ResolveCommandTimeout(commandTimeout);
             return ExecuteBatches<DataTable>(connector, transaction,
-                (query, tx) => connector.ExecuteReaderDataTable(query, tx),
+                (query, tx) => connector.ExecuteReaderDataTable(query, tx, commandTimeout: commandTimeout),
                 (all, batch) =>
                 {
                     if (all == null) return batch;
                     using (batch) all.Merge(batch, false, MissingSchemaAction.Add);
                     return all;
-                }, table => table?.Dispose());
+                }, table => table?.Dispose(), commandTimeout: commandTimeout);
         }
 
-        internal SqlResponse<int> ExecuteAndCapturePrimaryKeys(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null)
+        internal SqlResponse<int> ExecuteAndCapturePrimaryKeys(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null, TimeSpan? commandTimeout = null)
         {
             if (connector == null)
                 throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            commandTimeout = connector.ResolveCommandTimeout(commandTimeout);
 
             if (this.Inserts.Count == 0)
             {
@@ -60,8 +62,8 @@ namespace SqlLinqer.Queries.Typed
             var response = ExecuteBatches<int>(connector, existingTransaction, (rendered, tx) =>
             {
                 if (primaryKeys == null)
-                    return connector.ExecuteNonQuery(rendered, tx);
-                var rows = connector.ExecuteReaderDataTable(rendered, tx);
+                    return connector.ExecuteNonQuery(rendered, tx, commandTimeout: commandTimeout);
+                var rows = connector.ExecuteReaderDataTable(rendered, tx, commandTimeout: commandTimeout);
                 if (rows.State == ResponseState.Error)
                     return new SqlResponse<int>(rows.Error);
                 using (var table = rows.Result)
@@ -70,7 +72,7 @@ namespace SqlLinqer.Queries.Typed
                         captured.Add(row[0]);
                     return new SqlResponse<int>(table.Rows.Count);
                 }
-            }, (all, batch) => all + batch);
+            }, (all, batch) => all + batch, commandTimeout: commandTimeout);
             if (response.State == ResponseState.Valid && captured != null)
                 primaryKeys.AddRange(captured);
             return response;
@@ -78,11 +80,11 @@ namespace SqlLinqer.Queries.Typed
 
         private SqlResponse<TResult> ExecuteBatches<TResult>(BaseConnector connector, DbTransaction existingTransaction,
             Func<RenderedQuery, DbTransaction, SqlResponse<TResult>> execute,
-            Func<TResult, TResult, TResult> merge, Action<TResult> discard = null)
+            Func<TResult, TResult, TResult> merge, Action<TResult> discard = null, TimeSpan? commandTimeout = null)
         {
             if (!IsCompilationCopy)
                 return SqlLinqer.Compilation.SnapshotGraph.Capture(this).ExecuteBatches(connector,
-                    existingTransaction, execute, merge, discard);
+                    existingTransaction, execute, merge, discard, commandTimeout: commandTimeout);
             int parameterLimit = connector.Options.ParameterLimit;
             if (connector.DbFlavor == DbFlavor.SqlServer || connector.DbFlavor == DbFlavor.AzureSql)
                 parameterLimit = parameterLimit > 0 ? Math.Min(parameterLimit, 2100) : 2100;
@@ -177,48 +179,50 @@ namespace SqlLinqer.Queries.Typed
         }
 
         /// <inheritdoc/>
-        public async Task<SqlResponse<int>> ExecuteAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default)
+        public async Task<SqlResponse<int>> ExecuteAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await ExecuteAsync(ExecutionConnector, transaction, cancellationToken: cancellationToken).ConfigureAwait(false);
+            return await ExecuteAsync(ExecutionConnector, transaction, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        public async Task<SqlResponse<int>> ExecuteAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default)
+        public async Task<SqlResponse<int>> ExecuteAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await ExecuteAndCapturePrimaryKeysAsync(connector, transaction, null, cancellationToken: cancellationToken).ConfigureAwait(false);
+            return await ExecuteAndCapturePrimaryKeysAsync(connector, transaction, null, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        public async Task<SqlResponse<DataTable>> ExecuteWithOutputAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default)
+        public async Task<SqlResponse<DataTable>> ExecuteWithOutputAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await ExecuteWithOutputAsync(ExecutionConnector, transaction, cancellationToken: cancellationToken).ConfigureAwait(false);
+            return await ExecuteWithOutputAsync(ExecutionConnector, transaction, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        public async Task<SqlResponse<DataTable>> ExecuteWithOutputAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default)
+        public async Task<SqlResponse<DataTable>> ExecuteWithOutputAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (connector == null)
                 throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            commandTimeout = connector.ResolveCommandTimeout(commandTimeout);
             return await ExecuteBatchesAsync<DataTable>(connector, transaction,
-                async (query, tx) => await connector.ExecuteReaderDataTableAsync(query, tx, cancellationToken: cancellationToken).ConfigureAwait(false),
+                async (query, tx) => await connector.ExecuteReaderDataTableAsync(query, tx, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false),
                 (all, batch) =>
                 {
                     if (all == null) return batch;
                     using (batch) all.Merge(batch, false, MissingSchemaAction.Add);
                     return all;
-                }, table => table?.Dispose(), cancellationToken: cancellationToken).ConfigureAwait(false);
+                }, table => table?.Dispose(), cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        internal async Task<SqlResponse<int>> ExecuteAndCapturePrimaryKeysAsync(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null, CancellationToken cancellationToken = default)
+        internal async Task<SqlResponse<int>> ExecuteAndCapturePrimaryKeysAsync(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (connector == null)
                 throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            commandTimeout = connector.ResolveCommandTimeout(commandTimeout);
 
             if (this.Inserts.Count == 0)
             {
@@ -231,8 +235,8 @@ namespace SqlLinqer.Queries.Typed
             var response = await ExecuteBatchesAsync<int>(connector, existingTransaction, async (rendered, tx) =>
             {
                 if (primaryKeys == null)
-                    return await connector.ExecuteNonQueryAsync(rendered, tx, cancellationToken: cancellationToken).ConfigureAwait(false);
-                var rows = await connector.ExecuteReaderDataTableAsync(rendered, tx, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    return await connector.ExecuteNonQueryAsync(rendered, tx, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
+                var rows = await connector.ExecuteReaderDataTableAsync(rendered, tx, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
                 if (rows.State == ResponseState.Error)
                     return new SqlResponse<int>(rows.Error);
                 using (var table = rows.Result)
@@ -241,7 +245,7 @@ namespace SqlLinqer.Queries.Typed
                         captured.Add(row[0]);
                     return new SqlResponse<int>(table.Rows.Count);
                 }
-            }, (all, batch) => all + batch, cancellationToken: cancellationToken).ConfigureAwait(false);
+            }, (all, batch) => all + batch, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
             if (response.State == ResponseState.Valid && captured != null)
                 primaryKeys.AddRange(captured);
             return response;
@@ -250,12 +254,12 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         private async Task<SqlResponse<TResult>> ExecuteBatchesAsync<TResult>(BaseConnector connector, DbTransaction existingTransaction,
             Func<RenderedQuery, DbTransaction, Task<SqlResponse<TResult>>> execute,
-            Func<TResult, TResult, TResult> merge, Action<TResult> discard = null, CancellationToken cancellationToken = default)
+            Func<TResult, TResult, TResult> merge, Action<TResult> discard = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!IsCompilationCopy)
                 return await SqlLinqer.Compilation.SnapshotGraph.Capture(this).ExecuteBatchesAsync(connector,
-                    existingTransaction, execute, merge, discard, cancellationToken).ConfigureAwait(false);
+                    existingTransaction, execute, merge, discard, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
             int parameterLimit = connector.Options.ParameterLimit;
             if (connector.DbFlavor == DbFlavor.SqlServer || connector.DbFlavor == DbFlavor.AzureSql)
                 parameterLimit = parameterLimit > 0 ? Math.Min(parameterLimit, 2100) : 2100;

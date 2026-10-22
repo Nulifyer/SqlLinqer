@@ -24,13 +24,20 @@ internal sealed class DatabaseFixture
         if (!parsed.TryGetValue("Database", out object database) || !database.ToString().StartsWith("sqllinqer_integration_", StringComparison.Ordinal))
             throw new ArgumentException("Integration tests require a disposable database named sqllinqer_integration_<run id>.");
 
-        _createConnection = flavor == DbFlavor.PostgreSql
-            ? () => new NpgsqlConnection(connectionString)
-            : () => new MySqlConnection(connectionString);
-        using var example = _createConnection();
-        Connector = new ReplicatorConnector(example, flavor, new ConnectorOptions
+        // Configure the login timeout before creating connections. The connector
+        // receives the same factory as readiness and fixture setup operations.
+        if (flavor == DbFlavor.PostgreSql)
         {
-            ConnectionTimeout = TimeSpan.FromSeconds(3),
+            string settings = new NpgsqlConnectionStringBuilder(connectionString) { Timeout = 3 }.ConnectionString;
+            _createConnection = () => new NpgsqlConnection(settings);
+        }
+        else
+        {
+            string settings = new MySqlConnectionStringBuilder(connectionString) { ConnectionTimeout = 3 }.ConnectionString;
+            _createConnection = () => new MySqlConnection(settings);
+        }
+        Connector = new ConnectionFactoryConnector(_createConnection, flavor, new ConnectorOptions
+        {
             CommandTimeout = TimeSpan.FromSeconds(15),
         });
     }

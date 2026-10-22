@@ -21,13 +21,14 @@ internal static class AsyncRegressionTests
             {
                 var database = new FakeDatabase(); var connector = new Connector(database, flavor);
                 IAsyncQueryExecutable<List<Row>> query = new SelectQuery<Row>().SelectRootColumns();
-                var rows = await query.ExecuteAsync(connector);
+                var rows = await query.ExecuteAsync(connector, commandTimeout: TimeSpan.FromSeconds(71));
                 Check(rows.State == ResponseState.Valid && rows.Result.Count == 2, rows.Error?.ToString());
-                var total = await new SelectQuery<Row>().SelectRootColumns().Page(2, 2).ExecuteWithTotalCountAsync(connector);
+                var total = await new SelectQuery<Row>().SelectRootColumns().Page(2, 2).ExecuteWithTotalCountAsync(connector, commandTimeout: TimeSpan.FromSeconds(71));
                 Check(total.State == ResponseState.Valid && total.TotalResults == 22, total.Error?.ToString());
                 Check(database.AsyncOpens == 3 && database.AsyncCommands == 3 && database.AsyncReads > 0
                     && database.SyncCommands == 0 && connector.AsyncInterceptions == 3 && connector.SyncInterceptions == 0,
                     "Async execution used synchronous command contracts");
+                Check(database.Executed.All(command => command.CommandTimeout == 71), "Async query lost its per-call timeout");
                 Check(database.Connections.All(c => c.IsDisposed && c.Commands.All(x => x.IsDisposed)), "Async resources leaked");
             });
 
@@ -36,26 +37,28 @@ internal static class AsyncRegressionTests
                 var database = new FakeDatabase(); var connector = new Connector(database, flavor);
                 if (flavor == DbFlavor.MySql)
                 {
-                    await Rejected(() => new InsertWithPrimaryKeyQuery<Row, int>().InsertAuto(new Row()).ExecuteAsync(connector));
-                    await Rejected(() => new UpdateWithPrimaryKeyQuery<Row, int>().Update(x => x.Name, "changed").ExecuteAsync(connector));
-                    await Rejected(() => new DeleteWithPrimaryKeyQuery<Row, int>().ExecuteAsync(connector));
-                    Result(await new InsertQuery<Row>().InsertAuto(new Row()).ExecuteAsync(connector));
-                    Result(await new UpdateQuery<Row>().Update(x => x.Name, "changed").ExecuteAsync(connector));
-                    Result(await new DeleteQuery<Row>().Where(x => x.Id, 7, SqlOp.EQ).ExecuteAsync(connector));
+                    await Rejected(() => new InsertWithPrimaryKeyQuery<Row, int>().InsertAuto(new Row()).ExecuteAsync(connector, commandTimeout: TimeSpan.FromSeconds(71)));
+                    await Rejected(() => new UpdateWithPrimaryKeyQuery<Row, int>().Update(x => x.Name, "changed").ExecuteAsync(connector, commandTimeout: TimeSpan.FromSeconds(71)));
+                    await Rejected(() => new DeleteWithPrimaryKeyQuery<Row, int>().ExecuteAsync(connector, commandTimeout: TimeSpan.FromSeconds(71)));
+                    Result(await new InsertQuery<Row>().InsertAuto(new Row()).ExecuteAsync(connector, commandTimeout: TimeSpan.FromSeconds(71)));
+                    Result(await new UpdateQuery<Row>().Update(x => x.Name, "changed").ExecuteAsync(connector, commandTimeout: TimeSpan.FromSeconds(71)));
+                    Result(await new DeleteQuery<Row>().Where(x => x.Id, 7, SqlOp.EQ).ExecuteAsync(connector, commandTimeout: TimeSpan.FromSeconds(71)));
                     Check(database.SyncCommands == 0, "Writes used synchronous execution");
+                    Check(database.Executed.All(command => command.CommandTimeout == 71), "Async write lost its per-call timeout");
                     return;
                 }
                 var insert = new InsertWithPrimaryKeyQuery<Row, int>().InsertAuto(new Row { Name = "first" });
                 IAsyncQueryExecutableWithPrimaryKeys<int, int> executable = insert;
-                var inserted = await executable.ExecuteAsync(connector);
+                var inserted = await executable.ExecuteAsync(connector, commandTimeout: TimeSpan.FromSeconds(71));
                 Check(inserted.State == ResponseState.Valid && inserted.TouchedPrimaryKeys.Single() == 7, inserted.Error?.ToString());
-                var updated = await new UpdateWithPrimaryKeyQuery<Row, int>().Update(x => x.Name, "changed").Where(x => x.Id, 7, SqlOp.EQ).ExecuteAsync(connector);
+                var updated = await new UpdateWithPrimaryKeyQuery<Row, int>().Update(x => x.Name, "changed").Where(x => x.Id, 7, SqlOp.EQ).ExecuteAsync(connector, commandTimeout: TimeSpan.FromSeconds(71));
                 Check(updated.State == ResponseState.Valid && updated.TouchedPrimaryKeys.Single() == 7, updated.Error?.ToString());
-                var deleted = await new DeleteWithPrimaryKeyQuery<Row, int>().Where(x => x.Id, 7, SqlOp.EQ).ExecuteAsync(connector);
+                var deleted = await new DeleteWithPrimaryKeyQuery<Row, int>().Where(x => x.Id, 7, SqlOp.EQ).ExecuteAsync(connector, commandTimeout: TimeSpan.FromSeconds(71));
                 Check(deleted.State == ResponseState.Valid && deleted.TouchedPrimaryKeys.Single() == 7, deleted.Error?.ToString());
-                using var output = Result(await new InsertQuery<Row>().InsertAuto(new Row { Name = "out" }).Output(x => x.Id).ExecuteWithOutputAsync(connector));
+                using var output = Result(await new InsertQuery<Row>().InsertAuto(new Row { Name = "out" }).Output(x => x.Id).ExecuteWithOutputAsync(connector, commandTimeout: TimeSpan.FromSeconds(71)));
                 Check(output.Rows.Count == 1 && (int)output.Rows[0][0] == 7, "Tabular output differs");
                 Check(database.SyncCommands == 0, "Writes used synchronous command execution");
+                Check(database.Executed.All(command => command.CommandTimeout == 71), "Async write lost its per-call timeout");
             });
         }
 

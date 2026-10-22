@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Text.Json;
@@ -28,15 +29,16 @@ namespace SqlLinqer.Connections
         /// <typeparam name="T">The mapped row type.</typeparam>
         /// <param name="query">The parameterized SQL text and bindings to execute.</param>
         /// <param name="existingTransaction">An optional caller-owned transaction with an active connection. The library does not complete or dispose it.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The buffered rows and execution state. An empty JSON result array produces an empty list.</returns>
-        public SqlResponse<List<T>> ExecuteReaderJson<T>(RenderedQuery query, DbTransaction existingTransaction = null) where T : class
+        public SqlResponse<List<T>> ExecuteReaderJson<T>(RenderedQuery query, DbTransaction existingTransaction = null, TimeSpan? commandTimeout = null) where T : class
         {
             var mapper = CreateJsonMapper<T>();
             return ExecuteOnConnection(query, existingTransaction, false, command =>
             {
                 using (var reader = command.ExecuteReader())
                     return mapper.Read(reader);
-            });
+            }, commandTimeout: commandTimeout);
         }
 
         private JsonResultMapper<T> CreateJsonMapper<T>() where T : class
@@ -58,17 +60,18 @@ namespace SqlLinqer.Connections
         /// <param name="query">The parameterized SQL text and bindings to execute.</param>
         /// <param name="existingTransaction">An optional caller-owned transaction with an active connection. The library does not complete or dispose it.</param>
         /// <param name="cancellationToken">Cancels provider connection opening, command execution, and result loading.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The buffered rows and execution state. An empty JSON result array produces an empty list.</returns>
         /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         public Task<SqlResponse<List<T>>> ExecuteReaderJsonAsync<T>(RenderedQuery query,
-            DbTransaction existingTransaction = null, CancellationToken cancellationToken = default) where T : class
+            DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null) where T : class
         {
             var mapper = CreateJsonMapper<T>();
             return ExecuteOnConnectionAsync(query, existingTransaction, false, async command =>
             {
                 using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
                     return await mapper.ReadAsync(reader, cancellationToken).ConfigureAwait(false);
-            }, cancellationToken);
+            }, cancellationToken, commandTimeout: commandTimeout);
         }
     }
 }

@@ -38,7 +38,7 @@ internal static class LocalChecks
             {
                 calls++;
                 return new SqlConnection(settings.ConnectionString) { AccessTokenCallback = callback };
-            }, DbFlavor.AzureSql, new ConnectorOptions { ConnectionTimeout = TimeSpan.FromSeconds(1) });
+            }, DbFlavor.AzureSql, new ConnectorOptions { CommandTimeout = TimeSpan.FromSeconds(1) });
             using var first = (SqlConnection)connector.CreateConnection();
             using var second = (SqlConnection)connector.CreateConnection();
             require(!ReferenceEquals(first, second) && calls == 2 && ReferenceEquals(first.AccessTokenCallback, callback)

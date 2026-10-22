@@ -43,8 +43,7 @@ internal sealed class FakeConnector(FakeDatabase database, DbFlavor flavor = DbF
     }
 }
 
-// Public because ReplicatorConnector instantiates a provider connection by reflection.
-public sealed class FakeConnection : DbConnection
+internal sealed class FakeConnection : DbConnection
 {
     internal readonly FakeDatabase DatabaseState;
     private ConnectionState _state;

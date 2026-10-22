@@ -55,7 +55,7 @@ namespace SqlLinqer.Connections
                 throw new OperationCanceledException("The database operation was cancelled.", error, cancellationToken);
             lock (gate)
                 if (expired)
-                    throw new TimeoutException("The DuckDB command exceeded ConnectorOptions.CommandTimeout.", error ?? cancellationError);
+                    throw new TimeoutException("The DuckDB command exceeded its execution timeout.", error ?? cancellationError);
         }
 
         internal T Execute<T>(Func<T> action)
@@ -72,7 +72,7 @@ namespace SqlLinqer.Connections
                 if (expired)
                 {
                     (result as IDisposable)?.Dispose();
-                    throw new TimeoutException("The DuckDB command exceeded ConnectorOptions.CommandTimeout.", cancellationError);
+                    throw new TimeoutException("The DuckDB command exceeded its execution timeout.", cancellationError);
                 }
                 return result;
             }
@@ -81,7 +81,7 @@ namespace SqlLinqer.Connections
                 Dispose();
                 cancellationToken.ThrowIfCancellationRequested();
                 if (expired && !(error is TimeoutException))
-                    throw new TimeoutException("The DuckDB command exceeded ConnectorOptions.CommandTimeout.", error);
+                    throw new TimeoutException("The DuckDB command exceeded its execution timeout.", error);
                 throw;
             }
         }
@@ -100,7 +100,7 @@ namespace SqlLinqer.Connections
                 if (expired)
                 {
                     (result as IDisposable)?.Dispose();
-                    throw new TimeoutException("The DuckDB command exceeded ConnectorOptions.CommandTimeout.", cancellationError);
+                    throw new TimeoutException("The DuckDB command exceeded its execution timeout.", cancellationError);
                 }
                 return result;
             }
@@ -109,7 +109,7 @@ namespace SqlLinqer.Connections
                 Dispose();
                 cancellationToken.ThrowIfCancellationRequested();
                 if (expired && !(error is TimeoutException))
-                    throw new TimeoutException("The DuckDB command exceeded ConnectorOptions.CommandTimeout.", error);
+                    throw new TimeoutException("The DuckDB command exceeded its execution timeout.", error);
                 throw;
             }
         }

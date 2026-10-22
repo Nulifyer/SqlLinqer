@@ -32,7 +32,7 @@ internal static class SqlServerSuite
         }
 
         foreach (string authentication in new[] { "Sql Password", "Active Directory Default", "Active Directory Interactive", "Active Directory Managed Identity" })
-            Local("SqlClient replication preserves " + authentication, () =>
+            Local("SqlClient factory preserves " + authentication, () =>
             {
                 var original = new SqlConnectionStringBuilder
                 {
@@ -51,45 +51,28 @@ internal static class SqlServerSuite
                     original.UserID = "example"; original.Password = "sample;=\"' value ";
                 }
                 if (authentication == "Active Directory Managed Identity") original.UserID = "example-client-id";
-                using var template = new SqlConnection(original.ConnectionString);
-                var connector = new ReplicatorConnector(template, DbFlavor.AzureSql,
-                    new ConnectorOptions { ConnectionTimeout = TimeSpan.FromSeconds(7) });
+                string settings = original.ConnectionString;
+                var connector = new ConnectionFactoryConnector(() => new SqlConnection(settings), DbFlavor.AzureSql);
                 using var copy = (SqlConnection)connector.CreateConnection();
                 var actual = new SqlConnectionStringBuilder(copy.ConnectionString);
                 Require(copy.State == ConnectionState.Closed && connector.DbFlavor == DbFlavor.AzureSql, "Connection type, state or flavor changed");
-                Require(actual.ConnectTimeout == 7, "Timeout was not replaced");
-                original.ConnectTimeout = 7;
-                Require(actual.EquivalentTo(original), "Connection settings changed beyond timeout");
+                Require(actual.ConnectTimeout == 91, "Factory login timeout changed");
+                Require(actual.EquivalentTo(original), "Factory connection settings changed");
                 Require(!connector.JsonResultsRowByRow(), "Azure must assemble SQL Server JSON chunks");
             });
         foreach (string timeout in new[] { "Connect Timeout", "Connection Timeout" })
             Local("SqlClient accepts timeout alias " + timeout, () =>
             {
-                using var template = new SqlConnection($"Server=example;{timeout}=91;Encrypt=true;TrustServerCertificate=false");
-                var connector = new ReplicatorConnector(template, DbFlavor.AzureSql,
-                    new ConnectorOptions { ConnectionTimeout = TimeSpan.FromSeconds(8) });
+                string settings = $"Server=example;{timeout}=91;Encrypt=true;TrustServerCertificate=false";
+                var connector = new ConnectionFactoryConnector(() => new SqlConnection(settings), DbFlavor.AzureSql);
                 using var copy = (SqlConnection)connector.CreateConnection();
-                Require(copy.ConnectionTimeout == 8, "Duplicate timeout alias survived");
+                Require(copy.ConnectionTimeout == 91, "Factory timeout alias changed");
             });
         Local("matching Azure authentication extension is deployed", () =>
         {
             var extension = Assembly.Load("Microsoft.Data.SqlClient.Extensions.Azure");
             Require(extension.GetName().Version.Major == 7, "Unexpected Azure extension assembly");
         });
-        Local("ReplicatorConnector property authentication limitation is explicit", () =>
-        {
-            const string connectionString = "Server=example;Database=example;Encrypt=true;TrustServerCertificate=false";
-            using var tokenTemplate = new SqlConnection(connectionString) { AccessToken = "example-token-not-used-for-a-connection" };
-            using var tokenCopy = (SqlConnection)new ReplicatorConnector(tokenTemplate, DbFlavor.AzureSql).CreateConnection();
-            Require(string.IsNullOrEmpty(tokenCopy.AccessToken), "Update documentation if token replication changes");
-            using var callbackTemplate = new SqlConnection(connectionString)
-            {
-                AccessTokenCallback = (_, _) => throw new InvalidOperationException("Local tests must never acquire a token"),
-            };
-            using var callbackCopy = (SqlConnection)new ReplicatorConnector(callbackTemplate, DbFlavor.AzureSql).CreateConnection();
-            Require(callbackCopy.AccessTokenCallback == null, "Update documentation if callback replication changes");
-        });
-
         LocalChecks.Run(Local, Require);
         CallableChecks.RunLocal(Local, Require);
 

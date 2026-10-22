@@ -37,6 +37,43 @@ Procedure classes use `Execute(input)` and `ExecuteAsync(input)` with ordinary i
 See [stored procedures](../queries/stored-procedures.md) for a complete example.
 Async methods have the same database support as synchronous methods. For example, MySQL does not support modified-row output.
 
+## Override the command timeout
+
+Pass `commandTimeout` when an operation needs a different limit from `ConnectorOptions.CommandTimeout`:
+
+```csharp
+var response = await query.ExecuteAsync(
+    cancellationToken: cancellationToken,
+    commandTimeout: TimeSpan.FromMinutes(3));
+
+// Zero disables the timeout for this execution.
+var unlimited = query.Execute(commandTimeout: TimeSpan.Zero);
+```
+
+Import `System` for `TimeSpan`.
+Omit the argument or pass `null` to use the connector default. The override does not change that default or other executions.
+The same argument is available on synchronous, asynchronous, and streamed query execution, stored procedures, and raw connector commands:
+
+```csharp
+var value = await connector.ExecuteScalarAsync<long>(
+    renderedQuery,
+    cancellationToken: cancellationToken,
+    commandTimeout: TimeSpan.FromMinutes(3));
+```
+
+The timeout applies separately to each generated command. A paged total uses it for both the data and count commands.
+Batched inserts use it for every batch. TVP inserts also use it for type creation and cleanup.
+It is not a total time budget for the complete operation, and it does not override the factory's connection login timeout.
+Cancellation tokens remain independent of the timeout.
+
+Provider command timeouts use whole seconds. Positive fractional seconds round up, so a short positive limit cannot become unlimited.
+Negative values and durations outside the supported range are rejected before opening a connection.
+DuckDB retains its finer deadline for execution and result loading, up to 4,294,967,294 milliseconds.
+Streams capture the effective timeout when the sequence is created. Dispose the enumeration after an early exit.
+
+Execution interfaces now include the optional `TimeSpan? commandTimeout` parameter.
+Update custom implementations and method-group delegate types to include it, or wrap the call in a lambda that omits the argument.
+
 ## Choose the connector and transaction
 
 A query uses the connector supplied when it was created, or the current default if none was supplied.
@@ -91,7 +128,7 @@ If you supplied a transaction, decide whether to roll it back after cancellation
 For DuckDB, `ConnectorOptions.CommandTimeout` includes execution and result loading. Zero disables the timeout.
 A command timeout returns an error response containing `TimeoutException`.
 If a supplied DuckDB transaction is interrupted, roll it back before reusing its connection.
-`ConnectionTimeout` has no DuckDB connection-string effect.
+Configure connection settings in the connection factory using the provider's supported options.
 
 ## Read rows from raw SQL
 

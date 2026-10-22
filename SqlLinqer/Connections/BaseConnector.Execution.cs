@@ -18,8 +18,9 @@ namespace SqlLinqer.Connections
                 || type == typeof(DateTime) || type == typeof(DateTimeOffset);
         }
         private SqlResponse<T> ExecuteOnConnection<T>(RenderedQuery query, DbTransaction existingTransaction,
-            bool transactional, Func<DbCommand, T> action)
+            bool transactional, Func<DbCommand, T> action, TimeSpan? commandTimeout = null)
         {
+            var timeout = ResolveCommandTimeout(commandTimeout);
             return ExecuteCommand(query, () =>
             {
                 bool ownsConnection = existingTransaction == null;
@@ -38,7 +39,7 @@ namespace SqlLinqer.Connections
                     using (var command = connection.CreateCommand())
                     {
                         ImportFromTempQueryData(command, query);
-                        PreProcessCommand(command);
+                        PreProcessCommand(command, timeout);
 
                         if (transactional && ownsConnection)
                             ownedTransaction = connection.BeginTransaction(DbFlavor == DbFlavor.Sqlite
@@ -49,7 +50,7 @@ namespace SqlLinqer.Connections
                         T result;
                         if (DbFlavor == DbFlavor.DuckDb)
                         {
-                            using (var deadline = new CommandDeadline(command, Options.CommandTimeout))
+                            using (var deadline = new CommandDeadline(command, timeout))
                                 result = deadline.Execute(() => action(command));
                         }
                         else
@@ -125,8 +126,9 @@ namespace SqlLinqer.Connections
         /// <typeparam name="T">The scalar or intercepted result type.</typeparam>
         /// <param name="query">The parameterized SQL text and bindings to execute.</param>
         /// <param name="existingTransaction">An optional caller-owned transaction with an active connection. The library does not complete or dispose it.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The converted scalar and execution state, with null/default for SQL NULL when T permits null.</returns>
-        public SqlResponse<T> ExecuteScalar<T>(RenderedQuery query, DbTransaction existingTransaction = null)
+        public SqlResponse<T> ExecuteScalar<T>(RenderedQuery query, DbTransaction existingTransaction = null, TimeSpan? commandTimeout = null)
         {
             return ExecuteOnConnection(query, existingTransaction, true, command =>
             {
@@ -149,7 +151,7 @@ namespace SqlLinqer.Connections
                 }
                 object scalarValue = command.ExecuteScalar();
                 return DbValueConversion.ConvertTo<T>(scalarValue);
-            });
+            }, commandTimeout: commandTimeout);
         }
 
         /// <summary>
@@ -158,25 +160,27 @@ namespace SqlLinqer.Connections
         /// </summary>
         /// <param name="query">The parameterized SQL text and bindings to execute.</param>
         /// <param name="existingTransaction">An optional caller-owned transaction with an active connection. The library does not complete or dispose it.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The provider's affected-row count and execution state.</returns>
-        public SqlResponse<int> ExecuteNonQuery(RenderedQuery query, DbTransaction existingTransaction = null)
+        public SqlResponse<int> ExecuteNonQuery(RenderedQuery query, DbTransaction existingTransaction = null, TimeSpan? commandTimeout = null)
         {
-            return ExecuteOnConnection(query, existingTransaction, true, command => command.ExecuteNonQuery());
+            return ExecuteOnConnection(query, existingTransaction, true, command => command.ExecuteNonQuery(), commandTimeout: commandTimeout);
         }
 
         // SQL Server's table-type metadata cannot be created inside the transaction
         // that uses it. Keep generated TVP type DDL separate from transactional writes.
-        internal SqlResponse<int> ExecuteTypeDdl(RenderedQuery query, string databaseName)
+        internal SqlResponse<int> ExecuteTypeDdl(RenderedQuery query, string databaseName, TimeSpan? commandTimeout = null)
             => ExecuteOnConnection(query, null, false, command =>
             {
                 if (!string.Equals(command.Connection.Database, databaseName, StringComparison.Ordinal))
                     command.Connection.ChangeDatabase(databaseName);
                 return command.ExecuteNonQuery();
-            });
+            }, commandTimeout: commandTimeout);
 
         private Task<SqlResponse<T>> ExecuteOnConnectionAsync<T>(RenderedQuery query, DbTransaction existingTransaction,
-            bool transactional, Func<DbCommand, Task<T>> action, CancellationToken cancellationToken)
+            bool transactional, Func<DbCommand, Task<T>> action, CancellationToken cancellationToken, TimeSpan? commandTimeout = null)
         {
+            var timeout = ResolveCommandTimeout(commandTimeout);
             return ExecuteCommandAsync(query, async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -194,7 +198,7 @@ namespace SqlLinqer.Connections
                     using (var command = connection.CreateCommand())
                     {
                         ImportFromTempQueryData(command, query);
-                        PreProcessCommand(command);
+                        PreProcessCommand(command, timeout);
                         // netstandard2.0 has no asynchronous transaction lifecycle contract.
                         if (transactional && ownsConnection)
                             ownedTransaction = connection.BeginTransaction(DbFlavor == DbFlavor.Sqlite
@@ -204,7 +208,7 @@ namespace SqlLinqer.Connections
                         T result;
                         if (DbFlavor == DbFlavor.DuckDb)
                         {
-                            using (var deadline = new CommandDeadline(command, Options.CommandTimeout, cancellationToken))
+                            using (var deadline = new CommandDeadline(command, timeout, cancellationToken))
                                 result = await deadline.ExecuteAsync(() => action(command)).ConfigureAwait(false);
                         }
                         else result = await action(command).ConfigureAwait(false);
@@ -284,10 +288,11 @@ namespace SqlLinqer.Connections
         /// <param name="query">The parameterized SQL text and bindings to execute.</param>
         /// <param name="existingTransaction">An optional caller-owned transaction with an active connection. The library does not complete or dispose it.</param>
         /// <param name="cancellationToken">Cancels provider connection opening, command execution, and result loading.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The converted scalar and execution state, with null/default for SQL NULL when T permits null.</returns>
         /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         public Task<SqlResponse<T>> ExecuteScalarAsync<T>(RenderedQuery query,
-            DbTransaction existingTransaction = null, CancellationToken cancellationToken = default)
+            DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             return ExecuteOnConnectionAsync(query, existingTransaction, true, async command =>
             {
@@ -309,7 +314,7 @@ namespace SqlLinqer.Connections
                 }
                 object scalar = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
                 return DbValueConversion.ConvertTo<T>(scalar);
-            }, cancellationToken);
+            }, cancellationToken, commandTimeout: commandTimeout);
         }
 
         /// <summary>
@@ -319,19 +324,20 @@ namespace SqlLinqer.Connections
         /// <param name="query">The parameterized SQL text and bindings to execute.</param>
         /// <param name="existingTransaction">An optional caller-owned transaction with an active connection. The library does not complete or dispose it.</param>
         /// <param name="cancellationToken">Cancels provider connection opening, command execution, and result loading.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The provider's affected-row count and execution state.</returns>
         /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         public Task<SqlResponse<int>> ExecuteNonQueryAsync(RenderedQuery query,
-            DbTransaction existingTransaction = null, CancellationToken cancellationToken = default)
+            DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
             => ExecuteOnConnectionAsync(query, existingTransaction, true,
-                command => command.ExecuteNonQueryAsync(cancellationToken), cancellationToken);
+                command => command.ExecuteNonQueryAsync(cancellationToken), cancellationToken, commandTimeout: commandTimeout);
 
-        internal Task<SqlResponse<int>> ExecuteTypeDdlAsync(RenderedQuery query, string databaseName, CancellationToken cancellationToken)
+        internal Task<SqlResponse<int>> ExecuteTypeDdlAsync(RenderedQuery query, string databaseName, CancellationToken cancellationToken, TimeSpan? commandTimeout = null)
             => ExecuteOnConnectionAsync(query, null, false, command =>
             {
                 if (!string.Equals(command.Connection.Database, databaseName, StringComparison.Ordinal))
                     command.Connection.ChangeDatabase(databaseName);
                 return command.ExecuteNonQueryAsync(cancellationToken);
-            }, cancellationToken);
+            }, cancellationToken, commandTimeout: commandTimeout);
     }
 }

@@ -9,7 +9,7 @@ dotnet add package SqlLinqer
 dotnet add package Microsoft.Data.SqlClient
 ```
 
-Create a connector from a connection string and reuse it across queries:
+Create a connector with a connection factory and reuse it across queries:
 
 ```csharp
 using System;
@@ -17,19 +17,23 @@ using Microsoft.Data.SqlClient;
 using SqlLinqer;
 using SqlLinqer.Connections;
 
-var connectionString = "Server=<server>;Database=<database>;Integrated Security=true;Encrypt=true;TrustServerCertificate=false";
-using var template = new SqlConnection(connectionString);
+var connectionString = "Server=<server>;Database=<database>;Integrated Security=true;Encrypt=true;TrustServerCertificate=false;Connect Timeout=10";
 var options = new ConnectorOptions
 {
     DefaultSchema = "dbo",
-    ConnectionTimeout = TimeSpan.FromSeconds(10),
     CommandTimeout = TimeSpan.FromSeconds(120)
 };
 
-var connector = new ReplicatorConnector(template, DbFlavor.SqlServer, options);
+var connector = new ConnectionFactoryConnector(
+    () => new SqlConnection(connectionString),
+    DbFlavor.SqlServer,
+    options);
 ```
 
 Replace the placeholders with your connection settings. Reuse `connector` across queries.
+The factory configures login timeout, authentication, pooling, and other provider settings.
+SqlLinqer uses the returned connection without rewriting its connection string or provider properties.
+`ConnectorOptions.CommandTimeout` controls the commands SqlLinqer executes, independently of the login timeout.
 
 ## Use another database
 
@@ -44,8 +48,7 @@ Choose the matching provider connection class and `DbFlavor`:
 | SQLite | `Microsoft.Data.Sqlite` | `SqliteConnection` | `DbFlavor.Sqlite` |
 | DuckDB | `DuckDB.NET.Data.Full` | `DuckDBConnection` | `DbFlavor.DuckDb` |
 
-Install the provider package in your application and construct its connection with your database's connection string.
-Pass that connection and the matching flavor to `ReplicatorConnector`, as in the SQL Server example.
+Install the provider package in your application. Supply a factory that creates its connection class and choose the matching flavor.
 
 ## DuckDB
 
@@ -56,11 +59,12 @@ using DuckDB.NET.Data;
 using SqlLinqer;
 using SqlLinqer.Connections;
 
-using var template = new DuckDBConnection("Data Source=application.duckdb");
-var connector = new ReplicatorConnector(template, DbFlavor.DuckDb);
+var connector = new ConnectionFactoryConnector(
+    () => new DuckDBConnection("Data Source=application.duckdb"),
+    DbFlavor.DuckDb);
 ```
 
-`ReplicatorConnector` creates connections as queries execute. File databases persist across those connections.
+The connector calls the factory as queries execute. File databases persist across those connections.
 A plain `Data Source=:memory:` database belongs to one connection.
 To query it, keep that connection open and pass a transaction from it to every query.
 Use `IsolationLevel.Snapshot` when creating a DuckDB transaction. SqlLinqer uses this isolation level for transactions it creates.
@@ -97,20 +101,44 @@ SqlLinqer.Default.Connector = connector;
 
 ## Create connections with a factory
 
-Use `ConnectionFactoryConnector` to configure each new connection in a factory:
+Return a fresh connection on every factory call. The connector opens and disposes connections it requests.
+Do not return a shared connection or a connection owned by another scope.
+For several operations on a caller-owned connection, supply a transaction from that connection.
+
+Configure provider properties in the factory when connections need authentication callbacks or application-managed credentials:
 
 ```csharp
+var tokenConnectionString = "Server=<server>;Database=<database>;Encrypt=true;TrustServerCertificate=false;Connect Timeout=10";
 var factoryConnector = new ConnectionFactoryConnector(
-    () => new SqlConnection(connectionString),
-    DbFlavor.SqlServer,
+    () => new SqlConnection(tokenConnectionString) { AccessTokenCallback = existingCallback },
+    DbFlavor.AzureSql,
     options);
 ```
 
-Return a fresh connection on every factory call.
-Use this approach when each connection needs properties such as a SqlClient `AccessTokenCallback` or application-managed credentials.
-`ReplicatorConnector` copies the provider type and connection string, so it does not preserve these additional connection properties.
-Set them in the factory on every new connection.
-Configure login timeout in the factory's connection string. `ConnectorOptions.CommandTimeout` still applies to commands.
+Here, `existingCallback` is your application's SqlClient token callback. Reuse the same callback delegate for connections that should share a pool.
+Keep the factory's server and database configuration consistent across a query's operations.
+SQL Server TVP inserts also request separate connections for generated table types.
+
+Providers with a data source can supply its connection-creation method directly. For example, with Npgsql 7 or later:
+
+```csharp
+using Npgsql;
+
+using var dataSource = NpgsqlDataSource.Create(postgresConnectionString);
+var postgresConnector = new ConnectionFactoryConnector(
+    dataSource.CreateConnection,
+    DbFlavor.PostgreSql);
+```
+
+Keep the data source alive while the connector is in use. Its owner disposes it after all operations finish.
+Configure the data source once with the provider's builder when you need additional connection settings.
+
+## Migrate template connections
+
+Replace `new ReplicatorConnector(template, flavor, options)` with `new ConnectionFactoryConnector(() => new ProviderConnection(connectionString), flavor, options)`.
+`ReplicatorConnector` and `ConnectorOptions.ConnectionTimeout` have been removed.
+Move the login timeout into the provider's connection string or builder, such as SqlClient's `Connect Timeout`.
+Set any authentication properties on every connection returned by the factory.
 
 ## Inject a connector
 

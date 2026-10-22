@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Threading;
@@ -10,12 +11,12 @@ namespace SqlLinqer.Queries.Typed
     public partial class SelectAnonymousQuery<TBase, TReturn>
     {
         /// <inheritdoc/>
-        public IAsyncEnumerable<TReturn> ExecuteAsyncStream(DbTransaction transaction = null, CancellationToken cancellationToken = default)
-            => ExecuteAsyncStream(ExecutionConnector, transaction, cancellationToken);
+        public IAsyncEnumerable<TReturn> ExecuteAsyncStream(DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+            => ExecuteAsyncStream(ExecutionConnector, transaction, cancellationToken, commandTimeout: commandTimeout);
 
         /// <inheritdoc/>
         public IAsyncEnumerable<TReturn> ExecuteAsyncStream(BaseConnector connector, DbTransaction transaction = null,
-            CancellationToken cancellationToken = default)
-            => SelectExecution.ExecuteAsyncStream<TReturn>(this, connector, transaction, cancellationToken);
+            CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+            => SelectExecution.ExecuteAsyncStream<TReturn>(this, connector, transaction, cancellationToken, commandTimeout: commandTimeout);
     }
 }

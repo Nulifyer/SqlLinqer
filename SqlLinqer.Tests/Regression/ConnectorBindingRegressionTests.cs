@@ -14,7 +14,7 @@ internal static class ConnectorBindingRegressionTests
 
     internal static void Run(Action<string, Action> test)
     {
-        var factories = new Dictionary<string, Func<BaseConnector, Func<DbTransaction, ISqlResponse>>>
+        var factories = new Dictionary<string, Func<BaseConnector, Func<DbTransaction, TimeSpan?, ISqlResponse>>>
         {
             ["select"] = c => Item.BeginSelect(c).SelectRootColumns().Execute,
             ["select-auto"] = c => Item.BeginSelectAuto(c).Execute,
@@ -60,22 +60,24 @@ internal static class ConnectorBindingRegressionTests
                     var execute = factory.Value(connector);
                     Check(database.Connections.Count == 0, "Query construction opened a connection");
 
-                    var response = execute(null);
+                    var response = execute(null, TimeSpan.FromSeconds(71));
                     Check(response.State == ResponseState.Valid, response.Error?.ToString());
                     Check(database.Executed.Count > 0 && otherDatabase.Connections.Count == 0,
                         "Execution used the global connector instead of the retained connector");
+                    Check(database.Executed.All(command => command.CommandTimeout == 71), "Execution lost the per-call timeout");
 
                     database.Executed.Clear();
                     using var connection = new FakeConnection(database);
                     connection.Open();
                     using var transaction = (FakeTransaction)connection.BeginTransaction();
                     int connections = database.Connections.Count;
-                    response = execute(transaction);
+                    response = execute(transaction, TimeSpan.FromSeconds(71));
                     Check(response.State == ResponseState.Valid, response.Error?.ToString());
                     bool tvp = factory.Key.Contains("tvp");
                     Check(database.Connections.Count == connections + (tvp ? 2 : 0) && database.Executed.Count > 0
                         && database.Executed.Where(x => !tvp || x.CommandText.StartsWith("INSERT INTO"))
                             .All(x => x.UsedTransaction == transaction), "Caller transaction was not forwarded");
+                    Check(database.Executed.All(command => command.CommandTimeout == 71), "Caller transaction execution lost the per-call timeout");
                     if (tvp) TvpRegressionTests.CheckTypeDdl(database);
                     Check(transaction.Commits == 0 && transaction.Rollbacks == 0 && !transaction.IsDisposed
                         && !connection.IsDisposed, "Execution took ownership of caller resources");
@@ -93,13 +95,13 @@ internal static class ConnectorBindingRegressionTests
                     var execute = factory.Value(null);
                     var current = new FakeDatabase();
                     Default.Connector = new FakeConnector(current, flavor);
-                    var response = execute(null);
+                    var response = execute(null, null);
                     Check(response.State == ResponseState.Valid, response.Error?.ToString());
                     Check(original.Connections.Count == 0 && current.Executed.Count > 0,
                         "Query without an explicit connector captured an old global default");
 
                     Default.Connector = null;
-                    try { execute(null); }
+                    try { execute(null, null); }
                     catch (ArgumentNullException) { return; }
                     throw new InvalidOperationException("Missing connector was not rejected");
                 }

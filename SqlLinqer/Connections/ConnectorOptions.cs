@@ -19,11 +19,7 @@ namespace SqlLinqer.Connections
         /// </summary>
         public int ParameterLimit { get; set; }
         /// <summary>
-        /// The server login timeout used by ReplicatorConnector, defaulting to 15 seconds. It does not rewrite factory or embedded-provider connections.
-        /// </summary>
-        public TimeSpan ConnectionTimeout { get; set; }
-        /// <summary>
-        /// The command execution timeout, defaulting to 15 seconds. Zero disables the timeout.
+        /// The default command execution timeout, defaulting to 15 seconds. A per-execution commandTimeout overrides it without changing this value. Zero disables the timeout.
         /// DuckDB applies a deadline to execution and result loading, with a supported range of zero through 4294967294 milliseconds. Deadline failures return an error containing TimeoutException.
         /// </summary>
         public TimeSpan CommandTimeout { get; set; }
@@ -35,7 +31,6 @@ namespace SqlLinqer.Connections
         {
             DefaultSchema = null;
             ParameterLimit = 2100;
-            ConnectionTimeout = TimeSpan.FromSeconds(15);
             CommandTimeout = TimeSpan.FromSeconds(15);
         }
     }
