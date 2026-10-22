@@ -28,12 +28,28 @@ No permanent `NUGET_API_KEY` secret is required.
 
 See [NuGet Trusted Publishing](https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing) for the authentication details.
 
+## Version naming policy
+
+Use Semantic Versioning with three numeric components: `MAJOR.MINOR.PATCH`.
+Increment the major version for breaking API changes, the minor version for compatible additions, and the patch version for compatible fixes.
+
+Use `MAJOR.MINOR.PATCH-rc.N` for project prereleases. Start `N` at `1` for each target version and increment it for every new candidate.
+Use the same version in the NuGet package and GitHub release title. Prefix only the Git tag with `v`.
+
+For example, release candidates for the next minor version are `2.3.0-rc.1`, `2.3.0-rc.2`, and then stable `2.3.0`.
+A later patch starts again at `2.3.1-rc.1`. Mark every `rc.N` GitHub release as a prerelease; mark the final version as stable.
+A release candidate invites validation before the stable release and does not promise that every candidate will become stable.
+
+Do not overwrite a package, move a published tag, or reuse a candidate number for different content.
+Previously published labels, including `preview` labels, remain available under their original names. New prereleases follow the `rc.N` convention.
+The local project version ending in `-dev` is a development placeholder. The release tag supplies the published version.
+
 ## Publish a version
 
 1. Merge the workflow and the changes to release into `master`.
 2. Create a GitHub release targeting the commit you want to distribute.
 3. Give the release a new tag such as `v2.2.0`.
-4. For a prerelease, use a tag such as `v2.2.0-beta.1` and select **Set as a pre-release**.
+4. For a prerelease, use a tag such as `v2.3.0-rc.1` and select **Set as a pre-release**.
 5. Publish the release.
 6. Check the **Publish NuGet package** run in GitHub Actions.
 7. After NuGet finishes validating and indexing the package, confirm the version on the [package page](https://www.nuget.org/packages/SqlLinqer).
