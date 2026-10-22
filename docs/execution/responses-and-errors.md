@@ -14,6 +14,33 @@ Import `System` and `SqlLinqer` for the examples below.
 
 Use `State` to decide whether a query succeeded. An empty list or an affected-row count of `0` can be a successful result.
 
+## Use exception-based access when it fits your application
+
+`GetResultOrThrow()` returns a successful result, including null, zero, or an empty list. On failure it rethrows the recorded exception while preserving its existing stack trace:
+
+```csharp
+var users = (await connector.BeginSelect<User>()
+    .SelectRootColumns()
+    .ExecuteAsync(cancellationToken: cancellationToken))
+    .GetResultOrThrow();
+```
+
+Use `EnsureSuccess()` when you also need response metadata. It returns the same concrete response, so totals, primary keys, and callable metadata remain available:
+
+```csharp
+var page = (await connector.BeginSelect<User>()
+    .SelectRootColumns()
+    .OrderBy(x => x.Id, SqlDir.ASC)
+    .Page(1, 20)
+    .ExecuteWithTotalCountAsync(cancellationToken: cancellationToken))
+    .EnsureSuccess();
+
+var users = page.Result;
+var total = page.TotalResults;
+```
+
+These helpers are optional. Existing state-based handling still works. Requested async cancellation can throw before a response is returned; the helpers do not intercept it.
+
 ## Read selected rows
 
 A select returns a list in `Result`. An empty list means no rows matched:

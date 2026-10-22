@@ -46,6 +46,7 @@ namespace SqlLinqer.Compilation
         {
             if (!(definition is SelectQuery select)) throw new InvalidOperationException("Only SELECT snapshots have a total count.");
             var result = new RenderedQuery();
+            result.QueryName = definition.QueryName;
             result.Text = RenderSelect(SnapshotGraph.Capture(select), result.Parameters, flavor, true, true);
             return result;
         }
@@ -54,6 +55,7 @@ namespace SqlLinqer.Compilation
         {
             var working = SnapshotGraph.Capture(source);
             var result = new RenderedQuery();
+            result.QueryName = working.QueryName;
             result.Transactional = (flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb)
                 && (working is InsertQuery || working is UpdateQuery || working is DeleteQuery);
             result.Text = working.Render(result.Parameters, flavor);

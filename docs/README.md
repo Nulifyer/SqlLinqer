@@ -2,10 +2,12 @@
 
 # Using SqlLinqer
 
-SqlLinqer builds SQL queries from your C# models and returns typed results.
-The guides below show how to use the NuGet package in your application.
+Build explicit queries over your existing SQL tables and load selected relationships into nested C# models.
+Use the guides below to build search endpoints, paged responses, reports, and targeted writes.
 
 These guides describe the current repository. For a published package, use the documentation at its matching [release tag](https://github.com/Nulifyer/SqlLinqer/tags).
+
+Start with [choosing SqlLinqer](choosing-sqllinqer.md) to understand the query style, relationship loading, and tradeoffs with other libraries.
 
 ## Getting started
 
@@ -13,6 +15,8 @@ These guides describe the current repository. For a published package, use the d
 2. [Connect to your database](getting-started/connections.md), with an optional default connector or dependency injection.
 3. [Map your models](getting-started/model-mapping.md) to tables, keys, columns, and relationships.
 4. [Select rows](queries/select.md) and [check the response](execution/responses-and-errors.md).
+
+Try the [runnable minimal API](../samples/SqlLinqer.MinimalApi/README.md) for connector-based queries, DI, response helpers, and HTTP endpoints.
 
 ## Queries
 
@@ -29,6 +33,7 @@ These guides describe the current repository. For a published package, use the d
 - [Execute asynchronously and cancel queries](execution/sync-and-async.md).
 - [Use transactions](execution/transactions.md) when several changes must succeed together.
 - [Read responses and handle errors](execution/responses-and-errors.md), including totals, affected rows, and generated IDs.
+- [Observe queries with logs and tracing](execution/diagnostics.md), including streaming lifetimes and optional SQL details.
 - [Choose result property types](execution/value-conversions.md) for numbers, dates, nulls, and other database values.
 - [Process large results with streaming](execution/result-streaming.md), an experimental alternative to loading a complete list.
 

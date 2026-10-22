@@ -26,20 +26,20 @@ namespace SqlLinqer.Connections
             return ExecuteOnConnection(query, existingTransaction, query.Transactional, ReadDataTable, commandTimeout: commandTimeout);
         }
 
-        private DataTable ReadDataTable(DbCommand command)
+        private DataTable ReadDataTable(DbCommand command, ExecutionObservation observation)
         {
             var table = new DataTable();
             try
             {
                 if (DbFlavor == DbFlavor.DuckDb)
                 {
-                    using (var reader = command.ExecuteReader())
+                    using (var reader = ReadCommand(command, observation))
                         LoadDuckDbTable(table, reader);
                     return table;
                 }
 
                 using (var dataSet = new DataSet { EnforceConstraints = false })
-                using (var reader = command.ExecuteReader())
+                using (var reader = ReadCommand(command, observation))
                 {
                     dataSet.Tables.Add(table);
                     table.Load(reader, LoadOption.OverwriteChanges);
@@ -112,16 +112,16 @@ namespace SqlLinqer.Connections
             DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             return ExecuteOnConnectionAsync(query, existingTransaction, query.Transactional,
-                command => ReadDataTableAsync(command, cancellationToken), cancellationToken, commandTimeout: commandTimeout);
+                (command, observation) => ReadDataTableAsync(command, observation, cancellationToken), cancellationToken, commandTimeout: commandTimeout);
         }
 
-        private async Task<DataTable> ReadDataTableAsync(DbCommand command, CancellationToken cancellationToken)
+        private async Task<DataTable> ReadDataTableAsync(DbCommand command, ExecutionObservation observation, CancellationToken cancellationToken)
         {
             var table = new DataTable();
             try
             {
                 using (var dataSet = new DataSet { EnforceConstraints = false })
-                using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                using (var reader = await ReadCommandAsync(command, observation, cancellationToken).ConfigureAwait(false))
                 {
                     dataSet.Tables.Add(table);
                     while (reader.FieldCount == 0)
@@ -177,9 +177,9 @@ namespace SqlLinqer.Connections
         /// <returns>The mapped rows and execution state. Execution or mapping failures produce an error response without partial rows.</returns>
         public SqlResponse<List<T>> ExecuteReaderList<T>(RenderedQuery query, DbTransaction existingTransaction = null, TimeSpan? commandTimeout = null)
         {
-            return ExecuteOnConnection(query, existingTransaction, query.Transactional, command =>
+            return ExecuteOnConnection(query, existingTransaction, query.Transactional, (command, observation) =>
             {
-                using (var reader = command.ExecuteReader())
+                using (var reader = ReadCommand(command, observation))
                 {
                     while (reader.FieldCount == 0)
                         if (!reader.NextResult()) return new List<T>();
@@ -220,9 +220,9 @@ namespace SqlLinqer.Connections
         public Task<SqlResponse<List<T>>> ExecuteReaderListAsync<T>(RenderedQuery query,
             DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
-            return ExecuteOnConnectionAsync(query, existingTransaction, query.Transactional, async command =>
+            return ExecuteOnConnectionAsync(query, existingTransaction, query.Transactional, async (command, observation) =>
             {
-                using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                using (var reader = await ReadCommandAsync(command, observation, cancellationToken).ConfigureAwait(false))
                 {
                     while (reader.FieldCount == 0)
                     {

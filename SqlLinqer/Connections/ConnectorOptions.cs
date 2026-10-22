@@ -8,6 +8,8 @@ namespace SqlLinqer.Connections
     /// </summary>
     public class ConnectorOptions
     {
+        /// <summary>Optional execution observer. Configure before sharing the connector. Observer failures do not replace query results or errors.</summary>
+        public SqlLinqer.Diagnostics.IQueryObserver Observer { get; set; }
         /// <summary>
         /// The fallback schema for model mappings that do not specify SqlTable.Schema. Defaults to null.
         /// Model queries resolve this at construction; typed callables resolve it at rendering or execution.

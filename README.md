@@ -1,20 +1,21 @@
 # SQL Linqer
 
-Build parameterized SQL queries around your C# models.
+Build typed SQL queries that return nested C# models.
 
-SqlLinqer maps tables, columns, and relationships to C# members. Use those members to filter rows, load related models,
-build aggregate projections, and write changes. The same mappings carry through each query.
+Select a customer and their orders, a user and their permissions, or a page with its total count.
+SqlLinqer uses your model mappings to build parameterized SQL and populate the selected objects and collections.
+Use C# members for filters, projections, and explicit writes against your existing schema.
 
 Supports SQL Server, Azure SQL, PostgreSQL, MySQL, SQLite, and DuckDB. Targets .NET Standard 2.0.
 
-[NuGet package](https://www.nuget.org/packages/SqlLinqer/) · [Documentation](docs/README.md) · [Get started](docs/getting-started/connections.md)
+[NuGet package](https://www.nuget.org/packages/SqlLinqer/) · [Get started](SqlLinqer/README.md) · [Documentation](docs/README.md) · [Choosing SqlLinqer](docs/choosing-sqllinqer.md)
 
-## Describe the result you need
+## Load the relationships your endpoint needs
 
 Get a page of users managed by Ada, with their manager and permissions already loaded:
 
 ```csharp
-var response = User.BeginSelect(connector)
+var response = connector.BeginSelect<User>()
     .SelectRootColumns()
     .Select(user => user.Manager)
     .Select(user => user.Permissions)
@@ -22,31 +23,32 @@ var response = User.BeginSelect(connector)
     .OrderBy(user => user.Name, SqlDir.ASC)
     .ThenBy(user => user.Id, SqlDir.ASC)
     .Page(1, 20)
-    .ExecuteWithTotalCount();
-
-if (response.State != ResponseState.Valid)
-    throw response.Error;
+    .ExecuteWithTotalCount()
+    .EnsureSuccess();
 
 var users = response.Result;
 var totalMatches = response.TotalResults;
 ```
 
 `Result` contains typed `User` models and their selected relationships. `TotalResults` counts the matching users before paging.
+The graph loads in one database command. Requesting the total adds a separate count command.
+SqlLinqer builds the nested result through database JSON and maps it back to your C# members.
 The example uses the [sample models](docs/getting-started/model-mapping.md) and a [configured connector](docs/getting-started/connections.md).
-Import `SqlLinqer` for operators and response states.
+Import `SqlLinqer` for query factories, operators, and response helpers.
 
 ## Why SqlLinqer?
 
-- **Keep mappings with the model.** Define table names, column names, keys, and relationships once. Query expressions use C# members throughout.
-- **Choose what to load.** Select individual columns, nested models, or anonymous projections. Add filters, ordering, and paging to the same query builder.
-- **Compose queries from application input.** Add optional conditions as you build a search. The renderer binds query values as parameters.
-- **Use your database provider.** Create a connector from an ADO.NET connection or a connection factory. Pass your own transaction when several operations belong together.
-- **Reuse models across SQL and APIs.** Database loading follows SqlLinqer mappings. API JSON attributes and converters control API serialization independently.
-- **Choose how to consume results.** Use `Execute()` or `ExecuteAsync()` for buffered results. Experimental `ExecuteAsyncStream()` yields models as you enumerate them.
+- Select related objects and collections through mapped members. SqlLinqer populates the graph, including empty collections and missing objects.
+- Build search queries incrementally with optional filters, grouped conditions, sorting, and paging. Values become SQL parameters.
+- Reuse table, column, key, and relationship mappings for selects, aggregate reports, inserts, updates, and deletes.
+- Inspect generated SQL and bindings with `Render()`. Pass your own transaction when several operations belong together.
+- Share a model between SQL loading and API serialization. API JSON attributes do not change the database mappings.
+- Choose buffered synchronous or asynchronous results, or experimental async streaming of complete root models.
 
-SqlLinqer fits applications that want explicit query construction over an existing database schema.
-You manage the schema and choose the provider. SqlLinqer handles query rendering, parameter binding, and mapped result loading.
-Database-specific capabilities and limits are covered in the guides.
+SqlLinqer fits applications that build search endpoints, nested API responses, and reports over an existing database.
+You manage the schema and issue writes explicitly. SqlLinqer handles SQL generation, parameter binding, and result loading.
+Ordinary model classes work with `connector.BeginSelect<T>()` and `SelectQuery<T>`; the model base classes provide convenient `BeginSelect` and write helpers.
+See [choosing SqlLinqer](docs/choosing-sqllinqer.md) for tradeoffs with Dapper, SqlKata, LINQ to DB, and EF Core.
 
 ## Start with your database
 
@@ -58,6 +60,15 @@ Install your database's ADO.NET provider, [create a connector](docs/getting-star
 The [NuGet README](SqlLinqer/README.md) walks through relationships, projections, inserts, updates, and deletes with one example model.
 
 The NuGet page contains the latest published release. This repository also includes development features, including experimental result streaming.
+Use the documentation at your package's [release tag](https://github.com/Nulifyer/SqlLinqer/tags) when API versions differ.
+
+Try the [runnable minimal API](samples/SqlLinqer.MinimalApi/README.md) for filtering, paging, response helpers, DI, and logs. The optional DI and diagnostics packages are development projects in this repository.
+
+## Compare on a workload you can reproduce
+
+The [comparison suite](SqlLinqer.Comparisons/README.md) runs SqlLinqer, Dapper, SqlKata with Dapper, LINQ to DB, and EF Core against the same SQLite fixtures.
+It checks flat reads, nested collections, pages with totals, and streaming, and retains executed SQL and raw measurements.
+Use it to compare latency, managed allocations, and query strategies. SQLite results do not establish performance on a remote SQL server.
 
 ## Explore the library
 

@@ -90,6 +90,21 @@ The override controls the SQL dialect, connection, and execution options. It doe
 The query keeps its model mappings and schema selected during construction. The target database must support those mappings.
 `Render(otherConnector)` also uses the supplied connector's SQL dialect without changing the retained connector.
 
+## Create queries from an injected connector
+
+Connector factories work with ordinary mapped classes; inheriting a SqlLinqer model base class is optional:
+
+```csharp
+var users = connector.BeginSelect<User>()
+    .SelectRootColumns()
+    .Execute()
+    .GetResultOrThrow();
+```
+
+`BeginSelectAuto<T>()`, `BeginSelectBuilder<T>()`, `BeginInsert<T>()`, `BeginUpdate<T>()`, `BeginDelete<T>()`, and `BeginTruncate<T>()` also bind the connector.
+Use the two-type write overloads, such as `BeginInsert<User, int>()`, to retain affected primary keys in the response.
+Construction copies the connector's current default schema and opens no connection. Create a separate query builder for each operation; builders are mutable.
+
 ## Set a default connector
 
 Queries created without an explicit connector use the current default at execution time.
@@ -194,3 +209,39 @@ var users = repository.GetUsers();
 ```
 
 The container supplies the connector to each repository. The shared connector creates connections as queries execute.
+
+## Optional registration package
+
+The repository includes `SqlLinqer.Extensions.DependencyInjection`, an optional package under development. Use its project reference when trying this branch; publication is a separate release step. The core library remains independent of Microsoft DI.
+
+With that package referenced, register a default connector:
+
+```csharp
+services.AddSqlLinqer(
+    () => new SqlConnection(connectionString),
+    DbFlavor.SqlServer,
+    options => options.CommandTimeout = TimeSpan.FromSeconds(30));
+```
+
+Resolve `BaseConnector` through constructor injection. For another database, use a key:
+
+```csharp
+services.AddKeyedSqlLinqer("reporting",
+    () => new SqlConnection(reportingConnectionString), DbFlavor.SqlServer);
+
+var reporting = serviceProvider.GetRequiredKeyedService<BaseConnector>("reporting");
+```
+
+Each registration creates one singleton connector. Repeating the default registration or a key throws instead of replacing it silently. Configuration runs once when the connector is first resolved; database connections remain lazy.
+
+The overload accepting `IServiceProvider` supports registered singleton data sources and logger factories:
+
+```csharp
+services.AddSqlLinqer(
+    sp => sp.GetRequiredService<NpgsqlDataSource>().CreateConnection(),
+    DbFlavor.PostgreSql);
+```
+
+Factory and configuration delegates resolve dependencies from the root service provider. Use singleton dependencies, and keep configuration unchanged after startup. Each factory invocation must return a fresh connection. SqlLinqer disposes those connections; the application or DI container owns the data source and its disposal. Queries supplied a caller transaction use its connection and leave its lifetime to the caller.
+
+The [minimal API sample](../../samples/SqlLinqer.MinimalApi/README.md) combines registration, response helpers, filtering, paging, and streaming against a temporary SQLite database.

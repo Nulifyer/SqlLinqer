@@ -30,10 +30,18 @@ jobs:
         run: |
           dotnet run --project SqlLinqer.Tests -c Release -p:GeneratePackageOnBuild=false
           python3 SqlLinqer.Tests/check-runner.py
+      - name: Run adoption integration and HTTP checks
+        run: |
+          dotnet run --project SqlLinqer.Integrations.Tests -c Release -p:GeneratePackageOnBuild=false
+          python3 samples/SqlLinqer.MinimalApi/check.py
       - name: Verify formatting
         run: |
           dotnet format whitespace SqlLinqer/SQLLinqer.csproj --verify-no-changes --no-restore
           dotnet format whitespace SqlLinqer.Tests/SqlLinqer.Tests.csproj --verify-no-changes --no-restore
+          dotnet format whitespace SqlLinqer.Extensions.DependencyInjection/SqlLinqer.Extensions.DependencyInjection.csproj --verify-no-changes --no-restore
+          dotnet format whitespace SqlLinqer.Diagnostics/SqlLinqer.Diagnostics.csproj --verify-no-changes --no-restore
+          dotnet format whitespace SqlLinqer.Integrations.Tests/SqlLinqer.Integrations.Tests.csproj --verify-no-changes --no-restore
+          dotnet format whitespace samples/SqlLinqer.MinimalApi/SqlLinqer.MinimalApi.csproj --verify-no-changes --no-restore
       - name: Compare stable SQL JSON contracts
         run: bash TestDBs/test-stable-contracts.sh
       - name: Validate minimum SQLite engine

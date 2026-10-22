@@ -34,9 +34,9 @@ namespace SqlLinqer.Connections
         public SqlResponse<List<T>> ExecuteReaderJson<T>(RenderedQuery query, DbTransaction existingTransaction = null, TimeSpan? commandTimeout = null) where T : class
         {
             var mapper = CreateJsonMapper<T>();
-            return ExecuteOnConnection(query, existingTransaction, false, command =>
+            return ExecuteOnConnection(query, existingTransaction, false, (command, observation) =>
             {
-                using (var reader = command.ExecuteReader())
+                using (var reader = ReadCommand(command, observation))
                     return mapper.Read(reader);
             }, commandTimeout: commandTimeout);
         }
@@ -67,9 +67,9 @@ namespace SqlLinqer.Connections
             DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null) where T : class
         {
             var mapper = CreateJsonMapper<T>();
-            return ExecuteOnConnectionAsync(query, existingTransaction, false, async command =>
+            return ExecuteOnConnectionAsync(query, existingTransaction, false, async (command, observation) =>
             {
-                using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                using (var reader = await ReadCommandAsync(command, observation, cancellationToken).ConfigureAwait(false))
                     return await mapper.ReadAsync(reader, cancellationToken).ConfigureAwait(false);
             }, cancellationToken, commandTimeout: commandTimeout);
         }

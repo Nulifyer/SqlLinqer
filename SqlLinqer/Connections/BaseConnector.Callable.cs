@@ -12,18 +12,18 @@ namespace SqlLinqer.Connections
     {
         internal SqlCallableResponse<T> ExecuteCallable<T>(PreparedCallable prepared, TabularRowType row, DbTransaction transaction, TimeSpan? commandTimeout = null)
             => CreateCallableResponse(ExecuteOnConnection(prepared.Query, transaction, true,
-                command => ReadCallableResults<T>(command, prepared, row), commandTimeout: commandTimeout));
+                (command, observation) => ReadCallableResults<T>(command, observation, prepared, row), commandTimeout: commandTimeout));
 
         internal async Task<SqlCallableResponse<T>> ExecuteCallableAsync<T>(PreparedCallable prepared, TabularRowType row,
             DbTransaction transaction, CancellationToken cancellationToken, TimeSpan? commandTimeout = null)
             => CreateCallableResponse(await ExecuteOnConnectionAsync(prepared.Query, transaction, true,
-                command => ReadCallableResultsAsync<T>(command, prepared, row, cancellationToken), cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false));
+                (command, observation) => ReadCallableResultsAsync<T>(command, observation, prepared, row, cancellationToken), cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false));
 
-        private static CallableResult<T> ReadCallableResults<T>(DbCommand command, PreparedCallable plan, TabularRowType row)
+        private static CallableResult<T> ReadCallableResults<T>(DbCommand command, ExecutionObservation observation, PreparedCallable plan, TabularRowType row)
         {
             var result = new CallableResult<T> { Rows = new List<T>() };
             int sets = 0;
-            using (var reader = command.ExecuteReader())
+            using (var reader = ReadCommand(command, observation))
             {
                 do
                 {
@@ -57,11 +57,11 @@ namespace SqlLinqer.Connections
             return result;
         }
 
-        private static async Task<CallableResult<T>> ReadCallableResultsAsync<T>(DbCommand command, PreparedCallable plan, TabularRowType row, CancellationToken cancellationToken)
+        private static async Task<CallableResult<T>> ReadCallableResultsAsync<T>(DbCommand command, ExecutionObservation observation, PreparedCallable plan, TabularRowType row, CancellationToken cancellationToken)
         {
             var result = new CallableResult<T> { Rows = new List<T>() };
             int sets = 0;
-            using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+            using (var reader = await ReadCommandAsync(command, observation, cancellationToken).ConfigureAwait(false))
             {
                 do
                 {
@@ -81,9 +81,10 @@ namespace SqlLinqer.Connections
             CompleteCallableResults(command, plan, ref result, sets);
             return result;
         }
-        private struct CallableResult<T>
+        private struct CallableResult<T> : IRowCountResult
         {
             internal List<T> Rows;
+            public long RowCount => Rows.Count;
             internal long? TotalResults;
             internal int? ReturnCode;
             internal int? RowsAffected;

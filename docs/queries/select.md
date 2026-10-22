@@ -35,6 +35,9 @@ var rootQuery = User.BeginSelect(connector)
 ## Select relationships
 
 Select relationship members to load related models. See [relationship updates](relationship-changes.md) to change their links.
+SqlLinqer projects the selected graph through database JSON and populates the nested C# members in one command.
+A missing object becomes `null`; a collection with no matches becomes an empty collection.
+Selecting relationships does not execute an additional query for each returned model.
 Use `First()` to reference a column through a collection relationship:
 
 ```csharp
@@ -86,6 +89,8 @@ var total = pageResponse.TotalResults;
 ```
 
 Pages start at `1`. `Limit(limit, offset)` uses a zero-based offset.
+The page and total use two commands. The total counts root matches before paging, including when the requested page is empty.
+Add a unique final sort field for stable paging when other sort values tie.
 
 ## Build an aggregate projection
 

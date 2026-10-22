@@ -8,6 +8,41 @@ Map models to existing tables with `SqlTable`. Use `SqlColumn` when a column nam
 Use `SqlLinqerPrimaryKeyObject<T, TKey>` for a model with a primary key.
 Use `SqlLinqerObject<T>` for a model without one.
 
+## Use ordinary classes
+
+The base classes supply convenient static query factories. Generic builders also accept ordinary mapped classes:
+
+```csharp
+using SqlLinqer.Modeling;
+using SqlLinqer.Queries.Typed;
+
+[SqlTable("Users")]
+public class UserRow
+{
+    [SqlPrimaryKey, SqlColumn("id")]
+    public int Id { get; set; }
+
+    [SqlColumn("name")]
+    public string Name { get; set; }
+}
+```
+
+Execute the builder with your configured connector:
+
+```csharp
+var response = new SelectQuery<UserRow>(connector.Options.DefaultSchema)
+    .SelectRootColumns()
+    .OrderBy(user => user.Id, SqlDir.ASC)
+    .Execute(connector);
+
+if (response.State != ResponseState.Valid)
+    throw response.Error;
+```
+
+The constructor's schema argument uses your connector's fallback schema when the model does not specify one.
+Import `SqlLinqer` for operators and response states.
+Use this approach to adopt SqlLinqer for one query while keeping your existing class inheritance.
+
 ## Share a class between the database and API
 
 SqlLinqer owns the SQL → JSON → C# loading pipeline. It always follows mapped C# member names and SqlLinqer attributes.

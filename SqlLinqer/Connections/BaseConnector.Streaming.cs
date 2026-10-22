@@ -30,7 +30,49 @@ namespace SqlLinqer.Connections
             if (query == null) throw new ArgumentNullException(nameof(query));
             cancellationToken.ThrowIfCancellationRequested();
             commandTimeout = ResolveCommandTimeout(commandTimeout);
+            if (Options.Observer != null)
+                return ObserveStream<T>(query, transaction, cancellationToken, commandTimeout);
             return ExecuteCommandAsyncStream(query, token => ExecuteOnConnectionAsyncStream<T>(query, transaction, token, commandTimeout: commandTimeout), cancellationToken);
+        }
+
+        private async IAsyncEnumerable<T> ObserveStream<T>(RenderedQuery query, DbTransaction transaction,
+            [EnumeratorCancellation] CancellationToken cancellationToken, TimeSpan? commandTimeout) where T : class
+        {
+            var observation = ExecutionObservation.Start(Options.Observer, query, DbFlavor, true);
+            Exception failure = null;
+            long count = 0;
+            bool completed = false;
+            IAsyncEnumerator<T> rows = null;
+            try
+            {
+                try
+                {
+                    rows = ExecuteCommandAsyncStream(query, token => ExecuteOnConnectionAsyncStream<T>(query, transaction, token,
+                        commandTimeout, observation), cancellationToken).GetAsyncEnumerator(cancellationToken);
+                }
+                catch (Exception error) { failure = error; throw; }
+                while (true)
+                {
+                    bool next;
+                    try { next = await rows.MoveNextAsync().ConfigureAwait(false); }
+                    catch (Exception error) { failure = error; throw; }
+                    if (!next) { completed = true; break; }
+                    count++;
+                    yield return rows.Current;
+                }
+            }
+            finally
+            {
+                try { if (rows != null) await rows.DisposeAsync().ConfigureAwait(false); }
+                catch (Exception error) { failure = error; throw; }
+                finally
+                {
+                    observation?.Complete(failure is OperationCanceledException ? SqlLinqer.Diagnostics.QueryExecutionOutcome.Cancelled
+                        : failure != null ? SqlLinqer.Diagnostics.QueryExecutionOutcome.Failed
+                        : completed ? SqlLinqer.Diagnostics.QueryExecutionOutcome.Completed : SqlLinqer.Diagnostics.QueryExecutionOutcome.StoppedEarly,
+                        count, failure);
+                }
+            }
         }
 
         /// <summary>
@@ -78,7 +120,7 @@ namespace SqlLinqer.Connections
         }
 
         private async IAsyncEnumerable<T> ExecuteOnConnectionAsyncStream<T>(RenderedQuery query, DbTransaction transaction,
-            [EnumeratorCancellation] CancellationToken cancellationToken, TimeSpan? commandTimeout = null) where T : class
+            [EnumeratorCancellation] CancellationToken cancellationToken, TimeSpan? commandTimeout = null, ExecutionObservation observation = null) where T : class
         {
             cancellationToken.ThrowIfCancellationRequested();
             bool ownsConnection = transaction == null;
@@ -112,7 +154,7 @@ namespace SqlLinqer.Connections
                         try
                         {
                             deadline.ThrowIfInterrupted();
-                            reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken).ConfigureAwait(false);
+                            reader = await ReadCommandAsync(command, observation, cancellationToken, CommandBehavior.SequentialAccess).ConfigureAwait(false);
                         }
                         catch (Exception error) { deadline.ThrowIfInterrupted(error); throw; }
                         using (reader)

@@ -9,6 +9,8 @@ namespace SqlLinqer.Components.Render
     public class RenderedQuery
     {
         internal bool Transactional;
+        /// <summary>An optional diagnostic name. It does not modify the SQL text or parameter bindings.</summary>
+        public string QueryName { get; set; }
         /// <summary>
         /// The logical selected member structure for a regular SELECT. Count and other commands can leave it null.
         /// SQL expressions without a declared member type use object metadata.

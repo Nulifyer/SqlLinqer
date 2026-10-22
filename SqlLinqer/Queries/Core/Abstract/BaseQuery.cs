@@ -14,6 +14,9 @@ namespace SqlLinqer.Queries.Core.Abstract
         internal BaseConnector BoundConnector { get; set; }
         internal bool IsCompilationCopy;
 
+        /// <summary>A stable diagnostic name copied into rendered commands. It does not change generated SQL.</summary>
+        public string QueryName { get; set; }
+
         /// <summary>
         /// Captures a detached query definition for repeated or concurrent rendering. Later builder changes do not change the snapshot.
         /// Finish builder mutation before capture. Arrays, binary buffers, and DataTables are copied; other provider-specific objects must remain immutable.

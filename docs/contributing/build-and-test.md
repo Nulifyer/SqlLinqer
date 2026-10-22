@@ -33,6 +33,17 @@ Direct Azure SQL testing is optional and uses the same shared server fixtures.
 Use `-- --suite regression`, `sqlite`, `duckdb`, `sql-server`, or `integration` for focused checks.
 The two compatibility test programs require the employee database described in their connection settings.
 
+## Adoption integrations and sample
+
+```sh
+dotnet run --project SqlLinqer.Integrations.Tests -c Release -p:GeneratePackageOnBuild=false
+python3 samples/SqlLinqer.MinimalApi/check.py
+```
+
+Integration checks cover default/keyed DI lifetimes, actual SQLite execution, generated-key metadata, log redaction, activity parentage, concurrency, cancellation, and stream disposal. The sample checks launch and stop their own HTTP process.
+
+The optional DI and diagnostics projects target .NET Standard 2.0 and can be packed locally with `dotnet pack <project> -c Release -p:GeneratePackageOnBuild=false`. The sample and integration checks target .NET 10. The current release workflow publishes the core package; publishing either optional package requires an explicit release configuration.
+
 ## Source organization
 
 Keep a cohesive type in one file. Use partials when a large type has distinct capabilities that share its state.

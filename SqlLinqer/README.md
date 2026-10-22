@@ -1,6 +1,9 @@
 # SQL Linqer
 
-Your C# models can describe the query, the relationships, and the result.
+Build typed SQL queries that return nested C# models.
+
+SqlLinqer maps your existing tables and relationships to C# members, builds parameterized SQL,
+and loads the objects and collections you select. Use it for search endpoints, nested API responses, and aggregate reports.
 
 Load a page of users, include their manager and permissions, and get the total number of matches:
 
@@ -18,9 +21,23 @@ var response = User.BeginSelect(connector)
 
 That query returns `User` objects with the selected relationships populated. `TotalResults` gives the count before paging.
 Values such as `"Ada Lovelace"` become SQL parameters.
+The selected graph loads in one database command; the total uses a separate count command.
+Database JSON carries the nested result, and SqlLinqer maps it to your C# members.
 
 SqlLinqer supports SQL Server, Azure SQL, PostgreSQL, MySQL, SQLite, and DuckDB, and targets .NET Standard 2.0.
 Use the same model mappings for selects, aggregate projections, inserts, updates, and deletes.
+
+## Why choose this query style?
+
+- Select related objects and collections through member expressions, with their result mapping handled by SqlLinqer.
+- Add optional search filters, sorting, and paging to an explicit query builder.
+- Inspect generated SQL and parameter bindings before execution.
+- Keep control of your schema, ADO.NET provider, and transactions. Issue writes explicitly.
+- Reuse model classes for API responses. API JSON attributes do not change SQL loading.
+
+Ordinary classes also work with the generic query builders; the model base classes below supply the `BeginSelect` and write helpers.
+See [choosing SqlLinqer](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/choosing-sqllinqer.md)
+for the execution tradeoffs and comparisons with other .NET libraries.
 
 ## Try it with your own tables
 
@@ -214,6 +231,16 @@ Add [stored procedures](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/q
 [relationship changes](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/queries/relationship-changes.md) as your queries grow.
 Database mappings and API JSON attributes can share a model without changing each other's behavior.
 
+For reproducible performance comparisons, use the [SQLite comparison suite](https://github.com/Nulifyer/SqlLinqer/blob/master/SqlLinqer.Comparisons/README.md).
+It validates equivalent results across SqlLinqer, Dapper, SqlKata with Dapper, LINQ to DB, and EF Core.
+Database JSON generation and decoding have costs; measure your queries on the database you deploy.
+
 Find more examples in the [query guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/queries/select.md),
 [model guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/getting-started/model-mapping.md), and
 [GitHub repository](https://github.com/Nulifyer/SqlLinqer).
+
+## Application integration
+
+Use `connector.BeginSelect<T>()` with ordinary mapped classes, and read successful results with `GetResultOrThrow()` or preserve totals and generated keys with `EnsureSuccess()`. These additive helpers are available in the current repository.
+
+The [minimal API sample](../samples/SqlLinqer.MinimalApi/README.md) demonstrates filtering, paging totals, and streaming with optional DI and diagnostics projects. Those optional packages are under development and require project references until published. See the [connection guide](../docs/getting-started/connections.md) and [logging and tracing guide](../docs/execution/diagnostics.md).
