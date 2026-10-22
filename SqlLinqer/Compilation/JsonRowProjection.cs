@@ -54,16 +54,17 @@ namespace SqlLinqer.Compilation
             string source = $"FROM ({dialect.Render(inner)}) AS {rows}";
 
             // Page logical rows before aggregating a nested collection into JSON.
-            if (collection)
+            if (collection && (query.PagingControls.Top > 0 || query.PagingControls.Limit > 0))
             {
                 var page = new PreparedSelect(null, $"{rows}.*", source, null, null, outerOrder, false, false,
                     false, false, query.PagingControls.Top, query.PagingControls.Limit, query.PagingControls.Offset);
                 source = $"FROM ({dialect.Render(page)}) AS {rows}";
             }
-            return new PreparedSelect(with, dialect.JsonProjection(fields, false, collection), source, null, null,
-                collection ? null : outerOrder, false, true, query.IsSubQuery, collection,
-                collection ? 0 : query.PagingControls.Top, collection ? 0 : query.PagingControls.Limit,
-                collection ? 0 : query.PagingControls.Offset);
+            if (collection)
+                return dialect.JsonCollection(fields, source, outerOrder);
+            return new PreparedSelect(with, dialect.JsonProjection(fields, false, false), source, null, null,
+                outerOrder, false, true, query.IsSubQuery, false,
+                query.PagingControls.Top, query.PagingControls.Limit, query.PagingControls.Offset);
         }
     }
 }

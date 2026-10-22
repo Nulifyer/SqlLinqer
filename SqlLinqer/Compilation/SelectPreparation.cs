@@ -29,8 +29,10 @@ namespace SqlLinqer.Compilation
 
             // Resolve every expression that can discover joins or CTEs before assembling
             // WITH and FROM. These mutations affect only this compilation's graph.
+            bool projectCollection = query.IsSubQuery && query.Table.ParentRelationship?.Type != RelationshipType.OneToOne
+                && (query.OrderBys.Count > 0 || query.PagingControls.Top > 0 || query.PagingControls.Limit > 0);
             bool projectRows = forJson && ((flavor == DbFlavor.MySql && query.Selects.GetAll().Any(x => !x.DoGroupBy()))
-                || (query.Distinct && (flavor == DbFlavor.MySql || flavor == DbFlavor.PostgreSql)));
+                || ((query.Distinct || projectCollection) && (flavor == DbFlavor.MySql || flavor == DbFlavor.PostgreSql)));
             string where = query.RootWhere.Render(query, parameters, flavor);
             string groupingInputs = flavor == DbFlavor.MySql ? MySqlGrouping.PrepareInputs(query, parameters) : null;
             string select = projectRows

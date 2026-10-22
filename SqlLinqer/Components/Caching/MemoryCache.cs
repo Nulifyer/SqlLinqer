@@ -1,75 +1,119 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 
 namespace SqlLinqer.Components.Caching
 {
-    internal class MemoryCache<TKey, TValue>
+    internal sealed class MemoryCache<TKey, TValue> : IDisposable
     {
-        private readonly ConcurrentDictionary<TKey, CacheItem<TValue>> _cacheDictionary;
+        private static readonly Func<long> DefaultTimestamp = CreateTimestamp();
+        private readonly ConcurrentDictionary<TKey, CacheItem> _cacheDictionary = new ConcurrentDictionary<TKey, CacheItem>();
         private readonly Timer _cleanupTimer;
         private readonly bool _keepAliveWhenUsed;
+        private readonly Func<long> _timestampMilliseconds;
+        private readonly object _creationGate = new object();
 
-        public MemoryCache(TimeSpan cleanupInterval, bool keep_alive_when_used = false)
+        internal int Count => _cacheDictionary.Count;
+
+        internal MemoryCache(TimeSpan cleanupInterval, bool keepAliveWhenUsed = false, Func<long> timestampMilliseconds = null)
         {
-            _keepAliveWhenUsed = keep_alive_when_used;
-            _cacheDictionary = new ConcurrentDictionary<TKey, CacheItem<TValue>>();
+            _keepAliveWhenUsed = keepAliveWhenUsed;
+            _timestampMilliseconds = timestampMilliseconds ?? DefaultTimestamp;
             _cleanupTimer = new Timer(CleanupExpiredItems, null, cleanupInterval, cleanupInterval);
         }
 
-        public void Add(TKey key, TValue value, TimeSpan ttl)
+        internal void Add(TKey key, TValue value, TimeSpan ttl)
         {
-            var newItem = new CacheItem<TValue>(value, ttl);
-            _cacheDictionary[key] = newItem;
+            _cacheDictionary[key] = new CacheItem(value, ttl, _timestampMilliseconds());
         }
-        public TValue Get(TKey key)
+
+        internal TValue GetOrAdd(TKey key, Func<TKey, TValue> factory, TimeSpan ttl)
         {
-            return TryGetValue(key, out var value) ? value : default(TValue);
-        }
-        public bool TryGetValue(TKey key, out TValue value)
-        {
-            if (_cacheDictionary.TryGetValue(key, out CacheItem<TValue> cacheItem) && !cacheItem.HasExpired)
+            if (TryGetValue(key, out var value)) return value;
+            // Misses are uncommon. Serialize construction so callers share one
+            // mapping identity, including immediately after an entry expires.
+            lock (_creationGate)
             {
-                if (_keepAliveWhenUsed)
-                {
-                    var renewed = cacheItem.GetRenewed();
-                    _cacheDictionary.AddOrUpdate(key, renewed, (k, v) => renewed);
-                }
-                value = cacheItem.Value;
-                return true;
+                if (TryGetValue(key, out value)) return value;
+                value = factory(key);
+                Add(key, value, ttl);
+                return value;
             }
+        }
+
+        internal bool TryGetValue(TKey key, out TValue value)
+        {
+            if (_cacheDictionary.TryGetValue(key, out var item) && item.TryGet(_timestampMilliseconds, _keepAliveWhenUsed, out value))
+                return true;
             value = default(TValue);
             return false;
         }
-        private void CleanupExpiredItems(object state)
+
+        private void CleanupExpiredItems(object state) => RemoveExpired();
+
+        internal void RemoveExpired()
         {
+            long now = _timestampMilliseconds();
             foreach (var kvp in _cacheDictionary)
             {
-                if (kvp.Value.HasExpired)
+                // Renewal and expiry checks share the entry lock. Conditional
+                // removal cannot delete a replacement installed by another call.
+                lock (kvp.Value)
                 {
-                    _cacheDictionary.TryRemove(kvp.Key, out _);
+                    if (kvp.Value.HasExpired(now))
+                        ((ICollection<KeyValuePair<TKey, CacheItem>>)_cacheDictionary).Remove(kvp);
                 }
             }
         }
 
-        private class CacheItem<T>
+        public void Dispose() => _cleanupTimer.Dispose();
+
+        private static Func<long> CreateTimestamp()
         {
-            private readonly TimeSpan _ttl;
-            public readonly T Value;
-            public readonly DateTimeOffset Expiration;
+            // TickCount64 avoids high-resolution clock overhead on modern
+            // runtimes. Resolve once because netstandard2.0 does not expose it.
+            // Older runtimes retain a monotonic Stopwatch fallback. Both clocks
+            // return milliseconds and neither allocates on a cache hit.
+            var getter = typeof(Environment).GetProperty("TickCount64")?.GetMethod;
+            return getter == null ? new Func<long>(StopwatchMilliseconds)
+                : (Func<long>)Delegate.CreateDelegate(typeof(Func<long>), getter);
+        }
 
-            public bool HasExpired => DateTimeOffset.Now >= Expiration;
+        private static long StopwatchMilliseconds()
+            => (long)(Stopwatch.GetTimestamp() * (1000.0 / Stopwatch.Frequency));
 
-            public CacheItem(T value, TimeSpan ttl)
+        private sealed class CacheItem
+        {
+            private readonly long _ttlMilliseconds;
+            private readonly TValue _value;
+            private long _lastAccessMilliseconds;
+
+            internal CacheItem(TValue value, TimeSpan ttl, long now)
             {
-                Value = value;
-                Expiration = DateTimeOffset.Now.Add(ttl);
-                _ttl = ttl;
+                _value = value;
+                _lastAccessMilliseconds = now;
+                double milliseconds = Math.Ceiling(ttl.TotalMilliseconds);
+                _ttlMilliseconds = milliseconds >= long.MaxValue ? long.MaxValue : Math.Max(0, (long)milliseconds);
             }
 
-            public CacheItem<T> GetRenewed()
+            internal bool HasExpired(long now) => unchecked(now - _lastAccessMilliseconds) >= _ttlMilliseconds;
+
+            internal bool TryGet(Func<long> timestampMilliseconds, bool keepAlive, out TValue value)
             {
-                return new CacheItem<T>(Value, _ttl);
+                lock (this)
+                {
+                    long now = timestampMilliseconds();
+                    if (!HasExpired(now))
+                    {
+                        if (keepAlive) _lastAccessMilliseconds = now;
+                        value = _value;
+                        return true;
+                    }
+                    value = default(TValue);
+                    return false;
+                }
             }
         }
     }

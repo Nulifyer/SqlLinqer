@@ -65,6 +65,47 @@ DuckDB command deadline checks live in `ConnectionChecks`. Each provider keeps i
 The suite entry points own provider setup, cleanup, result reporting, and check order.
 Check groups receive the connector and any shared fixture values explicitly. Keep stateful checks in their existing execution order.
 
+## Relationship stress checks
+
+`Regression/RelationshipStressChecks.cs` runs through the shared SQL JSON contract checks on every live provider.
+It also runs in both SQLite configurations, a file database and shared memory.
+Two fixed seeds, `17` and `20261022`, populate seven tables with 32 roots and 40 people.
+Projects, tickets, membership links, regions, and categories form paths up to five relationships deep.
+The fixture includes self references, repeated types, shared foreign keys, missing targets, Unicode, empty collections, and tied sort values.
+Rows are inserted in reverse order where possible.
+
+The expected graphs come from raw fixture records. ADO.NET creates and populates the tables independently of SqlLinqer.
+Every selected scalar and relationship is compared after materialization.
+Unordered cases compare collection membership. Ordered cases compare the exact sequence at every level.
+One deep filter is also checked against a hand-written SQL `EXISTS` query.
+
+Each seed covers:
+
+- Complete graphs using one command, including one-to-one, one-to-many, and many-to-many paths.
+- Separate projections of the same relationship with different selected descendants.
+- Deep existence and exclusion filters, nullable-key `OR` filters, and filtered page totals.
+- Ordered collections with ascending and descending keys and deterministic tie breakers.
+- Independent paging at two collection levels, including `DISTINCT` and empty child pages.
+- Root paging and empty pages without multiplying or losing the root total.
+- Explicit finite cycles that return through a project to its root and owner.
+- Deferred streams that retain their graph after the original builder changes.
+- Eight parallel graph reads, with up to four readers, and stable repeated rendering.
+
+Graph cases use buffered sync, buffered async, and streamed reads.
+The paged-total check requires two commands. Ordinary graph reads require one, guarding against extra per-relationship queries.
+These fixtures exercise relationship behavior. They do not prove every combination of SQL expressions or database versions.
+
+The scale suite also measures `nested-mixed-buffered` and `nested-mixed-stream` on SQLite and DuckDB.
+Both traverse collection → object → collection over the large row fixture.
+The outer collection is limited to 64 members and the innermost collection to three members per parent.
+These limits keep the workload bounded when `--rows` increases to one million.
+Every sampled result is validated after timing. Managed allocation measurements cover only the calling thread, so async results can omit worker allocations.
+No timing threshold is imposed across machines.
+
+```sh
+dotnet run -c Release --project SqlLinqer.Tests -- --suite scale --rows 10000 --iterations 3 --results TestResults/scale.json
+```
+
 ## Supply database endpoints directly
 
 With existing disposable databases, set `SQLLINQER_TEST_POSTGRES`, `SQLLINQER_TEST_MYSQL`, and `SQLLINQER_TEST_SQLSERVER`, then run:

@@ -33,6 +33,8 @@ internal static class RegressionSuite
         string Sql(SqlLinqer.Queries.Core.Abstract.BaseQuery query, DbFlavor flavor)
             => Regex.Replace(query.Render(flavor).Text, @"\s+", " ").Trim();
 
+        CacheRegressionTests.Run(Test);
+
         foreach (DbFlavor flavor in Enum.GetValues<DbFlavor>())
         {
             Test($"paging survives count rendering for {flavor}", () =>

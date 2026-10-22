@@ -49,6 +49,10 @@ namespace SqlLinqer.Compilation
             => $"SELECT COUNT(*) FROM ({Render(inner)}) AS {"SqlLinqerCount".DbWrap(Flavor)}";
         internal abstract string JsonProjection(string fields, bool distinct, bool nestedCollection);
 
+        internal virtual PreparedSelect JsonCollection(string fields, string source, string order)
+            => new PreparedSelect(null, JsonProjection(fields, false, true), source, null, null, null,
+                false, true, true, true, 0, 0, 0);
+
         internal virtual string Relationship(string sql, string alias, bool collection, bool forJson, bool includeAlias)
         {
             string value = $"({sql})";
@@ -83,6 +87,9 @@ namespace SqlLinqer.Compilation
                 string value = $"{type}_build_object( {fields} )";
                 return nestedCollection ? $"COALESCE({type}_agg( {value} ), '[]'::{type})" : value;
             }
+            internal override PreparedSelect JsonCollection(string fields, string source, string order)
+                => new PreparedSelect(null, $"COALESCE(json_agg(json_build_object({fields}) {order}), '[]'::json)",
+                    source, null, null, null, false, true, true, true, 0, 0, 0);
         }
 
         private sealed class MySqlDialect : SqlDialect
@@ -92,6 +99,16 @@ namespace SqlLinqer.Compilation
             {
                 string value = $"JSON_OBJECT( {fields} )";
                 return nestedCollection ? $"COALESCE(JSON_ARRAYAGG( {value} ), JSON_ARRAY())" : value;
+            }
+            internal override PreparedSelect JsonCollection(string fields, string source, string order)
+            {
+                if (string.IsNullOrEmpty(order)) return base.JsonCollection(fields, source, order);
+                // Ordinary JSON_ARRAYAGG has undefined element order in MySQL.
+                // The full window frame builds the complete ordered collection;
+                // the scalar subquery and COALESCE also cover an empty source.
+                string select = $"COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT({fields})) OVER "
+                    + $"({order} ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) {source} LIMIT 1), JSON_ARRAY())";
+                return new PreparedSelect(null, select, null, null, null, null, false, true, true, true, 0, 0, 0);
             }
         }
 

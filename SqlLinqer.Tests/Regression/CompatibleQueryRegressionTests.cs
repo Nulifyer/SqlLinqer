@@ -234,7 +234,7 @@ internal static class CompatibleQueryRegressionTests
         });
         test("column identity still follows public metadata mutations", () =>
         {
-            var left = new Table(null, "left"); var right = new Table(null, "right");
+            var left = new Table((string)null, "left"); var right = new Table((string)null, "right");
             var column = new Column(left, "Id");
             var first = column.UUID;
             column.ColumnName = "Name";

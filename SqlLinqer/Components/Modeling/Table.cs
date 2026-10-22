@@ -282,8 +282,10 @@ namespace SqlLinqer.Components.Modeling
             return collection;
         }
 
-        private static readonly MemoryCache<Tuple<Type, string>, Table> _cache
-            = new MemoryCache<Tuple<Type, string>, Table>(TimeSpan.FromSeconds(10), true);
+        private static readonly MemoryCache<(Type Type, string Schema), Table> _cache
+            = new MemoryCache<(Type Type, string Schema), Table>(TimeSpan.FromSeconds(10), true);
+        private static readonly Func<(Type Type, string Schema), Table> CreateCachedTable
+            = key => new Table(key.Type, key.Schema);
 
         /// <summary>
         /// Get the table from a given type
@@ -297,14 +299,7 @@ namespace SqlLinqer.Components.Modeling
         /// <param name="default_schema">The default schema to use if not defined</param>
         public static Table GetCached(Type type, string default_schema = null)
         {
-            var key = Tuple.Create(type, default_schema);
-            Table table;
-            if (!_cache.TryGetValue(key, out table))
-            {
-                table = new Table(type, default_schema);
-                _cache.Add(key, table, TimeSpan.FromSeconds(60));
-            }
-            return table;
+            return _cache.GetOrAdd((type, default_schema), CreateCachedTable, TimeSpan.FromSeconds(60));
         }
 
         /// <summary>Returns a diagnostic description of this mapping.</summary>

@@ -2,11 +2,25 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Text.Json;
 using SqlLinqer.Connections;
+using SqlLinqer.Components.Modeling;
 
 // This isolates serializer allocation from provider buffers and database execution.
 // Reflection retrieves the actual library options without adding a public mapping interface.
 internal static class MappingBenchmarks
 {
+    internal static int RunCache()
+    {
+        Func<int> defaultSchema = () => Table.GetCached<Row>().Columns.Count;
+        Func<int> explicitSchema = () => Table.GetCached<Row>("benchmark_schema").Columns.Count;
+        for (int i = 0; i < 2000; i++) { defaultSchema(); explicitSchema(); }
+        for (int sample = 0; sample < 3; sample++)
+        {
+            Measure("table-cache-default-schema", 100000, defaultSchema, sample);
+            Measure("table-cache-explicit-schema", 100000, explicitSchema, sample);
+        }
+        return 0;
+    }
+
     internal static int Run()
     {
         var flags = BindingFlags.Static | BindingFlags.NonPublic;

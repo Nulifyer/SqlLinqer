@@ -23,6 +23,7 @@ internal static class SqlJsonContractChecks
     {
         ValueConversionProviderChecks.Run(connector, test);
         ComplexRelationshipChecks.Run(connector, test);
+        RelationshipStressChecks.Run(connector, test);
         string Q(string value) => value.DbWrap(connector.DbFlavor);
         string TableName(string value) => string.IsNullOrEmpty(connector.Options.DefaultSchema) ? Q(value)
             : Q(connector.Options.DefaultSchema) + "." + Q(value);

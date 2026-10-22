@@ -83,3 +83,15 @@ The mapper uses UTF-8 property-name matching, and SQLite binary decoding uses sp
 Regression checks cover case-insensitive and escaped names, escaped and segmented hex tokens, invalid hex, and independent result ownership.
 
 Run the command above to collect samples for the library version and runtime you are evaluating.
+
+## Metadata cache hits
+
+Measure warm model-mapping lookups with default and explicit schemas:
+
+```sh
+DOTNET_TieredCompilation=0 dotnet run -c Release --project SqlLinqer.Streaming.Benchmarks -- cache
+```
+
+The command warms both keys before measurement and reports three allocation and timing samples for each.
+It measures `Table.GetCached` through its public entry point. Cold reflection, expiration sweeps, and database work are excluded.
+Regression checks separately verify sliding expiration, cleanup races, concurrent construction, and zero managed allocations on warm hits.

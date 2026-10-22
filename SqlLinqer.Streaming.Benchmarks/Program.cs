@@ -12,6 +12,7 @@ using SqlLinqer.Modeling;
 using SqlLinqer.Queries.Typed;
 
 if (args.Length == 1 && args[0] == "mapping") return MappingBenchmarks.Run();
+if (args.Length == 1 && args[0] == "cache") return MappingBenchmarks.RunCache();
 
 // Setup runs in a different process from every measurement. The Python runner
 // interleaves modes and preserves every raw sample, including first-row latency.

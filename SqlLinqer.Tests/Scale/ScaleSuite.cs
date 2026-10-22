@@ -7,6 +7,7 @@ using System.Text.Json;
 using DuckDB.NET.Data;
 using Microsoft.Data.Sqlite;
 using SqlLinqer.Components.Render;
+using SqlLinqer.Components.Select;
 using SqlLinqer.Connections;
 using SqlLinqer.Modeling;
 using SqlLinqer.Queries.Typed;
@@ -249,6 +250,48 @@ internal static class ScaleSuite
                                         members[i].Score == (long)members[i].Id * 1000003, "Nested child crossed parent keys or changed value");
                             }));
 
+                foreach (bool stream in new[] { false, true })
+                {
+                    Test(provider, $"bounded collection/object/collection graph at scale, stream={stream}", () =>
+                    {
+                        int count = Math.Min(64, rows / Buckets);
+                        var query = new SelectQuery<ScaleTree>().SelectRootColumns().Select(x => x.Members)
+                            .Select(x => x.Members.First().Group).Select(x => x.Members.First().Group.Members)
+                            .Where(x => x.Id, 0, SqlOp.EQ);
+                        var members = query.Selects.GetAll<SelectRelationship>().Single().SubQuery;
+                        members.PagingControls.SetLimit(64, 0);
+                        var group = members.Selects.GetAll<SelectRelationship>().Single().SubQuery;
+                        group.Selects.GetAll<SelectRelationship>().Single().SubQuery.PagingControls.SetLimit(3, 0);
+                        async Task<List<ScaleTree>> ReadStream()
+                        {
+                            var result = new List<ScaleTree>();
+                            await foreach (var item in query.ExecuteAsyncStream(connector)) result.Add(item);
+                            return result;
+                        }
+                        MeasureResult(provider, stream ? "nested-mixed-stream" : "nested-mixed-buffered", count,
+                            () => stream ? ReadStream().GetAwaiter().GetResult() : Result(query.Execute(connector)), actual =>
+                            {
+                                var parent = actual.Single();
+                                Check(parent.Id == 0 && parent.Members.Count == count, "Bounded graph changed root or member count");
+                                for (int i = 0; i < count; i++)
+                                {
+                                    var member = parent.Members[i];
+                                    Check(member.Id == (i + 1) * Buckets && member.Bucket == 0
+                                        && member.Score == (long)member.Id * 1000003 && member.Group.Id == 0
+                                        && member.Group.Name == "group-0", "Bounded graph changed member/object values");
+                                    Check(member.Group.Members.Count == 3, "Nested page lost its per-parent limit");
+                                    for (int j = 0; j < 3; j++)
+                                    {
+                                        var leaf = member.Group.Members[j];
+                                        Check(leaf.Id == (j + 1) * Buckets && leaf.Bucket == 0
+                                            && leaf.Score == (long)leaf.Id * 1000003 && leaf.Group == null,
+                                            "Nested page changed values or recursively selected unrequested relationships");
+                                    }
+                                }
+                            });
+                    });
+                }
+
                 Test(provider, "large update and delete remain in caller transaction", () =>
                 {
                     using var connection = connector.CreateConnection(); connection.Open();
@@ -409,6 +452,7 @@ internal static class ScaleSuite
     {
         [SqlPrimaryKey(false)] public int Id { get; set; }
         public string Name { get; set; }
+        [SqlOneToMany(nameof(ScaleMember.Bucket))] public List<ScaleMember> Members { get; set; }
     }
     [SqlTable("scale_writes"), SqlAutoInsert]
     private sealed class WriteRow
@@ -429,5 +473,6 @@ internal static class ScaleSuite
         [SqlPrimaryKey(false)] public int Id { get; set; }
         public int Bucket { get; set; }
         public long Score { get; set; }
+        [SqlOneToOne(nameof(Bucket))] public ScaleGroup Group { get; set; }
     }
 }
