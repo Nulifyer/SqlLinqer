@@ -87,7 +87,7 @@ namespace SqlLinqer.Connections
         internal TimeSpan ResolveCommandTimeout(TimeSpan? commandTimeout)
         {
             var timeout = commandTimeout ?? Options.CommandTimeout;
-            double maximumSeconds = DbFlavor == DbFlavor.DuckDb ? (uint.MaxValue - 1) / 1000.0 : int.MaxValue;
+            double maximumSeconds = DbFlavor == DbFlavor.DuckDb || Options.CancelCommand != null ? (uint.MaxValue - 1) / 1000.0 : int.MaxValue;
             if (timeout < TimeSpan.Zero || timeout.TotalSeconds > maximumSeconds)
                 throw new ArgumentOutOfRangeException(nameof(commandTimeout), "Command timeout must be zero or a supported positive duration.");
             return timeout;

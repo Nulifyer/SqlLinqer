@@ -37,6 +37,7 @@ internal static class RegressionSuite
         ConnectionFactoryRegressionTests.Run(Test);
         CommandTimeoutRegressionTests.Run(Test);
         RelatedAggregateRegressionTests.Run(Test);
+        CommandInterruptionRegressionTests.Run(Test);
         AdoptionRegressionTests.Run(Test);
 
         foreach (DbFlavor flavor in Enum.GetValues<DbFlavor>())

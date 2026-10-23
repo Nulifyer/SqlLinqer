@@ -51,9 +51,9 @@ namespace SqlLinqer.Connections
 
                             command.Transaction = existingTransaction ?? ownedTransaction;
                             T result;
-                            if (DbFlavor == DbFlavor.DuckDb)
+                            if (DbFlavor == DbFlavor.DuckDb || Options.CancelCommand != null)
                             {
-                                using (var deadline = new CommandDeadline(command, timeout))
+                                using (var deadline = new CommandDeadline(command, timeout, cancelCommand: Options.CancelCommand, provider: DbFlavor == DbFlavor.DuckDb ? "DuckDB" : DbFlavor.ToString()))
                                     result = deadline.Execute(() => action(command, observation));
                             }
                             else
@@ -239,9 +239,9 @@ namespace SqlLinqer.Connections
                                 ? IsolationLevel.Snapshot : IsolationLevel.ReadCommitted);
                         command.Transaction = existingTransaction ?? ownedTransaction;
                         T result;
-                        if (DbFlavor == DbFlavor.DuckDb)
+                        if (DbFlavor == DbFlavor.DuckDb || Options.CancelCommand != null)
                         {
-                            using (var deadline = new CommandDeadline(command, timeout, cancellationToken))
+                            using (var deadline = new CommandDeadline(command, timeout, cancellationToken, Options.CancelCommand, DbFlavor == DbFlavor.DuckDb ? "DuckDB" : DbFlavor.ToString()))
                                 result = await deadline.ExecuteAsync(() => action(command, observation)).ConfigureAwait(false);
                         }
                         else result = await action(command, observation).ConfigureAwait(false);

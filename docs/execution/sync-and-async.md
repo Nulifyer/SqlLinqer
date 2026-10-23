@@ -68,7 +68,7 @@ Cancellation tokens remain independent of the timeout.
 
 Provider command timeouts use whole seconds. Positive fractional seconds round up, so a short positive limit cannot become unlimited.
 Negative values and durations outside the supported range are rejected before opening a connection.
-DuckDB retains its finer deadline for execution and result loading, up to 4,294,967,294 milliseconds.
+DuckDB and connectors configured with `CancelCommand` retain a finer deadline for execution and result loading, up to 4,294,967,294 milliseconds.
 Streams capture the effective timeout when the sequence is created. Dispose the enumeration after an early exit.
 
 Execution interfaces now include the optional `TimeSpan? commandTimeout` parameter.
@@ -125,7 +125,7 @@ Import `System` and `System.Threading` for this example.
 The database provider determines how quickly an active command can be cancelled.
 If you supplied a transaction, decide whether to roll it back after cancellation.
 
-For DuckDB, `ConnectorOptions.CommandTimeout` includes execution and result loading. Zero disables the timeout.
+For DuckDB and connectors configured with `CancelCommand`, `ConnectorOptions.CommandTimeout` includes execution and result loading. Zero disables the timeout.
 A command timeout returns an error response containing `TimeoutException`.
 If a supplied DuckDB transaction is interrupted, roll it back before reusing its connection.
 Configure connection settings in the connection factory using the provider's supported options.
@@ -174,3 +174,25 @@ See [result property types](value-conversions.md) for null, numeric, and date ru
 Finish building a query before executing it. Do not change a builder while another caller is capturing or executing it.
 Use [Capture](../queries/sql-and-query-reuse.md#keep-a-query-definition) to keep a definition for repeated or concurrent use.
 Keep custom provider parameter objects unchanged while a query is in progress.
+
+## Interrupt running SQLite queries
+
+The following hook is available in the working source and requires a subsequent package release. Microsoft.Data.Sqlite 10.0.13 checks cancellation before execution but does not interrupt a query already running. Its command timeout controls lock waits rather than CPU execution. Passing a token alone therefore does not establish an execution deadline.
+
+Applications using that provider can supply its native interruption operation:
+
+```csharp
+var connector = new ConnectionFactoryConnector(
+    () => new Microsoft.Data.Sqlite.SqliteConnection(connectionString),
+    DbFlavor.Sqlite,
+    new ConnectorOptions
+    {
+        CommandTimeout = TimeSpan.FromSeconds(30),
+        CancelCommand = command => SQLitePCL.raw.sqlite3_interrupt(
+            ((Microsoft.Data.Sqlite.SqliteConnection)command.Connection).Handle)
+    });
+```
+
+This uses SQLitePCLRaw supplied by the application's SQLite provider. SqlLinqer itself has no SQLite provider dependency. The callback replaces `DbCommand.Cancel`, runs on a cancellation/timer thread, and must return promptly and tolerate repeated calls. SqlLinqer synchronizes it with command completion so a late cancellation cannot interrupt the next command using that connection. Cancellation and timeout outcomes still follow the response contracts above. The deadline covers streamed reads and consumer pauses until the enumeration is disposed. It begins after opening the connection and establishing an owned transaction; it is not a connection or transaction-acquisition deadline.
+
+Do not execute concurrent commands on the same SQLite connection: native interruption is connection-wide. Caller-owned transactions remain caller-owned. Decide whether an interrupted business operation needs rollback before continuing.

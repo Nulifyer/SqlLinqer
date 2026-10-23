@@ -148,7 +148,8 @@ namespace SqlLinqer.Connections
                     // Also registers Cancel for text reads whose netstandard2.0
                     // TextReader contracts cannot receive a cancellation token.
                     using (var deadline = new CommandDeadline(command,
-                        DbFlavor == DbFlavor.DuckDb ? timeout : TimeSpan.Zero, cancellationToken))
+                        DbFlavor == DbFlavor.DuckDb || Options.CancelCommand != null ? timeout : TimeSpan.Zero,
+                        cancellationToken, Options.CancelCommand, DbFlavor == DbFlavor.DuckDb ? "DuckDB" : DbFlavor.ToString()))
                     {
                         DbDataReader reader;
                         try
