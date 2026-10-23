@@ -243,4 +243,4 @@ Find more examples in the [query guide](https://github.com/Nulifyer/SqlLinqer/bl
 
 Use `connector.BeginSelect<T>()` with ordinary mapped classes, and read successful results with `GetResultOrThrow()` or preserve totals and generated keys with `EnsureSuccess()`. These additive helpers are available in the current repository.
 
-The [minimal API sample](../samples/SqlLinqer.MinimalApi/README.md) demonstrates filtering, paging totals, and streaming with optional DI and diagnostics projects. Those optional packages are under development and require project references until published. See the [connection guide](../docs/getting-started/connections.md) and [logging and tracing guide](../docs/execution/diagnostics.md).
+The [minimal API sample](../samples/SqlLinqer.MinimalApi/README.md) demonstrates filtering, paging totals, and streaming with optional DI and diagnostics projects. Both optional packages are available on nuget.org starting with `2.3.0-rc.2`; use matching core and integration versions. See the [connection guide](../docs/getting-started/connections.md) and [logging and tracing guide](../docs/execution/diagnostics.md).

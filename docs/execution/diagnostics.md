@@ -4,7 +4,7 @@
 
 Attach an observer to a connector and name operations with stable tags such as `.Tag("orders.search")`. Core SqlLinqer emits no ILogger messages unless you attach an observer.
 
-Core observation interfaces, execution IDs and command roles are available in `SqlLinqer` `2.3.0-rc.2`. The optional `SqlLinqer.Diagnostics` and DI packages remain available through repository project references or locally packed packages. The release workflow packages all three together, but NuGet rejected the Diagnostics upload with a 403 permission error; DI upload was not attempted. The optional IDs need account-side publishing authorization before they can be installed from nuget.org.
+Core observation interfaces, execution IDs and command roles are available in `SqlLinqer` `2.3.0-rc.2`. The optional `SqlLinqer.Diagnostics` and `SqlLinqer.Extensions.DependencyInjection` packages are also available on nuget.org at `2.3.0-rc.2`. Install matching versions. The release workflow publishes all three together.
 
 ## Install and register
 

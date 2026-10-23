@@ -9,4 +9,4 @@ Optional ILogger and ActivitySource instrumentation for SqlLinqer. Attach `SqlLi
 
 SQL in logs, SQL in activities, values and full exceptions are independently controlled and disabled by default. Metadata, execution IDs and command roles support correlation without exposing values. Subscribe to ActivitySource `SqlLinqer` for tracing.
 
-This implementation targets the next package release. The core release workflow now includes this optional package. Until it is published, use the repository project or a locally packed package. See the [diagnostics guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/execution/diagnostics.md) for registration, runtime configuration, parameter limits and migration details.
+Available on nuget.org starting with `2.3.0-rc.2`. Use the matching core package version. See the [diagnostics guide](https://github.com/Nulifyer/SqlLinqer/blob/master/docs/execution/diagnostics.md) for registration, runtime configuration, parameter limits and migration details.

@@ -212,7 +212,7 @@ The container supplies the connector to each repository. The shared connector cr
 
 ## Optional registration package
 
-The repository includes `SqlLinqer.Extensions.DependencyInjection`, an optional package under development. Use its project reference when trying this branch; publication is a separate release step. The core library remains independent of Microsoft DI.
+`SqlLinqer.Extensions.DependencyInjection` is available on nuget.org starting with `2.3.0-rc.2`. Install the matching core and integration versions. The core library remains independent of Microsoft DI.
 
 With that package referenced, register a default connector:
 

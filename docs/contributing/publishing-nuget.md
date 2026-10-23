@@ -17,9 +17,10 @@ It uses NuGet Trusted Publishing to obtain a temporary API key.
    - Repository: `SqlLinqer`
    - Workflow file: `publish-nuget.yml`, without the `.github/workflows/` prefix
    - Environment: leave empty, because the workflow does not use a GitHub environment
-   - Scope: **Push only new package versions**
-   - Glob patterns and packages: `SqlLinqer`, `SqlLinqer.Diagnostics`, and `SqlLinqer.Extensions.DependencyInjection`
+   - Scope: temporarily select **Push new packages and package versions** when publishing a package ID for the first time
+   - Glob patterns and packages: enter `SqlLinqer`, `SqlLinqer.Diagnostics`, and `SqlLinqer.Extensions.DependencyInjection` on separate lines
 3. Save the policy.
+4. Publish the first versions, then edit the policy and switch to **Push only new package versions**. Keep all three package IDs authorized. Subsequent releases use this update-only scope. If first publication cannot proceed, restore the update-only scope before leaving the setup unfinished.
 
 If another account publishes the package, grant that account package publishing rights and register the policy under that account.
 Set the GitHub repository variable `NUGET_USER` to that account's nuget.org username, not its email address.

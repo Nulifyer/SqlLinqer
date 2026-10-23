@@ -39,4 +39,4 @@ Implementation validation covers each flow in both Debug and Release builds, act
 
 ## Implementation status
 
-Implemented in the working source with consumer configuration, matrix/policy tests, demo HTTP controls and local NuGet-only validation. The original constructor remains available. Runtime invalid configuration falls back to redacted defaults with one configuration warning until recovery. The release workflow stages all three matching package versions. No package has been published by this implementation batch.
+Core, diagnostics and DI packages are published at `2.3.0-rc.2`, with consumer configuration, matrix/policy tests, demo HTTP controls and NuGet-only validation. The original constructor remains available. Runtime invalid configuration falls back to redacted defaults with one configuration warning until recovery. The release workflow stages all three matching package versions. The publishing policy permits updates to those IDs; creation permission was enabled only for their first publication.

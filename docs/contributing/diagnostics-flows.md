@@ -2,7 +2,7 @@
 
 # Diagnostics user flows and acceptance plan
 
-The implementation supports these flows and supersedes the earlier characterization review. Core observation metadata is available in `SqlLinqer` `2.3.0-rc.2`. The optional diagnostics and DI packages still await account-side publishing authorization. The [consumer contract](diagnostics-implementation.md) records the design and migration decisions.
+The implementation supports these flows and supersedes the earlier characterization review. Core, diagnostics and DI packages are available on nuget.org at `2.3.0-rc.2`. The [consumer contract](diagnostics-implementation.md) records the design and migration decisions.
 
 ## LF1: Adopt logging and see the first query
 
@@ -70,4 +70,4 @@ The integration suite exercises real logger filtering, SQLite execution, all lev
 
 The demo checks cover its logger thresholds, runtime options and inspector controls. Its HTTP checker launches private Production hosts to verify quiet success, retained failures, Trace SQL, redacted profiles and explicit synthetic detail.
 
-Remaining boundaries: no automatic retries, service-health classification or user authorization policy is inferred by diagnostics. CommandDuration is not complete database time. Query construction/rendering are outside observer lifetime. Logger/provider formatting and host exception handling have independent behavior. Publishing the new packages and configuring account-side NuGet permissions remain release operations.
+Remaining boundaries: no automatic retries, service-health classification or user authorization policy is inferred by diagnostics. CommandDuration is not complete database time. Query construction/rendering are outside observer lifetime. Logger/provider formatting and host exception handling have independent behavior.
