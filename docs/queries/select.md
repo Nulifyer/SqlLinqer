@@ -134,7 +134,7 @@ var aggregatePage = aggregateQuery.ExecuteWithTotalCount();
 
 ## Aggregate independent collections
 
-The working source adds `CountRelated` and `SumRelated`; they require a subsequent package release. For an application's mapped `WorkOrder.Tasks` and `WorkOrder.Notes` collections:
+`CountRelated` and `SumRelated` are available starting with `SqlLinqer` `2.3.0-rc.2`. For an application's mapped `WorkOrder.Tasks` and `WorkOrder.Notes` collections:
 
 ```csharp
 var readiness = connector.BeginSelectBuilder<WorkOrder>()

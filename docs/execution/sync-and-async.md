@@ -177,7 +177,7 @@ Keep custom provider parameter objects unchanged while a query is in progress.
 
 ## Interrupt running SQLite queries
 
-The following hook is available in the working source and requires a subsequent package release. Microsoft.Data.Sqlite 10.0.13 checks cancellation before execution but does not interrupt a query already running. Its command timeout controls lock waits rather than CPU execution. Passing a token alone therefore does not establish an execution deadline.
+`CancelCommand` is available starting with `SqlLinqer` `2.3.0-rc.2`. Microsoft.Data.Sqlite 10.0.13 checks cancellation before execution but does not interrupt a query already running. Its command timeout controls lock waits rather than CPU execution. Passing a token alone therefore does not establish an execution deadline.
 
 Applications using that provider can supply its native interruption operation:
 

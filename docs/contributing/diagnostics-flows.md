@@ -2,7 +2,7 @@
 
 # Diagnostics user flows and acceptance plan
 
-The implementation now supports these flows in the working source. They supersede the earlier characterization review. The packages have not been publicly released by this work. The [consumer contract](diagnostics-implementation.md) records the design and migration decisions.
+The implementation supports these flows and supersedes the earlier characterization review. Core observation metadata is available in `SqlLinqer` `2.3.0-rc.2`. The optional diagnostics and DI packages still await account-side publishing authorization. The [consumer contract](diagnostics-implementation.md) records the design and migration decisions.
 
 ## LF1: Adopt logging and see the first query
 
