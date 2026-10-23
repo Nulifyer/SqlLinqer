@@ -21,6 +21,7 @@ internal static class SqlJsonContractChecks
 
     internal static void Run(BaseConnector connector, Action<string, Action> test)
     {
+        RelatedAggregateProviderChecks.Run(connector, test);
         ValueConversionProviderChecks.Run(connector, test);
         ComplexRelationshipChecks.Run(connector, test);
         RelationshipStressChecks.Run(connector, test);

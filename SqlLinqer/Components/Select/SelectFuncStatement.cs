@@ -121,6 +121,9 @@ namespace SqlLinqer.Components.Select
                 case DbFlavor.PostgreSql:
                     switch (Func)
                     {
+                        case SqlFunc.COUNT_BIG:
+                            val = $"COUNT({ArgPrefix}{string.Join(",", args_processed)})";
+                            break;
                         case SqlFunc.DAY:
                         case SqlFunc.MONTH:
                         case SqlFunc.YEAR:
@@ -130,6 +133,9 @@ namespace SqlLinqer.Components.Select
                             val = $"{Func.GetDescription()}({ArgPrefix}{string.Join(",", args_processed)})";
                             break;
                     }
+                    break;
+                case DbFlavor.MySql when Func == SqlFunc.COUNT_BIG:
+                    val = $"COUNT({ArgPrefix}{string.Join(",", args_processed)})";
                     break;
                 default:
                     val = $"{Func.GetDescription()}({ArgPrefix}{string.Join(",", args_processed)})";

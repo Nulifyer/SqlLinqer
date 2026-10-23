@@ -106,6 +106,39 @@ namespace SqlLinqer.Queries.Typed
             return method.Invoke(this, args_array) as SelectStatement;
         }
 
+        /// <summary>Translates an independent per-parent collection count.</summary>
+        public SelectStatement CountRelated(MemberInfo member, Expression collection)
+            => RelatedAggregate(member, collection, null);
+
+        /// <summary>Translates an independent per-parent sum of a child column.</summary>
+        public SelectStatement SumRelated(MemberInfo member, Expression collection, Expression value)
+            => RelatedAggregate(member, collection, value);
+
+        private SelectStatement RelatedAggregate(MemberInfo member, Expression collection, Expression value)
+        {
+            Expression body = collection;
+            while (body is UnaryExpression unary) body = unary.Operand;
+            if (body is LambdaExpression lambda) body = lambda.Body;
+            if (!(body is MemberExpression))
+                throw new System.NotSupportedException("Choose a mapped collection member; collection LINQ operators are not supported here.");
+            var path = collection.GetMemberPath();
+            var relationship = Query.Table.FindRelationshipFromPath(path);
+            if (relationship == null) throw new SqlPathNotFoundException(Query.Table, path);
+            // Reaching this collection through another collection would change the row meaning.
+            var firstMany = Query.Table.FindFirstManyRelationshipFromPath(path);
+            if (firstMany != relationship)
+                throw new System.NotSupportedException("Related aggregates cannot traverse an earlier collection.");
+            Column column = null;
+            if (value != null)
+            {
+                column = relationship.ChildTable.FindColumnFromPath(value.GetMemberPath());
+                if (column == null) throw new SqlPathNotFoundException(relationship.ChildTable, value.GetMemberPath());
+            }
+            Query.AddTableAsRoot();
+            Query.Joins.AddTable(relationship.ParentTable);
+            return new SelectRelatedAggregate(relationship, value == null ? SqlFunc.COUNT_BIG : SqlFunc.SUM, member.Name, column);
+        }
+
         private static IEnumerable<object> ProcessArgs(IEnumerable<object> args)
         {
             return args.Select(a =>

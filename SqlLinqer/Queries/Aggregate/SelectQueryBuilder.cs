@@ -123,6 +123,12 @@ namespace SqlLinqer.Queries.Typed
         /// </summary>
         /// <returns>A SQL count marker for the projection.</returns>
         public abstract int Count();
+
+        /// <summary>Counts a direct mapped collection independently of other collections and outer joins. Returns zero when empty.</summary>
+        public abstract long CountRelated<TChild>(Expression<Func<TBase, System.Collections.Generic.IEnumerable<TChild>>> collection) where TChild : class;
+
+        /// <summary>Sums a numeric child column independently of other collections and outer joins. Returns zero when empty or all values are null.</summary>
+        public abstract TValue SumRelated<TChild, TValue>(Expression<Func<TBase, System.Collections.Generic.IEnumerable<TChild>>> collection, Expression<Func<TChild, TValue>> value) where TChild : class;
         /// <summary>
         /// Projects a count of non-null expression values.
         /// Selecting non-aggregate members also groups by those expressions.

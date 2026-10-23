@@ -132,6 +132,26 @@ aggregateQuery.Limit(10, 0);
 var aggregatePage = aggregateQuery.ExecuteWithTotalCount();
 ```
 
+## Aggregate independent collections
+
+The working source adds `CountRelated` and `SumRelated`; they require a subsequent package release. For an application's mapped `WorkOrder.Tasks` and `WorkOrder.Notes` collections:
+
+```csharp
+var readiness = connector.BeginSelectBuilder<WorkOrder>()
+    .BuildQuery(q => new
+    {
+        Id = q.Select(order => order.Id),
+        Tasks = q.CountRelated(order => order.Tasks),
+        Notes = q.CountRelated(order => order.Notes),
+        CompletedTasks = q.SumRelated(order => order.Tasks, task => task.Completed)
+    })
+    .OrderBy(row => row.Id, SqlDir.ASC);
+```
+
+Each aggregate uses its own correlated subquery and preserves the mapped join conditions. Two tasks and three notes produce counts of two and three. `SumRelated` sums the child values once per parent, and both helpers return zero for empty collections. Counts return `long`; choose a sum projection type compatible with the database's arithmetic and your data range. The helpers support direct mapped one-to-many collections reached through single-object relationships. They reject earlier collections, many-to-many links, and LINQ operators on the collection expression. They are per-parent values, not totals across a grouped report.
+
+Ordinary `Count` and `Sum` retain SQL join semantics. Aggregating two joined collections can produce a Cartesian product: two tasks and three notes create six rows. Distinct child IDs can correct counts, but `SUM(DISTINCT value)` can discard legitimate repeated amounts. Use independent collection aggregates when that is the intended row meaning. Dynamic adapters can construct `SelectRelatedAggregate` from public relationship metadata and optional child predicates.
+
 ## Add optional search filters
 
 Add the following methods to the injected `UserRepository` from the [connector guide](../getting-started/connections.md#inject-a-connector).
