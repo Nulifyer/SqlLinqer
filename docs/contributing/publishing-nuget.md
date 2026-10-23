@@ -3,7 +3,7 @@
 # Publishing NuGet releases
 
 Publishing a GitHub release runs [.github/workflows/publish-nuget.yml](../../.github/workflows/publish-nuget.yml).
-The workflow tests the tagged source, builds `SqlLinqer`, and pushes the package to nuget.org.
+The workflow tests the tagged source, builds `SqlLinqer`, `SqlLinqer.Diagnostics` and `SqlLinqer.Extensions.DependencyInjection`, and pushes the packages to nuget.org.
 It uses NuGet Trusted Publishing to obtain a temporary API key.
 
 ## Set up Trusted Publishing once
@@ -18,7 +18,7 @@ It uses NuGet Trusted Publishing to obtain a temporary API key.
    - Workflow file: `publish-nuget.yml`, without the `.github/workflows/` prefix
    - Environment: leave empty, because the workflow does not use a GitHub environment
    - Scope: **Push only new package versions**
-   - Glob patterns and packages: `SqlLinqer`
+   - Glob patterns and packages: `SqlLinqer`, `SqlLinqer.Diagnostics`, and `SqlLinqer.Extensions.DependencyInjection`
 3. Save the policy.
 
 If another account publishes the package, grant that account package publishing rights and register the policy under that account.
@@ -51,7 +51,7 @@ The local project version ending in `-dev` is a development placeholder. The rel
 3. Give the release a new tag such as `v2.2.0`.
 4. For a prerelease, use a tag such as `v2.3.0-rc.1` and select **Set as a pre-release**.
 5. Publish the release.
-6. Check the **Publish NuGet package** run in GitHub Actions.
+6. Check the **Publish NuGet packages** run in GitHub Actions.
 7. After NuGet finishes validating and indexing the package, confirm the version on the [package page](https://www.nuget.org/packages/SqlLinqer).
 
 The examples show tag formats. Choose the version according to the changes being released.
@@ -83,3 +83,9 @@ For local package inspection without publishing:
 dotnet pack SqlLinqer/SQLLinqer.csproj -c Release --output artifacts \
   -p:Version=2.2.0 -p:GeneratePackageOnBuild=false -p:ContinuousIntegrationBuild=true
 ```
+
+## Optional packages
+
+The workflow packs all three packages with the release tag's version and publishes core before its integrations. Verify that the Trusted Publishing policy permits every package ID before the next release. A policy restricted to SqlLinqer does not authorize the optional package IDs. The repository cannot verify or edit that account-side policy locally.
+
+The diagnostics and DI packages depend on the matching core release. Their presence in source or a local artifact does not mean a public version exists. Validate each package page after an actual release. Local consumer validation must restore package dependencies rather than use project references.

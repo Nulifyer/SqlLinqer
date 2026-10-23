@@ -1,4 +1,4 @@
-name: Publish NuGet package
+name: Publish NuGet packages
 
 on:
   release:
@@ -61,17 +61,17 @@ jobs:
       - name: Pack release
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
-        run: >-
-          dotnet pack SqlLinqer/SQLLinqer.csproj -c Release --output artifacts
-          -p:Version="$RELEASE_VERSION"
-          -p:GeneratePackageOnBuild=false
-          -p:ContinuousIntegrationBuild=true
+        run: |
+          for project in SqlLinqer/SQLLinqer.csproj SqlLinqer.Diagnostics/SqlLinqer.Diagnostics.csproj SqlLinqer.Extensions.DependencyInjection/SqlLinqer.Extensions.DependencyInjection.csproj; do
+            dotnet pack "$project" -c Release --output artifacts \
+              -p:Version="$RELEASE_VERSION" -p:GeneratePackageOnBuild=false -p:ContinuousIntegrationBuild=true
+          done
 
       - name: Save package
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: nuget-${{ steps.version.outputs.version }}
-          path: artifacts/SqlLinqer.${{ steps.version.outputs.version }}.nupkg
+          path: artifacts/*.nupkg
           if-no-files-found: error
 
   publish:
@@ -104,8 +104,8 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.build.outputs.version }}
           NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
-        run: >-
-          dotnet nuget push "artifacts/SqlLinqer.$RELEASE_VERSION.nupkg"
-          --api-key "$NUGET_API_KEY"
-          --source https://api.nuget.org/v3/index.json
-          --skip-duplicate
+        run: |
+          for package in SqlLinqer SqlLinqer.Diagnostics SqlLinqer.Extensions.DependencyInjection; do
+            dotnet nuget push "artifacts/$package.$RELEASE_VERSION.nupkg" \
+              --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          done
