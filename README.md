@@ -12,27 +12,22 @@ Supports SQL Server, Azure SQL, PostgreSQL, MySQL, SQLite, and DuckDB. Targets .
 
 ## Load the relationships your endpoint needs
 
-Get a page of users managed by Ada, with their manager and permissions already loaded:
+Filter users by their manager and load a page with each user's permissions:
 
 ```csharp
-var response = connector.BeginSelect<User>()
+var users = connector.BeginSelect<User>()
     .SelectRootColumns()
-    .Select(user => user.Manager)
     .Select(user => user.Permissions)
     .Where(user => user.Manager.Name, "Ada Lovelace", SqlOp.EQ)
-    .OrderBy(user => user.Name, SqlDir.ASC)
-    .ThenBy(user => user.Id, SqlDir.ASC)
+    .OrderBy(user => user.Id, SqlDir.ASC)
     .Page(1, 20)
-    .ExecuteWithTotalCount()
-    .EnsureSuccess();
-
-var users = response.Result;
-var totalMatches = response.TotalResults;
+    .Execute()
+    .GetResultOrThrow();
 ```
 
-`Result` contains typed `User` models and their selected relationships. `TotalResults` counts the matching users before paging.
-The graph loads in one database command. Requesting the total adds a separate count command.
-SqlLinqer builds the nested result through database JSON and maps it back to your C# members.
+`users` is a `List<User>` with each user's `Permissions` populated, loaded in one database command.
+SqlLinqer binds the filter value as a SQL parameter and maps the nested database JSON into your models.
+Use `ExecuteWithTotalCount()` when you also need the unpaged total; it adds a separate count command.
 The example uses the [sample models](docs/getting-started/model-mapping.md) and a [configured connector](docs/getting-started/connections.md).
 Import `SqlLinqer` for query factories, operators, and response helpers.
 
