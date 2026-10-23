@@ -14,6 +14,8 @@ namespace SqlLinqer.Components.Render
         internal bool IsReadOnlySelect;
         /// <summary>An optional diagnostic name. It does not modify the SQL text or parameter bindings.</summary>
         public string QueryName { get; set; }
+        /// <summary>A stable diagnostic command role such as Select or Count. Raw commands default to Command. It does not change execution.</summary>
+        public string CommandRole { get; set; } = "Command";
         /// <summary>
         /// The logical selected member structure for a regular SELECT. Count and other commands can leave it null.
         /// SQL expressions without a declared member type use object metadata.

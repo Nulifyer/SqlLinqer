@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using SqlLinqer.Components.Render;
 
 namespace SqlLinqer.Diagnostics
@@ -23,6 +24,20 @@ namespace SqlLinqer.Diagnostics
     /// <summary>Describes one connector execution. Construction and SQL rendering occur before this observation starts.</summary>
     public sealed class QueryExecutionContext
     {
+        private string executionId;
+        /// <summary>A unique ID for this execution, generated only when an observer requests it. Available without tracing listeners.</summary>
+        public string ExecutionId
+        {
+            get
+            {
+                var current = Volatile.Read(ref executionId);
+                if (current != null) return current;
+                var created = Guid.NewGuid().ToString("N");
+                return Interlocked.CompareExchange(ref executionId, created, null) ?? created;
+            }
+        }
+        /// <summary>The compiler or caller's diagnostic command role. Raw commands default to Command.</summary>
+        public string CommandRole => Query.CommandRole;
         /// <summary>The rendered command and bindings. Observers must not modify them.</summary>
         public RenderedQuery Query { get; }
         /// <summary>The SQL dialect selected for this execution.</summary>

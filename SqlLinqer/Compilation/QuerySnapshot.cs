@@ -49,6 +49,7 @@ namespace SqlLinqer.Compilation
             var result = new RenderedQuery();
             result.QueryName = definition.QueryName;
             result.IsReadOnlySelect = true;
+            result.CommandRole = "Count";
             result.Text = RenderSelect(SnapshotGraph.Capture(select), result.Parameters, flavor, true, true);
             return result;
         }
@@ -59,6 +60,8 @@ namespace SqlLinqer.Compilation
             var result = new RenderedQuery();
             result.QueryName = working.QueryName;
             result.IsReadOnlySelect = working is SelectQuery;
+            result.CommandRole = working is SelectQuery ? "Select" : working is InsertQuery ? "Insert"
+                : working is UpdateQuery ? "Update" : working is DeleteQuery ? "Delete" : "Command";
             result.Transactional = (flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb)
                 && (working is InsertQuery || working is UpdateQuery || working is DeleteQuery);
             result.Text = working.Render(result.Parameters, flavor);

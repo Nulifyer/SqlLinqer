@@ -21,3 +21,9 @@ python3 samples/SqlLinqer.MinimalApi/check.py
 The checks build the sample, start an owned process on a dynamic loopback port, verify filtering, API property names, pages and totals, streaming, and invalid input, then stop the process.
 
 See [connections](../../docs/getting-started/connections.md), [response helpers](../../docs/execution/responses-and-errors.md), and [diagnostics](../../docs/execution/diagnostics.md) for the contracts used here.
+
+## Debug and production diagnostics
+
+The sample reads `SqlLinqer:Diagnostics` for each operation and uses logger category `SqlLinqer`. Production defaults retain Error logs with SQL, values and exceptions off. Development settings select Trace and explicitly enable SQL logs, while leaving values and activity SQL off. Build configuration does not select those runtime settings.
+
+Set `SqlLinqer__Diagnostics__IncludeParameterValues=true` only when values are required for an investigation. Use `IncludeSqlInActivities` separately for trace export. See the [diagnostics guide](../../docs/execution/diagnostics.md) for the full contract and migration.

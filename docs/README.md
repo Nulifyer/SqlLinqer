@@ -33,7 +33,8 @@ Try the [runnable minimal API](../samples/SqlLinqer.MinimalApi/README.md) for co
 - [Execute asynchronously and cancel queries](execution/sync-and-async.md).
 - [Use transactions](execution/transactions.md) when several changes must succeed together.
 - [Read responses and handle errors](execution/responses-and-errors.md), including totals, affected rows, and generated IDs.
-- [Observe queries with logs and tracing](execution/diagnostics.md), including streaming lifetimes and optional SQL details.
+- [Observe queries with logs and tracing](execution/diagnostics.md), including runtime levels, streaming lifetimes and optional SQL details.
+- [Review logging user flows](contributing/diagnostics-flows.md), with the implemented debug and production policy and acceptance checks.
 - [Choose result property types](execution/value-conversions.md) for numbers, dates, nulls, and other database values.
 - [Process large results with streaming](execution/result-streaming.md), an experimental alternative to loading a complete list.
 

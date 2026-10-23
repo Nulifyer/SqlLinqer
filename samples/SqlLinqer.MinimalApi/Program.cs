@@ -13,7 +13,11 @@ builder.Services.AddSqlLinqer(
     (provider, options) =>
     {
         options.CommandTimeout = TimeSpan.FromSeconds(10);
-        options.Observer = new SqlLinqerDiagnostics(provider.GetRequiredService<ILoggerFactory>().CreateLogger("SqlLinqer"));
+        options.Observer = new SqlLinqerDiagnostics(
+            provider.GetRequiredService<ILoggerFactory>().CreateLogger(SqlLinqerDiagnostics.LoggerCategoryName),
+            options: null,
+            optionsProvider: () => provider.GetRequiredService<IConfiguration>()
+                .GetSection("SqlLinqer:Diagnostics").Get<SqlLinqerDiagnosticsOptions>() ?? new());
     });
 
 var app = builder.Build();

@@ -98,7 +98,7 @@ await Test("SQL and parameter details require explicit logging options", async (
 {
     using var fixture = new Fixture("private-value"); using var tracing = new TraceCapture(); var logger = new MemoryLogger();
     var db = new ConnectionFactoryConnector(fixture.Connect, DbFlavor.Sqlite, new ConnectorOptions
-    { Observer = new SqlLinqerDiagnostics(logger, new SqlLinqerDiagnosticsOptions { IncludeSql = true, IncludeParameterValues = true }) });
+    { Observer = new SqlLinqerDiagnostics(logger, new SqlLinqerDiagnosticsOptions { IncludeSqlInLogs = true, IncludeSqlInActivities = true, IncludeParameterValues = true }) });
     (await db.BeginSelect<User>().SelectRootColumns().Where(x => x.Name, "private-value-1", SqlOp.EQ).ExecuteAsync()).EnsureSuccess();
     Check(logger.Text.Contains("private-value-1") && logger.Text.Contains("SELECT"), "Opt-in SQL detail missing");
     Check(tracing.Stopped.Single().GetTagItem("db.query.text") is string sql && !sql.Contains("private-value-1"), "Parameter values leaked into activity SQL");
@@ -177,6 +177,9 @@ await Test("observed execution respects caller transactions and concurrent reque
     })));
     Check(factories == 8, "Concurrent factory count changed");
 });
+
+await DiagnosticsFlowChecks.Run(Test);
+await DiagnosticsPolicyChecks.Run(Test);
 
 Console.WriteLine($"{passed} integration checks passed, {failed} failed");
 return failed == 0 ? 0 : 1;

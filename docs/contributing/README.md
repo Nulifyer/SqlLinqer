@@ -13,4 +13,5 @@ To use the NuGet package in an application, start with the [user guides](../READ
 - [Streaming benchmarks](../../SqlLinqer.Streaming.Benchmarks/README.md): measure memory and mapping allocations.
 - [Library comparisons](../../SqlLinqer.Comparisons/README.md): validate and measure equivalent workloads across five .NET data libraries.
 - [Implementation notes](implementation-notes.md): query capture, SQL generation, and custom connector hooks.
+- [Diagnostics user flows](diagnostics-flows.md): developer scenarios, acceptance checks and the implemented logging contract.
 - [Publish a NuGet release](publishing-nuget.md): prepare, publish, and verify a package.
