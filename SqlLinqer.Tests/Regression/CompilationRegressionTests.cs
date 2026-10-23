@@ -3,8 +3,10 @@ using SqlLinqer;
 using SqlLinqer.Compilation;
 using SqlLinqer.Components.Modeling;
 using SqlLinqer.Components.Render;
+using SqlLinqer.Components.Select;
 using SqlLinqer.Modeling;
 using SqlLinqer.Queries.Typed;
+using SqlLinqer.Queries.TypedExt;
 
 namespace SqlLinqer.Tests.Regression;
 
@@ -56,6 +58,24 @@ internal static class CompilationRegressionTests
 
         foreach (DbFlavor flavor in Enum.GetValues<DbFlavor>())
         {
+            test($"group count omits measures and preserves DISTINCT/overall aggregates for {flavor}", () =>
+            {
+                var grouped = new SelectQueryInitializer<Row>().BuildQuery(q => new
+                {
+                    Name = q.Select(x => x.Name),
+                    Total = q.Sum(x => x.Id)
+                }).Page(2, 3);
+                string data = grouped.Render(flavor).Text;
+                string count = grouped.Capture().RenderForCount(flavor).Text;
+                Check(count.Contains("GROUP BY") && !count.Contains("SUM("), "Group count evaluates unused measure");
+                Check(grouped.Render(flavor).Text == data, "Count changed data projection");
+                Check(grouped.Distinct().Capture().RenderForCount(flavor).Text.Contains("SUM("), "DISTINCT count lost projected values");
+                var overall = new SelectQueryInitializer<Row>().BuildQuery(q => new { Total = q.Sum(x => x.Id) });
+                Check(overall.Capture().RenderForCount(flavor).Text.Contains("SUM("), "Overall aggregate lost its one-row semantics");
+                var bound = new MeasureQuery().Where(x => x.Name, "selected", SqlOp.EQ).Capture().RenderForCount(flavor);
+                Check(bound.Parameters.GetAll().Count() == 1 && bound.Parameters.GetAll().Single().Value.Equals("selected"),
+                    "Omitted measure retained an unused binding or lost the filter");
+            });
             test($"capture supports repeated data and count compilation for {flavor}", () =>
             {
                 var query = new SelectQuery<Parent>().SelectRootColumns().Select(x => x.Children)
@@ -105,6 +125,15 @@ internal static class CompilationRegressionTests
     {
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
             => base.Render(parameters, flavor) + " -- custom";
+    }
+    private sealed class MeasureQuery : SelectQuery<Row>
+    {
+        internal MeasureQuery()
+        {
+            Select(x => x.Name);
+            Selects.AddStatement(new SelectFuncStatement(SqlFunc.COALESCE, "Total",
+                new SelectFuncStatement(SqlFunc.SUM, "Total", Table.PrimaryKey), 7));
+        }
     }
 
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }

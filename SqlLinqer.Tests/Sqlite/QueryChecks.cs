@@ -26,6 +26,30 @@ internal static class QueryChecks
             Expect(Result(counted).Single().Id == 2 && counted.TotalResults == 3);
             Expect(Result(new SelectQuery<Item>().SelectRootColumns().Limit(1, 2).Execute(connector)).Single().Id == 3);
         });
+        Test($"{label}: generated SELECT scalars and page counts coexist with an active reader", () =>
+        {
+            using var command = keeper.CreateCommand();
+            command.CommandText = "SELECT Id FROM items ORDER BY Id";
+            using var reader = command.ExecuteReader();
+            Expect(reader.Read()); // Retain a real read lock while other connections count.
+            var query = new SelectQuery<Item>().Select(x => x.Id).Page(1, 1);
+            var count = query.Capture().RenderForCount(DbFlavor.Sqlite);
+            Expect(Result(connector.ExecuteScalar<long>(count)) == 3);
+            Expect(Result(connector.ExecuteScalarAsync<long>(count).GetAwaiter().GetResult()) == 3);
+            Expect(Result(connector.ExecuteScalar<string>(query.Render(DbFlavor.Sqlite))).Contains("\"Id\":1"));
+            Expect(query.ExecuteWithTotalCount(connector).EnsureSuccess().TotalResults == 3);
+            Expect(query.ExecuteWithTotalCountAsync(connector).GetAwaiter().GetResult().EnsureSuccess().TotalResults == 3);
+        });
+        Test($"{label}: raw scalar write batches still roll back on failure", () =>
+        {
+            foreach (bool asynchronous in new[] { false, true })
+            {
+                var raw = new RenderedQuery("INSERT INTO categories VALUES (77,'scalar batch'); SELECT missing_column FROM categories");
+                var result = asynchronous ? connector.ExecuteScalarAsync<int>(raw).GetAwaiter().GetResult() : connector.ExecuteScalar<int>(raw);
+                Expect(result.State == ResponseState.Error);
+                Expect(Result(connector.ExecuteScalar<int>(new RenderedQuery("SELECT COUNT(*) FROM categories WHERE Id=77"))) == 0);
+            }
+        });
         Test($"{label}: nested objects arrays and missing relationships", () =>
         {
             var rows = Result(new SelectQuery<Item>().SelectAuto().OrderBy(x => x.Id, SqlDir.ASC).Execute(connector));

@@ -38,6 +38,7 @@ namespace SqlLinqer.Compilation
 
         /// <summary>
         /// Renders a count of the captured root projection before paging, preserving DISTINCT, grouping, and nested query paging.
+        /// The rendered SELECT count executes without an owned write transaction. Caller-supplied transactions remain caller-owned.
         /// </summary>
         /// <param name="flavor">The database dialect for the count command.</param>
         /// <returns>A fresh parameterized count command. It does not alter future data renders.</returns>
@@ -47,6 +48,7 @@ namespace SqlLinqer.Compilation
             if (!(definition is SelectQuery select)) throw new InvalidOperationException("Only SELECT snapshots have a total count.");
             var result = new RenderedQuery();
             result.QueryName = definition.QueryName;
+            result.IsReadOnlySelect = true;
             result.Text = RenderSelect(SnapshotGraph.Capture(select), result.Parameters, flavor, true, true);
             return result;
         }
@@ -56,6 +58,7 @@ namespace SqlLinqer.Compilation
             var working = SnapshotGraph.Capture(source);
             var result = new RenderedQuery();
             result.QueryName = working.QueryName;
+            result.IsReadOnlySelect = working is SelectQuery;
             result.Transactional = (flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb)
                 && (working is InsertQuery || working is UpdateQuery || working is DeleteQuery);
             result.Text = working.Render(result.Parameters, flavor);

@@ -9,6 +9,9 @@ namespace SqlLinqer.Components.Render
     public class RenderedQuery
     {
         internal bool Transactional;
+        // Set only by the SELECT compiler. Raw scalar commands retain their
+        // existing transaction behavior because they can perform writes.
+        internal bool IsReadOnlySelect;
         /// <summary>An optional diagnostic name. It does not modify the SQL text or parameter bindings.</summary>
         public string QueryName { get; set; }
         /// <summary>

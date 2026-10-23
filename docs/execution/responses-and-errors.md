@@ -122,6 +122,8 @@ var total = pageResponse.TotalResults;
 Console.WriteLine($"Showing {users.Count} of {total} users.");
 ```
 
+For grouped projections, `TotalResults` counts output groups. The count keeps the group dimensions, joins and predicates while omitting unused measures. DISTINCT counts retain their projected values. An overall aggregate without group dimensions still represents one output row, including an empty input.
+
 ## Read stored-procedure rows and metadata
 
 `SqlLinqerCallable<TInput, TOutput>.Execute(input)` returns `SqlCallableResponse<TOutput>`.

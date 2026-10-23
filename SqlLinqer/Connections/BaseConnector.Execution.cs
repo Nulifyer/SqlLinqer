@@ -129,6 +129,7 @@ namespace SqlLinqer.Connections
         /// <summary>
         /// Reads the first row's first value and converts it to T. SQL NULL is allowed only when T can hold null.
         /// Supports compatible numeric conversions, GUIDs, and enums.
+        /// Compiler-generated SELECT commands do not open an owned write transaction. Raw commands retain their owned transaction behavior.
         /// </summary>
         /// <typeparam name="T">The scalar or intercepted result type.</typeparam>
         /// <param name="query">The parameterized SQL text and bindings to execute.</param>
@@ -137,7 +138,7 @@ namespace SqlLinqer.Connections
         /// <returns>The converted scalar and execution state, with null/default for SQL NULL when T permits null.</returns>
         public SqlResponse<T> ExecuteScalar<T>(RenderedQuery query, DbTransaction existingTransaction = null, TimeSpan? commandTimeout = null)
         {
-            return ExecuteOnConnection(query, existingTransaction, true, (command, observation) =>
+            return ExecuteOnConnection(query, existingTransaction, !query.IsReadOnlySelect, (command, observation) =>
             {
                 if (DbFlavor == DbFlavor.DuckDb && RequiresScalarReader(typeof(T)))
                 {
@@ -315,6 +316,7 @@ namespace SqlLinqer.Connections
         /// <summary>
         /// Asynchronously reads the first row's first value and converts it to T. SQL NULL is allowed only when T can hold null. Requested cancellation throws.
         /// Supports compatible numeric conversions, GUIDs, and enums.
+        /// Compiler-generated SELECT commands do not open an owned write transaction. Raw commands retain their owned transaction behavior.
         /// </summary>
         /// <typeparam name="T">The scalar or intercepted result type.</typeparam>
         /// <param name="query">The parameterized SQL text and bindings to execute.</param>
@@ -326,7 +328,7 @@ namespace SqlLinqer.Connections
         public Task<SqlResponse<T>> ExecuteScalarAsync<T>(RenderedQuery query,
             DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
-            return ExecuteOnConnectionAsync(query, existingTransaction, true, async (command, observation) =>
+            return ExecuteOnConnectionAsync(query, existingTransaction, !query.IsReadOnlySelect, async (command, observation) =>
             {
                 if (DbFlavor == DbFlavor.DuckDb && RequiresScalarReader(typeof(T)))
                 {

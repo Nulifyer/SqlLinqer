@@ -61,4 +61,8 @@ public class UserRegistrationService
 Pass the same transaction to every query in the operation. Check each response before committing.
 The service owns the connection and transaction, so it also handles commit, rollback, and disposal.
 
+Generated SELECT commands and page totals do not open an owned write transaction. If you pass a transaction, both reads use it and leave its lifetime to you. Without one, a page and its total are separate reads and can observe different data during concurrent writes.
+
+Raw `ExecuteScalar` commands retain their owned transaction behavior because a scalar command can also perform writes. For a compiled count, pass the object returned by `query.Capture().RenderForCount(connector.DbFlavor)` directly to scalar execution. Copying only its SQL text into a raw command discards that execution metadata.
+
 See [response handling](responses-and-errors.md) for the difference between a successful result and an error.

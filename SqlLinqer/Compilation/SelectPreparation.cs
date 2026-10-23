@@ -1,6 +1,7 @@
 using System.Linq;
 using SqlLinqer.Components.Modeling;
 using SqlLinqer.Components.Ordering;
+using SqlLinqer.Components.Render;
 using SqlLinqer.Components.Select;
 using SqlLinqer.Extensions.StringExtensions;
 using SqlLinqer.Queries.Core;
@@ -9,7 +10,7 @@ namespace SqlLinqer.Compilation
 {
     internal static class SelectPreparation
     {
-        internal static PreparedSelect Prepare(SelectQuery query, RenderContext context, bool forJson)
+        internal static PreparedSelect Prepare(SelectQuery query, RenderContext context, bool forJson, bool countGroups = false)
         {
             var dialect = context.Dialect;
             var parameters = context.Parameters;
@@ -35,7 +36,16 @@ namespace SqlLinqer.Compilation
                 || ((query.Distinct || projectCollection) && (flavor == DbFlavor.MySql || flavor == DbFlavor.PostgreSql)));
             string where = query.RootWhere.Render(query, parameters, flavor);
             string groupingInputs = flavor == DbFlavor.MySql ? MySqlGrouping.PrepareInputs(query, parameters) : null;
-            string select = projectRows
+            string group = null;
+            if (countGroups)
+            {
+                // Measures may discover joins that affect group membership, but
+                // their values and private bindings are not needed to count groups.
+                query.Selects.Render(query, new ParameterCollection(flavor), flavor, false);
+                group = query.Selects.RenderGroupBy(query, parameters, flavor);
+            }
+            bool omitMeasures = countGroups && !string.IsNullOrEmpty(group);
+            string select = omitMeasures ? "1 AS " + "__sqlinqer_group".DbWrap(flavor) : projectRows
                 ? string.Join(",", query.Selects.GetAll().Select(x =>
                 {
                     string value = x.RenderJsonValue(query, parameters, flavor);
@@ -44,7 +54,7 @@ namespace SqlLinqer.Compilation
                     return $"{value} AS {x.Alias.DbWrap(flavor)}";
                 }))
                 : query.Selects.Render(query, parameters, flavor, forJson);
-            string group = query.Selects.RenderGroupBy(query, parameters, flavor);
+            group = group ?? query.Selects.RenderGroupBy(query, parameters, flavor);
             string order = query.OrderBys.Render(query, parameters, flavor);
             string outerOrder = null;
             if (projectRows)
@@ -65,7 +75,12 @@ namespace SqlLinqer.Compilation
             bool wasSubQuery = query.IsSubQuery;
             if (context.Dialect.Capabilities.HoistCountWiths)
                 query.IsSubQuery = true;
-            var inner = Prepare(query, context, !context.Dialect.Capabilities.HoistCountWiths);
+            bool aggregate = query.Selects.GetAll().Any(statement => !statement.DoGroupBy());
+            // DISTINCT needs projected values. An aggregate without dimensions
+            // must retain its one output row even when its input is empty.
+            bool countGroups = aggregate && !query.Distinct;
+            var inner = Prepare(query, context,
+                !context.Dialect.Capabilities.HoistCountWiths && !countGroups, countGroups);
             string with = context.Dialect.Capabilities.HoistCountWiths && !wasSubQuery
                 ? query.Withs?.Render(query, context.Parameters, context.Dialect.Flavor) : null;
             return context.Dialect.RenderCount(inner, with);
