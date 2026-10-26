@@ -2,12 +2,36 @@
 
 # Stored procedures
 
-Define a procedure class with `SqlLinqerCallable<TInput, TOutput>`.
+Define a procedure class with `SqlLinqerCallable<TInput, TOutput>` when it takes inputs, or `SqlLinqerCallable<TOutput>` when it does not.
 The `SqlProcedure` attribute names the database procedure, `TInput` describes its arguments, and `TOutput` describes each returned row.
 Call `Execute(input)` or `ExecuteAsync(input)` to get rows and standard response fields, as you do with a select.
 
 Typed procedures support SQL Server and Azure SQL.
 The procedure must already exist in the database.
+
+## Procedures without inputs
+
+Starting with `2.3.1`, use `SqlLinqerCallable<TOutput>` for a procedure with no input parameters.
+No empty input model or input argument is required.
+
+```csharp
+using SqlLinqer.Modeling;
+
+[SqlProcedure("GetUsers", Schema = "dbo")]
+public sealed class GetUsers : SqlLinqerCallable<UserRow> { }
+
+// Inside an application method, using its connector:
+var procedure = new GetUsers();
+var response = procedure.Execute(connector);
+var asyncResponse = await procedure.ExecuteAsync(connector, cancellationToken: cancellationToken);
+var rendered = procedure.Render(connector);
+```
+
+`TOutput` describes each returned row and can also be a scalar type such as `int`.
+Without an explicit connector, `Execute()`, `ExecuteAsync()`, and `Render()` use the retained or current default connector.
+Both callable forms support caller-owned transactions, per-call command timeouts, and asynchronous cancellation.
+They return the same `SqlCallableResponse<TOutput>` with rows, return code, affected-row count, and automatically detected standard total outputs.
+The existing `SqlLinqerCallable<TInput, TOutput>` form remains available for procedures that take inputs, including empty input models.
 
 ## Define the procedure and models
 

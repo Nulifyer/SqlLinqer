@@ -8,20 +8,26 @@ internal static partial class StoredProcedureRegressionTests
 {
     private static void RunAudit(Action<string, Action> test)
     {
-        test("procedure public API exposes only the attribute based two model callable", () =>
+        test("procedure public API exposes attribute based callables with and without inputs", () =>
         {
             var exported = typeof(SqlLinqerCallable<,>).Assembly.GetExportedTypes();
             var callables = exported.Where(t => t.Name.StartsWith("SqlLinqerCallable`", StringComparison.Ordinal)).ToArray();
-            Check(callables.Length == 1 && callables[0] == typeof(SqlLinqerCallable<,>), "More than one callable interface is exported");
+            Check(callables.ToHashSet().SetEquals(new[] { typeof(SqlLinqerCallable<,>), typeof(SqlLinqerCallable<>) }),
+                "Unexpected callable interfaces are exported");
+            Check(typeof(SqlLinqerCallable<>).GetMethods().All(m => m.GetParameters().All(p => p.Name != "input")),
+                "The no-input callable exposes input methods");
             // These names are a denylist: retired interfaces must not reappear in the package.
             var retired = new[] { "StoredProcedureQuery", "CallableInvocation", "IQueryTypedStoredProcedure",
                 "NamedParameterCollection", "SqlOutputParameter", "SqlResultSet", "SqlReturnValue", "SqlStoredProcedureResponse" };
             Check(!exported.Any(t => retired.Contains(t.Name.Split('`')[0])), "A retired procedure type is still exported");
             Check(typeof(SqlCallableResponse<UserRow>).BaseType == typeof(SqlResponse<List<UserRow>>), "Callable response changed its row result contract");
             Check(!typeof(SqlLinqerObject<>).GetMethods().Any(m => m.Name == "BeginStoredProcedure"), "Retired procedure factory remains");
-            var constructor = typeof(SqlLinqerCallable<,>).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic).Single();
-            Check(constructor.GetParameters() is [{ IsOptional: true } parameter]
-                && parameter.ParameterType == typeof(SqlLinqer.Connections.BaseConnector), "Procedure configuration still requires constructor plumbing");
+            foreach (var callable in callables)
+            {
+                var constructor = callable.GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic).Single();
+                Check(constructor.GetParameters() is [{ IsOptional: true } parameter]
+                    && parameter.ParameterType == typeof(SqlLinqer.Connections.BaseConnector), "Procedure configuration still requires constructor plumbing");
+            }
         });
         test("procedure async execution propagates tokens and closes reader before collecting outputs", () =>
         {

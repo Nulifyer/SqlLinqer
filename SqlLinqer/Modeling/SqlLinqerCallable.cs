@@ -1,5 +1,4 @@
-using System;
-using System.Collections.Concurrent;
+using SqlLinqer.Components.Modeling;
 using SqlLinqer.Components.Render;
 using SqlLinqer.Connections;
 using SqlLinqer.Queries.Typed;
@@ -16,7 +15,6 @@ namespace SqlLinqer.Modeling
     /// <typeparam name="TOutput">The returned row model. Execute returns rows and standard metadata in SqlCallableResponse.</typeparam>
     public abstract partial class SqlLinqerCallable<TInput, TOutput> where TInput : class
     {
-        private static readonly ConcurrentDictionary<Type, SqlProcedure> Procedures = new ConcurrentDictionary<Type, SqlProcedure>();
         private readonly SqlProcedure _procedure;
         private readonly BaseConnector _connector;
 
@@ -24,17 +22,8 @@ namespace SqlLinqer.Modeling
         /// <param name="connector">An optional retained connector. Procedure name and schema come from SqlProcedure.</param>
         protected SqlLinqerCallable(BaseConnector connector = null)
         {
-            _procedure = Procedures.GetOrAdd(GetType(), ReadProcedure);
+            _procedure = SqlProcedureMapping.Get(GetType());
             _connector = connector;
-        }
-
-        private static SqlProcedure ReadProcedure(Type type)
-        {
-            var procedure = (SqlProcedure)Attribute.GetCustomAttribute(type, typeof(SqlProcedure), false)
-                ?? throw new InvalidOperationException($"Procedure class '{type}' needs a SqlProcedure attribute.");
-            if (string.IsNullOrWhiteSpace(procedure.Name) || procedure.Schema != null && string.IsNullOrWhiteSpace(procedure.Schema))
-                throw new InvalidOperationException("Procedure name and schema must not be empty.");
-            return procedure;
         }
 
         /// <summary>Renders SQL and parameter bindings for the supplied input without opening a connection.</summary>

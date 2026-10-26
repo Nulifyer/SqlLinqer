@@ -11,6 +11,7 @@ internal static partial class CallableChecks
     internal static void RunLocal(Action<string, Action> local, Action<bool, string> require)
     {
         RunModelLocal(local, require);
+        RunNoInputLocal(local, require);
         local("procedure standard metadata syntax and real SqlClient binding", () =>
         {
             var connector = new ConnectionFactoryConnector(() => throw new InvalidOperationException("Must not open"),
@@ -31,6 +32,7 @@ internal static partial class CallableChecks
     {
         RunModelLive(connector, connection, live);
         RunPageLive(connector, connection, live);
+        RunNoInputLive(connector, connection, live);
     }
 
     [SqlProcedure("ProcedurePage")]

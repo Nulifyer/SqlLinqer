@@ -13,6 +13,7 @@ internal static partial class StoredProcedureRegressionTests
     {
         RunResponses(test);
         RunAudit(test);
+        RunNoInput(test);
     }
     private static void Check(bool condition, string message)
     { if (!condition) throw new InvalidOperationException(message); }
