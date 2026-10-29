@@ -22,12 +22,12 @@ internal static class TvpRegressionTests
                 foreach (bool output in new[] { false, true })
                     foreach (string stage in new[] { "CREATE TYPE", "INSERT INTO", "DROP TYPE" })
                     {
-                        test($"async {flavor} TVP failure preserves ownership and cleans type, stage={stage}, caller={caller}, output={output}", () => RunFailure().GetAwaiter().GetResult());
+                        test($"async {flavor} per-execution TVP failure preserves ownership and cleans type, stage={stage}, caller={caller}, output={output}", () => RunFailure().GetAwaiter().GetResult());
 
                         async Task RunFailure()
                         {
                             var database = new FakeDatabase { FailSql = stage };
-                            var connector = new FakeConnector(database, flavor);
+                            var connector = new FakeConnector(database, flavor) { Options = { ReuseTvpTypes = false } };
                             using var callerConnection = caller ? new FakeConnection(database) : null;
                             callerConnection?.Open();
                             using var transaction = caller ? (FakeTransaction)callerConnection.BeginTransaction() : null;

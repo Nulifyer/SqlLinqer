@@ -1,13 +1,41 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
+using System.Data;
+using System.Runtime.ExceptionServices;
 
 namespace SqlLinqer.Components.Render
 {
     /// <summary>
     /// Holds parameterized SQL command text, its bindings, and optional logical SELECT result-shape metadata.
+    /// Dispose renders that own generated TVP tables. Caller-supplied values remain owned by the caller.
     /// </summary>
-    public class RenderedQuery
+    public class RenderedQuery : IDisposable
     {
+        private List<DataTable> _ownedTables;
+        internal IEnumerable<DataTable> OwnedTables => _ownedTables ?? Enumerable.Empty<DataTable>();
+
+        internal void OwnTable(DataTable table)
+        {
+            if (_ownedTables == null) _ownedTables = new List<DataTable>();
+            if (!_ownedTables.Contains(table)) _ownedTables.Add(table);
+        }
+
+        /// <summary>Disposes tables generated or captured by this render. Caller-supplied parameter values are never disposed. Repeated disposal is safe.</summary>
+        public void Dispose()
+        {
+            var tables = _ownedTables;
+            _ownedTables = null;
+            if (tables == null) return;
+            Exception error = null;
+            foreach (var table in tables)
+            {
+                try { table.Dispose(); }
+                catch (Exception failure) { if (error == null) error = failure; }
+            }
+            if (error != null) ExceptionDispatchInfo.Capture(error).Throw();
+        }
+
         internal bool Transactional;
         // Set only by the SELECT compiler. Raw scalar commands retain their
         // existing transaction behavior because they can perform writes.

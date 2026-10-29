@@ -9,7 +9,7 @@ namespace SqlLinqer.Compilation
 {
     internal static class CallablePreparation
     {
-        internal static PreparedCallable Prepare(CallableDefinition definition, object[] values, bool[] specified, DbFlavor flavor, string defaultSchema)
+        internal static PreparedCallable Prepare(CallableDefinition definition, object[] values, bool[] specified, DbFlavor flavor, string defaultSchema, bool includeTotalResults = true)
         {
             if (flavor != DbFlavor.SqlServer && flavor != DbFlavor.AzureSql)
                 throw new NotSupportedException("Stored procedure callables support SQL Server and Azure SQL only.");
@@ -17,19 +17,32 @@ namespace SqlLinqer.Compilation
             if (schema != null && string.IsNullOrWhiteSpace(schema)) throw new InvalidOperationException("The default schema must not be empty.");
             var plan = new PreparedCallable();
             plan.ReturnCode = plan.Query.Parameters.AddCallableParameter(null, DbType.Int32, ParameterDirection.Output, new SqlParameterAttribute());
-            var assignments = new List<string>();
-            for (int i = 0; i < definition.Parameters.Length; i++)
+            try
             {
-                if (!specified[i]) continue;
-                var binding = definition.Parameters[i];
-                var id = plan.Query.Parameters.AddCallableParameter(values[i], binding.DbType, ParameterDirection.Input, binding.Metadata, schema);
-                assignments.Add("@" + binding.Name + " = " + id);
+                var assignments = new List<string>();
+                for (int i = 0; i < definition.Parameters.Length; i++)
+                {
+                    if (!specified[i]) continue;
+                    var binding = definition.Parameters[i];
+                    var value = values[i];
+                    if (binding.TableInput != null)
+                    {
+                        if (value == null) throw new ArgumentException($"Table-valued argument '{binding.Name}' cannot be SQL NULL. Supply an empty collection.");
+                        var table = binding.TableInput.Materialize(value);
+                        plan.Query.OwnTable(table);
+                        value = table;
+                    }
+                    var id = plan.Query.Parameters.AddCallableParameter(value, binding.DbType, ParameterDirection.Input, binding.Metadata, schema);
+                    assignments.Add("@" + binding.Name + " = " + id);
+                }
+                if (includeTotalResults)
+                    plan.TotalResults = plan.Query.Parameters.AddCallableParameter(null, DbType.Int64, ParameterDirection.Output, new SqlParameterAttribute());
+                var procedure = (schema == null ? "" : Quote(schema) + ".") + Quote(definition.Procedure.Name);
+                var call = "EXEC " + plan.ReturnCode + " = " + procedure + (assignments.Count == 0 ? "" : " " + string.Join(", ", assignments));
+                plan.Query.Text = includeTotalResults ? WithStandardTotals(call, procedure, plan.TotalResults, assignments.Count == 0) : call + ";";
+                return plan;
             }
-            plan.TotalResults = plan.Query.Parameters.AddCallableParameter(null, DbType.Int64, ParameterDirection.Output, new SqlParameterAttribute());
-            var procedure = (schema == null ? "" : Quote(schema) + ".") + Quote(definition.Procedure.Name);
-            var call = "EXEC " + plan.ReturnCode + " = " + procedure + (assignments.Count == 0 ? "" : " " + string.Join(", ", assignments));
-            plan.Query.Text = WithStandardTotals(call, procedure, plan.TotalResults, assignments.Count == 0);
-            return plan;
+            catch { plan.Dispose(); throw; }
         }
 
         // Discover standard outputs in the same SQL batch, without a second connection or metadata round trip.
@@ -53,10 +66,13 @@ namespace SqlLinqer.Compilation
 
     }
 
-    internal sealed class PreparedCallable
+    internal sealed class PreparedCallable : IDisposable
     {
         internal RenderedQuery Query = new RenderedQuery();
         internal string TotalResults;
         internal string ReturnCode;
+        internal void CaptureInputs() => SnapshotGraph.CaptureCallableInputs(Query);
+
+        public void Dispose() => Query.Dispose();
     }
 }

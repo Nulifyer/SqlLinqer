@@ -111,13 +111,13 @@ internal static class CommandTimeoutRegressionTests
                 Check(database.Executed.All(x => x.CommandTimeout == 71), "A batch lost its override");
                 database.Executed.Clear();
                 result = async ? await insert.ExecuteTvpAsync(connector, commandTimeout: timeout) : insert.ExecuteTvp(connector, commandTimeout: timeout);
-                Check(result.State == ResponseState.Valid && database.Executed.Count == 3, "TVP execution did not create, insert, and drop");
+                Check(result.State == ResponseState.Valid && database.Executed.Count == 5, "Default TVP execution did not check cleanup, provision, renew, guard, and insert");
                 Check(database.Executed.All(x => x.CommandTimeout == 71), "TVP DDL or insert lost its override");
             });
-            Async($"TVP failure cleanup retains the override, async={async}", async () =>
+            Async($"per-execution TVP failure cleanup retains the override, async={async}", async () =>
             {
                 var database = new FakeDatabase { FailSql = "INSERT INTO" };
-                var connector = new FakeConnector(database, DbFlavor.SqlServer);
+                var connector = new FakeConnector(database, DbFlavor.SqlServer) { Options = { ReuseTvpTypes = false } };
                 var insert = new InsertQuery<TimeoutRow>().InsertAuto(new TimeoutRow { Name = "failed" });
                 var response = async ? await insert.ExecuteTvpAsync(connector, commandTimeout: TimeSpan.FromSeconds(71))
                     : insert.ExecuteTvp(connector, commandTimeout: TimeSpan.FromSeconds(71));

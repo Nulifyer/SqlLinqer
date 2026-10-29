@@ -42,6 +42,13 @@ namespace SqlLinqer.Queries.TypedExt
         }
 
         /// <inheritdoc/>
+        public new InsertWithPrimaryKeyQuery<T, TPk> UseTvpType(string name, string schema = null)
+        {
+            base.UseTvpType(name, schema);
+            return this;
+        }
+
+        /// <inheritdoc/>
         public new InsertWithPrimaryKeyQuery<T, TPk> InsertAuto(T obj)
         {
             base.InsertAuto(obj);

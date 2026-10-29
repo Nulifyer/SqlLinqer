@@ -167,7 +167,9 @@ internal sealed class FakeCommand(FakeConnection connection) : DbCommand
     public override int ExecuteNonQuery() { connection.DatabaseState.SyncCommands++; Execute(); return 1; }
     public override object ExecuteScalar() { connection.DatabaseState.SyncCommands++; Execute(); return ScalarValue(); }
     private object ScalarValue() => connection.DatabaseState.ScalarFactory != null
-        ? connection.DatabaseState.ScalarFactory() : connection.DatabaseState.Total;
+        ? connection.DatabaseState.ScalarFactory()
+        : CommandText.Contains("sp_getapplock") && CommandText.TrimEnd().EndsWith("SELECT 1;", StringComparison.Ordinal)
+            ? 1 : connection.DatabaseState.Total;
     protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
     {
         connection.DatabaseState.SyncCommands++;
@@ -199,6 +201,8 @@ internal sealed class FakeCommand(FakeConnection connection) : DbCommand
     private DbDataReader CreateReader()
     {
         Execute();
+        // No expired managed types exist in the default fake database.
+        if (CommandText.Contains("SELECT TOP (100) t.* FROM (")) return new DataTable().CreateDataReader();
         if (connection.DatabaseState.ReaderFactory != null)
             return connection.DatabaseState.ReaderFactory(this);
         var table = new DataTable();

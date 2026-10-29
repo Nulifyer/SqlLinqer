@@ -5,6 +5,12 @@ using SqlLinqer.Tests.Regression;
 using SqlLinqer.Tests.Sqlite;
 using SqlLinqer.Tests.Scale;
 
+// Internal multi-process integration worker. Connection settings remain in the environment, never command-line arguments.
+if (Environment.GetEnvironmentVariable("SQLLINQER_TVP_REUSE_WORKER") == "1")
+    return SqlLinqer.Tests.SqlServer.ReusableTvpChecks.RunWorker(args);
+if (Environment.GetEnvironmentVariable("SQLLINQER_TVP_LEASE_WORKER") == "1")
+    return TvpLeaseChecks.RunWorker(args);
+
 const string usage = """
     Usage: dotnet run --project SqlLinqer.Tests -- [options]
 

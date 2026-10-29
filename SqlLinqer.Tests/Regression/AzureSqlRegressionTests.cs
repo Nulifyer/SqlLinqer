@@ -141,11 +141,11 @@ internal static class AzureSqlRegressionTests
                 Check(query.Render(flavor).Text.Contains("OFFSET 1 ROWS FETCH NEXT 1 ROWS ONLY"), "Count changed paging");
             });
             foreach (bool fail in new[] { false, true })
-                test($"{flavor} TVP output uses one write transaction and autocommit type DDL, fail={fail}", () =>
+                test($"{flavor} per-execution TVP output uses one write transaction and autocommit type DDL, fail={fail}", () =>
                 {
                     var db = new FakeDatabase { FailSql = fail ? "INSERT INTO" : null };
                     var result = new InsertQuery<Item>().InsertAuto(new Item()).Output(x => x.Id)
-                        .ExecuteTvpWithOutput(new FakeConnector(db, flavor));
+                        .ExecuteTvpWithOutput(new FakeConnector(db, flavor) { Options = { ReuseTvpTypes = false } });
                     var connection = db.Connections.First(); var tx = connection.Transactions.Single();
                     Check(result.State == (fail ? ResponseState.Error : ResponseState.Valid), "Wrong TVP output state");
                     Check(db.Executed.Where(x => x.CommandText.StartsWith("INSERT INTO")).All(x => x.UsedTransaction == tx), "TVP output crosses transactions");
@@ -158,10 +158,10 @@ internal static class AzureSqlRegressionTests
         foreach (string stage in new[] { "CREATE TYPE", "INSERT INTO", "DROP TYPE" })
             foreach (bool caller in new[] { false, true })
                 foreach (bool output in new[] { false, true })
-                    test($"Azure TVP stage failure {stage}, caller={caller}, output={output}", () =>
+                    test($"Azure per-execution TVP stage failure {stage}, caller={caller}, output={output}", () =>
                     {
                         var db = new FakeDatabase { FailSql = stage };
-                        var connector = new FakeConnector(db, DbFlavor.AzureSql);
+                        var connector = new FakeConnector(db, DbFlavor.AzureSql) { Options = { ReuseTvpTypes = false } };
                         using var conn = caller ? new FakeConnection(db) : null; conn?.Open();
                         using var tx = caller ? (FakeTransaction)conn.BeginTransaction() : null;
                         var insert = new InsertQuery<Item>().InsertAuto(new Item());
@@ -295,7 +295,7 @@ internal static class AzureSqlRegressionTests
                     test($"Azure write ownership, fail={fail}, caller={caller}, TVP={tvp}", () =>
                     {
                         var db = new FakeDatabase { FailSql = fail ? "INSERT INTO" : null };
-                        var connector = new FakeConnector(db, DbFlavor.AzureSql);
+                        var connector = new FakeConnector(db, DbFlavor.AzureSql) { Options = { ReuseTvpTypes = false } };
                         using var connection = caller ? new FakeConnection(db) : null;
                         connection?.Open();
                         using var transaction = caller ? (FakeTransaction)connection.BeginTransaction(IsolationLevel.ReadCommitted) : null;
@@ -324,7 +324,7 @@ internal static class AzureSqlRegressionTests
             test($"Azure execution: {operation}", () =>
             {
                 var db = new FakeDatabase { JsonRows = new[] { "[{\"Id\":7,", "\"Name\":\"sample\"}]" } };
-                var connector = new FakeConnector(db, DbFlavor.AzureSql);
+                var connector = new FakeConnector(db, DbFlavor.AzureSql) { Options = { ReuseTvpTypes = false } };
                 Check(!connector.JsonResultsRowByRow(), "Azure JSON must be assembled across chunks");
                 ISqlResponse result;
                 switch (operation)

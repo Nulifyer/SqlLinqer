@@ -16,6 +16,8 @@ namespace SqlLinqer.Queries.Core
         protected internal InsertRowCollection Inserts;
         /// <summary>The modified-row output projection.</summary>
         protected internal OutputsCollection Outputs;
+        internal string ExistingTvpName;
+        internal string ExistingTvpSchema;
 
         /// <summary>Creates an INSERT query for the supplied table.</summary>
         public InsertQuery(Table table) : base(table)
@@ -92,11 +94,16 @@ namespace SqlLinqer.Queries.Core
         /// <param name="schema">The type of Sql database being used</param>
         /// <returns></returns>
         public (string Query, string TempTypeId) RenderTVP(ParameterCollection existingCollection, DbFlavor flavor, string schema)
+            => RenderTVP(existingCollection, flavor, schema, ExistingTvpName == null ? null
+                : SqlLinqer.Compilation.ReusableTvpType.Quote(ExistingTvpSchema ?? schema ?? Table.Schema ?? "dbo")
+                    + "." + SqlLinqer.Compilation.ReusableTvpType.Quote(ExistingTvpName));
+
+        internal (string Query, string TempTypeId) RenderTVP(ParameterCollection existingCollection, DbFlavor flavor, string schema, string existingTypeName)
         {
             if (flavor != DbFlavor.SqlServer && flavor != DbFlavor.AzureSql)
                 throw new System.NotSupportedException("Table-valued parameters are supported only for SQL Server.");
 
-            string tempTypeId =
+            string tempTypeId = existingTypeName ??
                 (schema != null ? $"{schema.DbWrap(flavor)}." : null)
                 + $"TEMP_{StringExtensions.GetRandomHashString()}".DbWrap(flavor);
 

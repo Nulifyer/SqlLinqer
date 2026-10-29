@@ -11,16 +11,18 @@ namespace SqlLinqer.Queries.Typed
     {
         internal SqlCallableResponse<TOutput> Execute(BaseConnector connector, DbTransaction transaction, TimeSpan? commandTimeout = null)
         {
-            var prepared = Prepare(connector);
-            return connector.ExecuteCallable<TOutput>(prepared, _row, transaction, commandTimeout: commandTimeout);
+            using (var prepared = Prepare(connector))
+                return connector.ExecuteCallable<TOutput>(prepared, _row, transaction, commandTimeout: commandTimeout);
         }
 
         internal async Task<SqlCallableResponse<TOutput>> ExecuteAsync(BaseConnector connector, DbTransaction transaction, CancellationToken cancellationToken, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var prepared = Prepare(connector);
-            prepared.Query = SnapshotGraph.Capture(prepared.Query);
-            return await connector.ExecuteCallableAsync<TOutput>(prepared, _row, transaction, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
+            using (var prepared = Prepare(connector))
+            {
+                prepared.CaptureInputs();
+                return await connector.ExecuteCallableAsync<TOutput>(prepared, _row, transaction, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
+            }
         }
     }
 }

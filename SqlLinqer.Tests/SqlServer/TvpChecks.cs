@@ -81,7 +81,7 @@ internal static class TvpChecks
                 int types = TypeCount(), rows = RowCount();
                 var settings = new SqlConnectionStringBuilder(connectionString) { InitialCatalog = "master" };
                 var otherDefault = new ConnectionFactoryConnector(() => new SqlConnection(settings.ConnectionString), connector.DbFlavor,
-                    new ConnectorOptions { DefaultSchema = schema, CommandTimeout = TimeSpan.FromSeconds(30) });
+                    new ConnectorOptions { ReuseTvpTypes = false, DefaultSchema = schema, CommandTimeout = TimeSpan.FromSeconds(30) });
                 using (var tx = connection.BeginTransaction())
                 {
                     var result = asynchronous ? Insert(5).ExecuteTvpAsync(otherDefault, tx).GetAwaiter().GetResult()
@@ -147,7 +147,7 @@ internal static class TvpChecks
 
     private sealed class CancelAfterCreateConnector(string connectionString, string schema, DbFlavor flavor,
         CancellationTokenSource cancellation)
-        : BaseConnector(flavor, new ConnectorOptions { DefaultSchema = schema, CommandTimeout = TimeSpan.FromSeconds(30) })
+        : BaseConnector(flavor, new ConnectorOptions { ReuseTvpTypes = false, DefaultSchema = schema, CommandTimeout = TimeSpan.FromSeconds(30) })
     {
         internal readonly List<SqlConnection> Connections = [];
         public override DbConnection CreateConnection()

@@ -50,6 +50,7 @@ namespace SqlLinqer.Components.Modeling
         internal readonly SqlParameterAttribute Metadata;
         internal Type ValueType => Unwrap(Input.GetFieldOrPropValueType());
         internal DbType? DbType { get; private set; }
+        internal CallableTableInput TableInput { get; private set; }
 
         internal CallableParameterBinding(string name, MemberInfo input, SqlParameterAttribute metadata)
         { Name = name; Input = input; Metadata = metadata; }
@@ -73,7 +74,13 @@ namespace SqlLinqer.Components.Modeling
                 return;
             }
             if (Metadata.TypeName != null || Metadata.ExplicitSqlDbType == SqlDbType.Structured)
-                throw new InvalidOperationException($"Structured argument '{Name}' must be a DataTable.");
+            {
+                if (string.IsNullOrWhiteSpace(Metadata.TypeName)
+                    || Metadata.ExplicitSqlDbType.HasValue && Metadata.SqlDbType != SqlDbType.Structured)
+                    throw new InvalidOperationException($"Table-valued argument '{Name}' requires TypeName and Structured SQL type metadata.");
+                TableInput = new CallableTableInput(ValueType);
+                return;
+            }
             var type = Nullable.GetUnderlyingType(ValueType) ?? ValueType;
             DbType = Metadata.ExplicitDbType ?? (Metadata.ExplicitSqlDbType.HasValue ? (DbType?)null
                 : (type.IsEnum ? Enum.GetUnderlyingType(type) : type).GetDbType());

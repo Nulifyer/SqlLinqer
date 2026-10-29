@@ -26,6 +26,38 @@ namespace SqlLinqer.Compilation
 
         internal static T Capture<T>(T value) where T : class => (T)new SnapshotGraph().Copy(value);
 
+        // Callable preparation creates fresh bindings. Reuse private generated tables and snapshot their mutable cells;
+        // borrowed tables and scalar arrays still receive independent copies through the same identity-tracking graph.
+        internal static void CaptureCallableInputs(SqlLinqer.Components.Render.RenderedQuery query)
+        {
+            var graph = new SnapshotGraph();
+            foreach (var table in query.OwnedTables)
+            {
+                graph.copies.Add(table, table);
+                graph.CopyTableCells(table, table);
+            }
+            query.Parameters = (SqlLinqer.Components.Render.ParameterCollection)graph.Copy(query.Parameters);
+            foreach (var parameter in query.Parameters.GetAll())
+                if (parameter.Value is DataTable table) query.OwnTable(table);
+        }
+
+        private void CopyTableCells(DataTable source, DataTable destination)
+        {
+            // DataTable.Copy retains reference-valued cells.
+            for (int row = 0; row < destination.Rows.Count; row++)
+                for (int column = 0; column < destination.Columns.Count; column++)
+                {
+                    var cell = source.Rows[row][column];
+                    var copied = Copy(cell);
+                    if (ReferenceEquals(cell, copied)) continue;
+                    var definition = destination.Columns[column];
+                    bool readOnly = definition.ReadOnly;
+                    if (readOnly) definition.ReadOnly = false;
+                    try { destination.Rows[row][column] = copied; }
+                    finally { if (readOnly) definition.ReadOnly = true; }
+                }
+        }
+
         private object Copy(object value)
         {
             if (value == null) return null;
@@ -38,19 +70,7 @@ namespace SqlLinqer.Compilation
             {
                 var result = table.Copy();
                 copies.Add(value, result);
-                // DataTable.Copy retains reference-valued cells.
-                for (int row = 0; row < result.Rows.Count; row++)
-                    for (int column = 0; column < result.Columns.Count; column++)
-                    {
-                        var cell = table.Rows[row][column];
-                        var copied = Copy(cell);
-                        if (ReferenceEquals(cell, copied)) continue;
-                        var definition = result.Columns[column];
-                        bool readOnly = definition.ReadOnly;
-                        if (readOnly) definition.ReadOnly = false;
-                        try { result.Rows[row][column] = copied; }
-                        finally { if (readOnly) definition.ReadOnly = true; }
-                    }
+                CopyTableCells(table, result);
                 return result;
             }
             if (value is Array array)

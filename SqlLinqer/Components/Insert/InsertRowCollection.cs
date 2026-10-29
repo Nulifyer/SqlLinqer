@@ -122,9 +122,12 @@ namespace SqlLinqer.Components.Insert
             string dropStr = $"DROP TYPE {typeName.DbWrap(flavor)}";
             return (createStr, dropStr);
         }
+        internal string RenderTvpSchemaQuery(DbFlavor flavor)
+            => "SELECT " + string.Join(",", Columns.Values.Select(c => "CAST(NULL AS " + RenderColumnType(c, flavor) + ") AS " + c.ColumnName.DbWrap(flavor)));
+
         private string RenderColumnType(ReflectedColumn column, DbFlavor flavor)
         {
-            if (column.ValueType != typeof(decimal)) return column.ValueType.CSharpTypeToSql(flavor);
+            if (column.ValueType != typeof(decimal)) return (column.ValueType.IsEnum ? Enum.GetUnderlyingType(column.ValueType) : column.ValueType).CSharpTypeToSql(flavor);
             int scale = 0, integerDigits = 0;
             foreach (var row in Rows)
             {
@@ -184,29 +187,34 @@ namespace SqlLinqer.Components.Insert
         {
             var dataTable = new DataTable();
 
-            foreach (var c in Columns.Values)
+            try
             {
-                dataTable.Columns.Add(c.ColumnName, c.ValueType);
-            }
-
-            foreach (var obj in Rows)
-            {
-                var dRow = dataTable.NewRow();
-
-                foreach (var column in Columns.Values)
+                foreach (var c in Columns.Values)
                 {
-                    var value = ReadValue(obj, column);
-                    // SqlClient derives TVP precision from stored decimal scales,
-                    // including zero. Normalize the payload as well as the DDL.
-                    if (value is decimal number)
-                        value = decimal.Parse(FormatDecimal(number), System.Globalization.CultureInfo.InvariantCulture);
-                    dRow[column.ColumnName] = value == null ? DBNull.Value : value;
+                    dataTable.Columns.Add(c.ColumnName, c.ValueType.IsEnum ? Enum.GetUnderlyingType(c.ValueType) : c.ValueType);
                 }
 
-                dataTable.Rows.Add(dRow);
-            }
+                foreach (var obj in Rows)
+                {
+                    var dRow = dataTable.NewRow();
 
-            return dataTable;
+                    foreach (var column in Columns.Values)
+                    {
+                        var value = ReadValue(obj, column);
+                        if (value is Enum) value = Convert.ChangeType(value, Enum.GetUnderlyingType(value.GetType()));
+                        // SqlClient derives TVP precision from stored decimal scales,
+                        // including zero. Normalize the payload as well as the DDL.
+                        if (value is decimal number)
+                            value = decimal.Parse(FormatDecimal(number), System.Globalization.CultureInfo.InvariantCulture);
+                        dRow[column.ColumnName] = value == null ? DBNull.Value : value;
+                    }
+
+                    dataTable.Rows.Add(dRow);
+                }
+
+                return dataTable;
+            }
+            catch { dataTable.Dispose(); throw; }
         }
     }
 }

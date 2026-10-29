@@ -278,6 +278,9 @@ internal static class LiveSuite
         bool created = false;
         Console.WriteLine("Live test schema: " + schema);
         var connector = Connector(connectionString, schema, flavor);
+        // These cases explicitly exercise the optional per-execution type lifecycle.
+        // ReusableTvpChecks exercises unchanged ExecuteTvp calls with the default options.
+        connector.Options.ReuseTvpTypes = false;
         int TypeCount() => Scalar(connection, $"SELECT COUNT(*) FROM sys.table_types WHERE schema_id = SCHEMA_ID(N'{schema}')");
         int RowCount() => Scalar(connection, $"SELECT COUNT(*) FROM [{schema}].[Rows]");
         InsertQuery<ScopedRow> Insert(params ScopedRow[] rows) => new InsertQuery<ScopedRow>(schema).InsertAuto(rows);
@@ -368,6 +371,8 @@ internal static class LiveSuite
                 Require(Valid(new ReadIdsCall().Execute(new ReadIdsInput { Ids = ids }, connector)).Count == 0, "Empty procedure TVP differs");
             });
             TvpChecks.RunLive(connector, connection, connectionString, schema, live);
+            ReusableTvpChecks.RunLive(connection, connectionString, schema, connector.DbFlavor, live);
+            TvpLeaseChecks.RunLive(connection, connectionString, schema, connector.DbFlavor, live);
             CurrentCheck = "SQL JSON contract fixture setup";
             SqlLinqer.Tests.Regression.SqlJsonContractChecks.Run(connector, live);
             live("owned truncate commits", () =>

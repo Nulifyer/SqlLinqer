@@ -9,6 +9,20 @@ namespace SqlLinqer.Connections
     /// </summary>
     public class ConnectorOptions
     {
+        /// <summary>Reuses persistent, contract-named SQL Server TVP types by default. False selects per-execution creation and cleanup. Managed types become eligible for cleanup after their leases and retention expire.</summary>
+        public bool ReuseTvpTypes { get; set; } = true;
+        /// <summary>The existing schema for managed reusable TVP types. Null uses the insert table schema, connector default, or dbo. Configure before sharing the connector.</summary>
+        public string ReusableTvpSchema { get; set; }
+
+        /// <summary>Enables lease tracking and opportunistic online cleanup for managed TVPs by default. Requires ReuseTvpTypes and all consumers to use the lease-aware execution protocol. False disables this connector's automatic cleanup checks.</summary>
+        public bool AutoCleanupTvpTypes { get; set; } = true;
+        /// <summary>The idle lease duration, renewed on execution using database UTC time. Defaults to five minutes. Must be positive and at most 365 days.</summary>
+        public TimeSpan TvpLeaseDuration { get; set; } = TimeSpan.FromMinutes(5);
+        /// <summary>Additional retention after a node lease expires. Defaults to one day. Must be nonnegative and at most 365 days.</summary>
+        public TimeSpan TvpTypeRetention { get; set; } = TimeSpan.FromDays(1);
+        /// <summary>The minimum interval between opportunistic cleanup attempts per connector and database/schema. Defaults to one hour. Must be positive and at most 365 days. No background timer is started.</summary>
+        public TimeSpan TvpCleanupInterval { get; set; } = TimeSpan.FromHours(1);
+
         /// <summary>Optional execution observer. Configure before sharing the connector. Observer failures do not replace query results or errors.</summary>
         public SqlLinqer.Diagnostics.IQueryObserver Observer { get; set; }
         /// <summary>

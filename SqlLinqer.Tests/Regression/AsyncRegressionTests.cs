@@ -241,16 +241,17 @@ internal static class AsyncRegressionTests
                 var database = new FakeDatabase(); var connector = new Connector(database, flavor);
                 var result = await new InsertWithPrimaryKeyQuery<Row, int>().InsertAuto(new Row { Name = "tvp" }).ExecuteTvpAsync(connector);
                 Check(result.State == ResponseState.Valid && result.TouchedPrimaryKeys.Single() == 7, result.Error?.ToString());
-                Check(database.AsyncCommands == 3 && database.SyncCommands == 0
-                    && database.Connections.First().Transactions.Single().Commits == 1, "TVP lifecycle differs");
-                TvpRegressionTests.CheckTypeDdl(database);
+                Check(database.AsyncCommands == 5 && database.SyncCommands == 0
+                    && database.Connections.Single().Transactions.Count == 4
+                    && database.Connections.Single().Transactions.All(t => t.Commits == 1 && t.IsDisposed), "TVP lifecycle differs");
+                Check(!database.Executed.Any(c => c.CommandText.Contains("DROP TYPE")), "Default reuse removed a shared type");
             });
         }
 
-        Async("cancelled TVP cleans its type in a usable caller transaction", async () =>
+        Async("cancelled per-execution TVP cleans its type in a usable caller transaction", async () =>
         {
             using var cancellation = new CancellationTokenSource();
-            var database = new FakeDatabase(); var connector = new Connector(database, DbFlavor.SqlServer);
+            var database = new FakeDatabase(); var connector = new Connector(database, DbFlavor.SqlServer) { Options = { ReuseTvpTypes = false } };
             using var connection = new FakeConnection(database); connection.Open();
             using var transaction = connection.BeginTransaction();
             database.BeforeAsyncCommand = token =>

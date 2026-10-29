@@ -5,7 +5,7 @@ namespace SqlLinqer.Connections
 {
     /// <summary>
     /// Creates fresh provider connections through an application factory. Configure connection settings, including login timeout, pooling, and authentication, in the factory.
-    /// The factory must return fresh connections, which the connector opens and disposes. Supplied transactions provide the query connection; generated TVP type commands still use separate factory connections to the same server and write database.
+    /// The factory must return fresh connections, which the connector opens and disposes. Supplied transactions provide the query connection. Per-execution TVP type DDL and reusable type provisioning for caller-owned transactions use separate factory connections to the same server and write database.
     /// </summary>
     public sealed class ConnectionFactoryConnector : BaseConnector
     {

@@ -62,7 +62,7 @@ var value = await connector.ExecuteScalarAsync<long>(
 ```
 
 The timeout applies separately to each generated command. A paged total uses it for both the data and count commands.
-Batched inserts use it for every batch. TVP inserts also use it for type creation and cleanup.
+Batched inserts use it for every batch. TVP inserts also use it for provisioning, lease renewal, execution guards, and cleanup commands.
 It is not a total time budget for the complete operation, and it does not override the factory's connection login timeout.
 Cancellation tokens remain independent of the timeout.
 

@@ -195,16 +195,146 @@ If you need to distinguish omission from an explicit SQL NULL, declare that prop
 A string value, including `string.Empty`, supplies that value.
 This wrapper is optional. Ordinary input properties do not need it.
 
-For a table-valued input, declare a `DataTable` property with the existing SQL table type:
+For a table-valued input, declare a mapped row or a collection of mapped rows:
 
 ```csharp
+public sealed class IdRow
+{
+    public int Id { get; set; }
+}
+
 public class BatchInput
 {
     [SqlParameter("ids", TypeName = "dbo.IdList")]
-    public System.Data.DataTable? Ids { get; set; }
+    public IEnumerable<IdRow>? Ids { get; set; }
+}
+
+var input = new BatchInput
+{
+    Ids = new[] { new IdRow { Id = 42 }, new IdRow { Id = 43 } }
+};
+```
+
+Arrays, lists, and other `IEnumerable<TRow>` collections work. A single mapped
+row object supplies one row. SqlLinqer uses the same column selection, declaration
+order, aliases, exclusions, null handling, decimal normalization, and enum storage
+as insert TVPs. This includes `SqlIgnore`, `SqlColumn`, and `SqlAutoInsertExclude`.
+Database-generated primary keys are excluded as they are for `InsertAuto`.
+The selected columns must match the SQL table type's column order and types.
+Use a dedicated row model when its layout differs from an entity's insert mapping.
+
+The SQL table type must already exist because the procedure signature references
+it. [TVP inserts](insert.md#use-an-existing-named-type) can use this same physical
+type through `UseTvpType`. Calls do not create or drop table types. An empty collection supplies zero rows
+while retaining its declared column schema. A null property omits the parameter.
+An explicit SQL NULL or a null row inside a collection is rejected.
+An unqualified `TypeName`, such as `IdList`, uses the procedure schema or the
+connector's default schema. Use a qualified name for a table type in another schema.
+
+Existing `DataTable` inputs remain supported. Their columns must match the SQL
+table type's types and order. SqlLinqer retains ownership of tables generated from
+objects and never disposes a caller-supplied table. Asynchronous calls capture rows
+and binary cells before awaiting execution. `Render` returns a disposable
+`RenderedQuery` that owns generated tables. Dispose the render as a whole:
+
+```csharp
+using var rendered = procedure.Render(input, connector);
+Console.WriteLine(rendered.Text);
+```
+
+Disposing a render releases only its generated tables, including when generated
+and caller-supplied tables appear together. Repeated disposal is safe. Ordinary
+renders without generated tables can be disposed in the same way. Execution
+methods dispose their own prepared renders automatically.
+
+## Multiple result tables
+
+Use `SqlLinqerMultiCallable<TResults>` for a procedure without inputs, or
+`SqlLinqerMultiCallable<TInput, TResults>` for a procedure with an input model.
+These contracts support SQL Server and Azure SQL. Existing single-table callables
+continue to return `SqlCallableResponse<TRow>` with `List<TRow>` results.
+
+Declare a value tuple containing at least two result collections. Each tuple
+position maps to one tabular result set, in the order returned by the procedure.
+The tuple names are C# labels, not database table names.
+
+```csharp
+[SqlProcedure("GetDashboard", Schema = "dbo")]
+public sealed class GetDashboard
+    : SqlLinqerMultiCallable<DashboardInput, (
+        List<UserRow> Users,
+        OrderRow[] Orders,
+        IReadOnlyList<long> Totals)>
+{
+}
+
+var response = await new GetDashboard().ExecuteAsync(
+    new DashboardInput { UserId = 42 }, connector,
+    cancellationToken: cancellationToken);
+
+if (response.State != ResponseState.Valid)
+{
+    logger.LogError(response.Error, "GetDashboard failed");
+    return;
+}
+
+var (users, orders, totals) = response.Result;
+```
+
+The input rules, `Render`, connector selection, command timeout, and transaction
+ownership follow ordinary callables. Requested asynchronous cancellation throws
+`OperationCanceledException`. Execution and row-mapping failures return an error
+response. Invalid declarations, unsupported collections, and unsupported database
+flavors fail before opening a connection, like invalid single-table declarations.
+
+### Choose each collection type
+
+Each table independently supports arrays, `List<T>`, `IList<T>`, `ICollection<T>`,
+`IEnumerable<T>`, `IReadOnlyList<T>`, `IReadOnlyCollection<T>`, `Collection<T>`,
+`ReadOnlyCollection<T>`, `HashSet<T>`, `ISet<T>`, `Queue<T>`, `Stack<T>`, or
+`LinkedList<T>`. Enumeration is buffered and does not retain a database reader.
+Read-only interfaces use a read-only wrapper. Sets apply their normal equality
+and duplicate-removal rules. Stacks enumerate in reverse insertion order.
+
+Register a factory during application startup for other collection types,
+including collections from optional packages:
+
+```csharp
+SqlResultCollections.Register<AlertRow, ImmutableArray<AlertRow>>(
+    rows => rows.ToImmutableArray());
+
+[SqlProcedure("GetAlerts")]
+public sealed class GetAlerts
+    : SqlLinqerMultiCallable<(UserRow[] Users, ImmutableArray<AlertRow> Alerts)>
+{
 }
 ```
 
-The table type must already exist. Supply a `DataTable` with matching column types and order when passing rows.
-Use an empty table for zero rows. A null property omits the parameter.
-An unqualified `TypeName`, such as `IdList`, uses the procedure schema or the connector's default schema. Use a qualified name when the table type belongs to another schema.
+A registration applies to an exact collection type. The factory receives a
+read-only list in database order, including an empty list for an empty table.
+Factories must return a non-null collection. Registering again replaces the
+factory for subsequent calls. Calls already started retain their captured factory.
+Factory exceptions fail the whole call. Factory side effects cannot be rolled back
+by a database transaction.
+
+### Result and failure rules
+
+`SqlMultiCallableResponse<TResults>` inherits `SqlResponse<TResults>` and adds
+nullable `ReturnCode` and `RowsAffected` metadata. A nonzero return code does not
+itself make the response an error. Unknown affected-row counts remain null.
+There is no global `TotalResults` and no automatic total-output binding for
+multi-callables. Return per-table totals explicitly as result data. Procedures
+with required scalar OUT parameters are not supported by this contract.
+
+Empty tabular results occupy their declared positions, including empty first,
+middle, and last tables. Non-tabular status results do not occupy positions.
+Missing or extra tables, incompatible row mappings, and later server errors fail
+the call. Mapping follows the existing scalar and model-row rules, including
+column aliases and immutable row constructors. Identical result schemas cannot
+reveal an accidental change of table order.
+
+The result becomes valid only after all tables have been materialized, the reader
+has closed, and execution has completed successfully. Failure resets the entire
+result to `default(TResults)` and clears metadata. It never exposes a successful
+prefix of the tuple. Owned transactions roll back on failure. Caller-supplied
+transactions remain owned by the caller, who decides whether to roll them back.

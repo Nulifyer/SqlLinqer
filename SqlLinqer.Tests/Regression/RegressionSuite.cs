@@ -261,10 +261,10 @@ internal static class RegressionSuite
 
         foreach (bool fail in new[] { false, true })
         {
-            Test($"TVP uses caller connection and transaction, failure={fail}", () =>
+            Test($"per-execution TVP uses caller connection and transaction, failure={fail}", () =>
             {
                 var database = new FakeDatabase();
-                var connector = new FakeConnector(database, DbFlavor.SqlServer);
+                var connector = new FakeConnector(database, DbFlavor.SqlServer) { Options = { ReuseTvpTypes = false } };
                 using var connection = new FakeConnection(database); connection.Open();
                 using var transaction = (FakeTransaction)connection.BeginTransaction();
                 if (fail) database.FailSql = "INSERT INTO";
@@ -280,10 +280,10 @@ internal static class RegressionSuite
 
         foreach (bool fail in new[] { false, true })
         {
-            Test($"TVP completes its owned transaction, failure={fail}", () =>
+            Test($"per-execution TVP completes its owned transaction, failure={fail}", () =>
             {
                 var database = new FakeDatabase { FailSql = fail ? "INSERT INTO" : null };
-                var connector = new FakeConnector(database, DbFlavor.SqlServer);
+                var connector = new FakeConnector(database, DbFlavor.SqlServer) { Options = { ReuseTvpTypes = false } };
                 var result = new InsertWithPrimaryKeyQuery<Item, int>().InsertAuto(new Item()).ExecuteTvp(connector);
                 Expect(result.State == (fail ? ResponseState.Error : ResponseState.Valid), "Unexpected TVP response");
                 Expect(connector.Created == 3, "TVP metadata connections were not isolated");
@@ -388,6 +388,7 @@ internal static class RegressionSuite
         ValueConversionRegressionTests.Run(Test);
         StreamingRegressionTests.Run(Test);
         TvpRegressionTests.Run(Test);
+        ReusableTvpChecks.Run(Test);
         StoredProcedureRegressionTests.Run(Test);
         JsonRegressionTests.Run(Test);
         ReviewRegressionTests.Run(Test);

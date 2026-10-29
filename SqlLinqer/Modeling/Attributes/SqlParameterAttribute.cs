@@ -36,8 +36,8 @@ namespace SqlLinqer.Modeling
         /// <summary>The numeric or temporal scale.</summary>
         public byte Scale { get => ExplicitScale ?? 0; set => ExplicitScale = value; }
         /// <summary>
-        /// The existing SQL Server table type used for a DataTable input. The call does not create or drop this type.
-        /// Supply a DataTable with matching column types and order; an empty table supplies zero rows. Null omits the input.
+        /// The existing SQL Server table type used for a mapped row, row collection, or DataTable input. The call does not create or drop this type.
+        /// Mapped objects use InsertAuto column selection and order. An empty collection supplies zero rows. Null omits the input.
         /// An unqualified type name uses the procedure schema or the connector default schema.
         /// </summary>
         public string TypeName { get; set; }

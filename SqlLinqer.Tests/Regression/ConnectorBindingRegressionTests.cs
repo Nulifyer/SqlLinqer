@@ -74,11 +74,11 @@ internal static class ConnectorBindingRegressionTests
                     response = execute(transaction, TimeSpan.FromSeconds(71));
                     Check(response.State == ResponseState.Valid, response.Error?.ToString());
                     bool tvp = factory.Key.Contains("tvp");
-                    Check(database.Connections.Count == connections + (tvp ? 2 : 0) && database.Executed.Count > 0
+                    Check(database.Connections.Count == connections + (tvp ? 1 : 0) && database.Executed.Count > 0
                         && database.Executed.Where(x => !tvp || x.CommandText.StartsWith("INSERT INTO"))
                             .All(x => x.UsedTransaction == transaction), "Caller transaction was not forwarded");
                     Check(database.Executed.All(command => command.CommandTimeout == 71), "Caller transaction execution lost the per-call timeout");
-                    if (tvp) TvpRegressionTests.CheckTypeDdl(database);
+                    if (tvp) Check(!database.Executed.Any(c => c.CommandText.Contains("DROP TYPE")), "Default TVP execution dropped the shared type");
                     Check(transaction.Commits == 0 && transaction.Rollbacks == 0 && !transaction.IsDisposed
                         && !connection.IsDisposed, "Execution took ownership of caller resources");
                 }
