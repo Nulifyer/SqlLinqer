@@ -56,8 +56,7 @@ namespace SqlLinqer.Connections
                                 using (var deadline = new CommandDeadline(command, timeout, cancelCommand: Options.CancelCommand, provider: DbFlavor == DbFlavor.DuckDb ? "DuckDB" : DbFlavor.ToString()))
                                     result = deadline.Execute(() => action(command, observation));
                             }
-                            else
-                                result = action(command, observation);
+                            else result = action(command, observation);
                             materialized = result;
                             hasResult = true;
                             ownedTransaction?.Commit();

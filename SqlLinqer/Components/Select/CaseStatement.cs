@@ -27,7 +27,7 @@ namespace SqlLinqer.Components.Select
         }
 
         /// <inheritdoc/>
-        public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool for_json, bool include_alias)
+        public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool include_alias)
         {
             string caseStr = parameters.FindExpressionOverride(this) ?? parameters.FindExpression(this);
             if (caseStr == null)
@@ -48,28 +48,8 @@ namespace SqlLinqer.Components.Select
                 parameters.RememberExpression(this, caseStr);
             }
 
-            if (for_json)
-            {
-                switch (flavor)
-                {
-                    case DbFlavor.Sqlite:
-                    case DbFlavor.DuckDb:
-                    case DbFlavor.PostgreSql:
-                    case DbFlavor.MySql:
-                        return $"{Alias.DbWrapString(flavor)}, {caseStr}";
-                    case DbFlavor.SqlServer:
-                    case DbFlavor.AzureSql:
-                        string alias = include_alias ? $" AS {Alias.DbWrap(flavor)}" : null;
-                        return caseStr + alias;
-                    default:
-                        throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(CaseStatement)}.{nameof(Render)}");
-                }
-            }
-            else
-            {
-                string alias = include_alias ? $" AS {Alias.DbWrap(flavor)}" : null;
-                return caseStr + alias;
-            }
+            string alias = include_alias ? $" AS {Alias.DbWrap(flavor)}" : null;
+            return caseStr + alias;
         }
 
         /// <inheritdoc/>
@@ -79,7 +59,7 @@ namespace SqlLinqer.Components.Select
         public override IEnumerable<string> RenderForGroupBy(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
             if (DoGroupBy())
-                return new[] { Render(query, parameters, flavor, false, false) };
+                return new[] { Render(query, parameters, flavor, false) };
 
             // An aggregate-bearing CASE cannot itself be a grouping expression.
             // Its predicates and non-aggregate branch inputs still need grouping.

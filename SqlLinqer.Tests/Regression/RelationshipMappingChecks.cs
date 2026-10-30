@@ -22,8 +22,9 @@ internal static class RelationshipMappingChecks
                             "Linking table lost its default or explicit schema: " + name);
                         var query = new SelectQuery<Person>(schema).SelectRootColumns().Select(new[] { name });
                         var rendered = query.Render(flavor);
-                        Check(rendered.Text.Contains(relationship.ChildTable.RenderFullName(flavor))
-                            && rendered.Text.Contains(relationship.Joins[0].Child.RenderFullName(flavor)), "Rendered SQL lost its mapped table names");
+                        string sql = rendered.NativePlan?.LocalQueries == true ? string.Join(" ", rendered.NativePlan.Nodes.Select(n => n.LocalQuery.Text)) : rendered.Text;
+                        Check(sql.Contains(relationship.ChildTable.RenderFullName(flavor))
+                            && sql.Contains(relationship.Joins[0].Child.RenderFullName(flavor)), "Rendered SQL lost its mapped table names");
                     }
                 });
         test("many-to-many mappings validate missing linking members before rendering SQL", () =>

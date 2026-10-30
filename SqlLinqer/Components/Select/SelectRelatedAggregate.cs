@@ -52,13 +52,11 @@ namespace SqlLinqer.Components.Select
             yield return relationship.ParentCol.Render(flavor);
         }
         /// <inheritdoc/>
-        public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool for_json, bool include_alias)
+        public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool include_alias)
         {
             query.AddTableAsRoot();
             query.Joins.AddTable(relationship.ParentTable);
-            string value = "COALESCE((" + child.Render(parameters, flavor, false) + "), 0)";
-            if (for_json && flavor != DbFlavor.SqlServer && flavor != DbFlavor.AzureSql)
-                return alias.DbWrapString(flavor) + ", " + value;
+            string value = "COALESCE((" + child.RenderRows(parameters, flavor) + "), 0)";
             return value + (include_alias ? " AS " + alias.DbWrap(flavor) : "");
         }
     }

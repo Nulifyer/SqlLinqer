@@ -2,7 +2,7 @@ using System;
 using System.Data.Common;
 using System.Globalization;
 using System.Reflection;
-using System.Text.Json;
+using System.IO;
 using SqlLinqer.Exceptions;
 
 namespace SqlLinqer.Diagnostics
@@ -22,7 +22,7 @@ namespace SqlLinqer.Diagnostics
                 ErrorType = error.GetType().FullName,
                 WrapperType = wrapper,
                 Kind = error is TimeoutException ? "Timeout" : error is OperationCanceledException ? "Cancelled"
-                    : error is DbException ? "Database" : error is JsonException ? "Mapping" : "Execution"
+                    : error is DbException ? "Database" : (error is FormatException || error is InvalidCastException || error is OverflowException || error is InvalidDataException) ? "Mapping" : "Execution"
             };
             if (error is DbException database)
             {

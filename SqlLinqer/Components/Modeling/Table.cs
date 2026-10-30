@@ -18,7 +18,7 @@ namespace SqlLinqer.Components.Modeling
     public class Table
     {
         /// <summary>
-        /// A unique ID of this instance
+        /// An opaque query identity, shared by equivalent relationship paths within this model graph.
         /// </summary>
         public string UUID { get; private set; }
         /// <summary>
@@ -66,6 +66,10 @@ namespace SqlLinqer.Components.Modeling
             => _relationships ?? (_relationships = ProcessRelationships());
 
         private string _alias;
+        // Populated only on a detached native compilation graph. Identity and
+        // physical FROM aliases remain unchanged while descendants bind values
+        // from an already selected parent occurrence.
+        internal Dictionary<string, string> NativeBindings;
         /// <summary>
         /// The alias of the table
         /// </summary>
@@ -74,6 +78,9 @@ namespace SqlLinqer.Components.Modeling
             get => _alias ?? UUID;
             set => _alias = value;
         }
+
+        private ModelIdentityScope identities;
+        internal ModelIdentityScope Identities => identities;
 
         private Table()
         {
@@ -109,8 +116,6 @@ namespace SqlLinqer.Components.Modeling
             Schema = parsedType.TableInfo?.Schema ?? default_schema;
             Name = parsedType.TableInfo?.Name ?? type.Name;
 
-            GenerateUUID();
-
             _unprocessed = parsedType.RelationshipMembers;
 
             // process columns
@@ -126,9 +131,15 @@ namespace SqlLinqer.Components.Modeling
         private void GenerateUUID()
         {
             if (ParentRelationship == null || SourceType == null)
-                UUID = StringExtensions.GetRandomHashString();
+            {
+                identities = new ModelIdentityScope();
+                UUID = ModelIdentityScope.Next("$t");
+            }
             else
-                UUID = $"{ParentRelationship.ParentTable.UUID}.{ParentRelationship.DataTarget.Alias}.{SourceType.FullName}.{Name}".GetHashString();
+            {
+                identities = ParentRelationship.ParentTable.Identities;
+                UUID = identities.Relationship(ParentRelationship.ParentTable.UUID, ParentRelationship.DataTarget.Alias, SourceType, Name);
+            }
         }
 
         /// <summary>

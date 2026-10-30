@@ -47,7 +47,7 @@ namespace SqlLinqer.Components.Withs
         /// <summary>Renders this component for the selected database dialect.</summary>
         public string Render(JoinQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
-            return $"{Alias.DbWrap(flavor)} AS ({Query.Render(parameters, flavor, false)})";
+            return $"{Alias.DbWrap(flavor)} AS ({Query.RenderRows(parameters, flavor)})";
         }
     }
 }

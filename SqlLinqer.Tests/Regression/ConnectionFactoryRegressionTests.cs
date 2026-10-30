@@ -99,11 +99,11 @@ internal static class ConnectionFactoryRegressionTests
         if (mode == "stream")
         {
             var rows = new List<FactoryRow>();
-            await foreach (var row in connector.ExecuteReaderJsonAsyncStream<FactoryRow>(query, transaction)) rows.Add(row);
+            await foreach (var row in connector.ExecuteReaderModelAsyncStream<FactoryRow>(query, transaction)) rows.Add(row);
             return rows;
         }
-        var response = mode == "sync" ? connector.ExecuteReaderJson<FactoryRow>(query, transaction)
-            : await connector.ExecuteReaderJsonAsync<FactoryRow>(query, transaction);
+        var response = mode == "sync" ? connector.ExecuteReaderModel<FactoryRow>(query, transaction)
+            : await connector.ExecuteReaderModelAsync<FactoryRow>(query, transaction);
         if (response.State != ResponseState.Valid) throw response.Error;
         return response.Result;
     }

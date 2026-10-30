@@ -12,20 +12,8 @@ namespace SqlLinqer.Connections
 {
     public abstract partial class BaseConnector
     {
-        /// <summary>
-        /// Streams complete typed root objects from database JSON without retaining previous rows.
-        /// Execution starts on enumeration. Each enumeration executes the command again.
-        /// Dispose enumeration to release the reader, command, and owned connection, including after early exit.
-        /// SQL Server JSON fragments are parsed incrementally; other dialects materialize one JSON value at a time.
-        /// </summary>
-        /// <typeparam name="T">The mapped root row type.</typeparam>
-        /// <param name="query">SQL and bindings. Keep them unchanged until all enumerations finish.</param>
-        /// <param name="transaction">An optional caller-owned transaction. Do not use its connection concurrently with enumeration.</param>
-        /// <param name="cancellationToken">Cancels execution and result reading.</param>
-        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
-        /// <returns>A deferred sequence. Execution and mapping failures throw SqlResponseException during enumeration; requested cancellation throws.</returns>
-        public IAsyncEnumerable<T> ExecuteReaderJsonAsyncStream<T>(RenderedQuery query, DbTransaction transaction = null,
-            CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null) where T : class
+        private IAsyncEnumerable<T> StartResultStream<T>(RenderedQuery query, DbTransaction transaction,
+            CancellationToken cancellationToken, TimeSpan? commandTimeout) where T : class
         {
             if (query == null) throw new ArgumentNullException(nameof(query));
             cancellationToken.ThrowIfCancellationRequested();
@@ -145,44 +133,61 @@ namespace SqlLinqer.Connections
                         streaming.SetValue(command, true);
                     }
                     command.Transaction = transaction;
-                    // Also registers Cancel for text reads whose netstandard2.0
-                    // TextReader contracts cannot receive a cancellation token.
-                    using (var deadline = new CommandDeadline(command,
-                        DbFlavor == DbFlavor.DuckDb || Options.CancelCommand != null ? timeout : TimeSpan.Zero,
-                        cancellationToken, Options.CancelCommand, DbFlavor == DbFlavor.DuckDb ? "DuckDB" : DbFlavor.ToString()))
+                    var sequence = ReadNativeCommandStream<T>(command, query, timeout, observation, cancellationToken);
+                    await foreach (var row in sequence.ConfigureAwait(false)) yield return row;
+                }
+            }
+            finally { if (ownsConnection) connection.Dispose(); }
+        }
+
+        private async IAsyncEnumerable<T> ReadNativeCommandStream<T>(DbCommand command, RenderedQuery query,
+            TimeSpan timeout, ExecutionObservation observation, [EnumeratorCancellation] CancellationToken cancellationToken) where T : class
+        {
+            // Also registers Cancel for text reads whose netstandard2.0
+            // TextReader contracts cannot receive a cancellation token.
+            using (var deadline = new CommandDeadline(command,
+                DbFlavor == DbFlavor.DuckDb || Options.CancelCommand != null ? timeout : TimeSpan.Zero,
+                cancellationToken, Options.CancelCommand, DbFlavor == DbFlavor.DuckDb ? "DuckDB" : DbFlavor.ToString()))
+            {
+                DbDataReader reader;
+                try
+                {
+                    deadline.ThrowIfInterrupted();
+                    reader = await ReadCommandAsync(command, observation, cancellationToken, CommandBehavior.SequentialAccess).ConfigureAwait(false);
+                }
+                catch (Exception error) { deadline.ThrowIfInterrupted(error); throw; }
+                using (reader)
+                {
+                    using (var localMapper = query.NativePlan?.LocalQueries == true ? CreateLocalNativeMapper<T>(query, command, observation) : null)
                     {
-                        DbDataReader reader;
+                        var nativeMapper = localMapper == null ? new SqlLinqer.Components.Native.NativeResultMapper<T>(query.NativePlan, DbFlavor) : null;
+                        var sequence = localMapper != null ? localMapper.ReadAsyncStream(reader, cancellationToken) : nativeMapper.ReadAsyncStream(reader, cancellationToken);
+                        var rows = sequence.GetAsyncEnumerator(cancellationToken);
+                        bool completed = false;
                         try
                         {
-                            deadline.ThrowIfInterrupted();
-                            reader = await ReadCommandAsync(command, observation, cancellationToken, CommandBehavior.SequentialAccess).ConfigureAwait(false);
-                        }
-                        catch (Exception error) { deadline.ThrowIfInterrupted(error); throw; }
-                        using (reader)
-                        {
-                            var rows = CreateJsonMapper<T>().ReadAsyncStream(reader, cancellationToken).GetAsyncEnumerator(cancellationToken);
-                            try
+                            while (true)
                             {
-                                while (true)
+                                bool next;
+                                try
                                 {
-                                    bool next;
-                                    try
-                                    {
-                                        deadline.ThrowIfInterrupted();
-                                        next = await rows.MoveNextAsync().ConfigureAwait(false);
-                                        deadline.ThrowIfInterrupted();
-                                    }
-                                    catch (Exception error) { deadline.ThrowIfInterrupted(error); throw; }
-                                    if (!next) break;
-                                    yield return rows.Current;
+                                    deadline.ThrowIfInterrupted();
+                                    next = await rows.MoveNextAsync().ConfigureAwait(false);
+                                    deadline.ThrowIfInterrupted();
                                 }
+                                catch (Exception error) { deadline.ThrowIfInterrupted(error); throw; }
+                                if (!next) { completed = true; break; }
+                                yield return rows.Current;
                             }
-                            finally { await rows.DisposeAsync().ConfigureAwait(false); }
+                        }
+                        finally
+                        {
+                            if (!completed) deadline.StopEarly();
+                            await rows.DisposeAsync().ConfigureAwait(false);
                         }
                     }
                 }
             }
-            finally { if (ownsConnection) connection.Dispose(); }
         }
     }
 }

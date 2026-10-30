@@ -58,7 +58,6 @@ internal static class SqlServerSuite
                 Require(copy.State == ConnectionState.Closed && connector.DbFlavor == DbFlavor.AzureSql, "Connection type, state or flavor changed");
                 Require(actual.ConnectTimeout == 91, "Factory login timeout changed");
                 Require(actual.EquivalentTo(original), "Factory connection settings changed");
-                Require(!connector.JsonResultsRowByRow(), "Azure must assemble SQL Server JSON chunks");
             });
         foreach (string timeout in new[] { "Connect Timeout", "Connection Timeout" })
             Local("SqlClient accepts timeout alias " + timeout, () =>

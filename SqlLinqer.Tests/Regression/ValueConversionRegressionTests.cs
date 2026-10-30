@@ -110,17 +110,11 @@ internal static class ValueConversionRegressionTests
     private static void Register<T>(Action<string, Action> test, IEnumerable<Case> json, IEnumerable<Case> native, bool sqliteHex = false)
     {
         bool nullable = !typeof(T).IsValueType || Nullable.GetUnderlyingType(typeof(T)) != null;
-        Case[] jsonCases = json.Append(new("null", null, null, nullable)).ToArray();
-        foreach (DbFlavor flavor in Enum.GetValues<DbFlavor>())
-        {
-            Case[] cases = sqliteHex && flavor == DbFlavor.Sqlite ? jsonCases.Select(c =>
-                c.Expected is byte[] bytes ? c with { Source = Convert.ToHexString(bytes) } : c).ToArray() : jsonCases;
-            foreach (string mode in new[] { "Execute", "ExecuteAsync", "ExecuteAsyncStream" })
-                test($"conversion JSON {TypeName<T>()}, {flavor}, {mode}: {cases.Length} cases", () =>
-                    UnderCulture(() => { foreach (var c in cases) CheckJson<T>(c, flavor, mode); }));
-        }
-        if (native == null) return;
         Case[] nativeCases = native.Append(new("SQL NULL", DBNull.Value, null, nullable)).ToArray();
+        foreach (DbFlavor flavor in Enum.GetValues<DbFlavor>())
+            foreach (string mode in new[] { "Execute", "ExecuteAsync", "ExecuteAsyncStream" })
+                test($"conversion model {TypeName<T>()}, {flavor}, {mode}: {nativeCases.Length} cases", () =>
+                    UnderCulture(() => { foreach (var c in nativeCases) CheckJson<T>(c, flavor, mode); }));
         foreach (bool asynchronous in new[] { false, true })
             foreach (bool scalar in new[] { false, true })
                 test($"conversion {(scalar ? "scalar" : "tabular")} {TypeName<T>()}, async={asynchronous}: {nativeCases.Length} cases", () =>
@@ -129,8 +123,7 @@ internal static class ValueConversionRegressionTests
 
     private static void CheckJson<T>(Case c, DbFlavor flavor, string mode)
     {
-        string row = "{\"Value\":" + (c.Token ?? JsonSerializer.Serialize(c.Source)) + "}";
-        var db = new FakeDatabase { JsonRows = flavor is DbFlavor.SqlServer or DbFlavor.AzureSql ? ["[", row, "]"] : [row] };
+        var db = new FakeDatabase { ReaderFactory = _ => Table(c.Source).CreateDataReader() };
         var connector = new FakeConnector(db, flavor);
         var query = new SelectQuery<ValueRow<T>>().SelectRootColumns();
         object value = null;
@@ -437,10 +430,10 @@ internal static class ValueConversionRegressionTests
                         async Task Read()
                         { await foreach (var row in query.ExecuteAsyncStream(connector)) { if (row.Value != 1) throw new Exception("Wrong first value"); delivered++; } }
                         try { Read().GetAwaiter().GetResult(); throw new Exception("Expected streaming conversion failure"); }
-                        catch (SqlResponseException e) when (e.InnerException is JsonException) { }
+                        catch (SqlResponseException e) when (e.InnerException is OverflowException or InvalidCastException) { }
                         // The document parser can discover an error in its current
                         // buffer before yielding that buffer's valid prefix.
-                        if (flavor is not (DbFlavor.SqlServer or DbFlavor.AzureSql) && delivered != 1)
+                        if (delivered != 1)
                             throw new Exception("Row-form stream did not deliver the valid prefix");
                     }
                     else

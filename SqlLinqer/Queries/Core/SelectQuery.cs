@@ -283,17 +283,26 @@ namespace SqlLinqer.Queries.Core
         /// <inheritdoc/>
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
         {
-            return Render(parameters, flavor, true);
+            return NativeSelectCompiler.Compile(this, flavor, parameters).Text;
         }
+
+        /// <summary>
+        /// Compiles a detached typed SELECT definition into SQL, bindings, and its native result layout.
+        /// Overrides must preserve the returned result layout when changing SQL. This hook runs on fresh working state.
+        /// </summary>
+        /// <param name="flavor">The target database dialect.</param>
+        /// <param name="count">Whether to compile the unpaged root count rather than the data command.</param>
+        /// <returns>The complete execution description, including any native result plan.</returns>
+        protected internal virtual RenderedQuery CompileSelect(DbFlavor flavor, bool count)
+            => NativeSelectCompiler.CompileWorking(this, flavor, count: count);
         /// <summary>
         /// Renders the query into a string.
         /// </summary>
         /// <param name="parameters">The parameter collection to use</param>
         /// <param name="flavor">The type of Sql database being used</param>
-        /// <param name="forJson">Include the FOR JSON statement at the end</param>
-        public string Render(ParameterCollection parameters, DbFlavor flavor, bool forJson)
+        public string RenderRows(ParameterCollection parameters, DbFlavor flavor)
         {
-            return QuerySnapshot.RenderSelect(this, parameters, flavor, forJson, false);
+            return QuerySnapshot.RenderSelect(this, parameters, flavor, false);
         }
 
         /// <summary>
@@ -301,10 +310,11 @@ namespace SqlLinqer.Queries.Core
         /// </summary>
         /// <param name="parameters">The bindings to extend for the count command. Do not share a mutable collection between concurrent renders.</param>
         /// <param name="flavor">The count command's SQL dialect.</param>
-        /// <returns>The count SQL referencing this parameter collection.</returns>
+        /// <returns>The server count SQL referencing this parameter collection.</returns>
         public string RenderForCount(ParameterCollection parameters, DbFlavor flavor)
         {
-            return QuerySnapshot.RenderSelect(this, parameters, flavor, true, true);
+            var compiled = NativeSelectCompiler.Compile(this, flavor, parameters, true);
+            return compiled.Text;
         }
     }
 }

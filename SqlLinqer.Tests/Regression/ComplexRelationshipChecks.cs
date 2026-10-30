@@ -15,18 +15,15 @@ internal static class ComplexRelationshipChecks
     {
         foreach (var flavor in Enum.GetValues<DbFlavor>())
         {
-            test($"CASE rendering retains JSON member names inside relationship subqueries, {flavor}", () =>
+            test($"CASE rendering retains member aliases inside relationship subqueries, {flavor}", () =>
             {
                 var query = new SelectQuery<Root>();
                 var relationship = new SelectRelationship(query, Table.GetCached<Root>().Relationships.TryGet(nameof(Root.Owner)));
                 var conditional = new CaseStatement<Person>(relationship.Relationship.ChildTable, "Label")
                     .AddCaseColumn(x => x.Name, w => w.Where(x => x.Id, 1, SqlOp.EQ)).AddElseValue("other");
                 var parameters = new ParameterCollection(flavor);
-                string json = conditional.Render(relationship.SubQuery, parameters, flavor, true, true);
-                if (flavor is DbFlavor.SqlServer or DbFlavor.AzureSql)
-                    Check(json.Contains(" AS [Label]"), "Nested CASE lost its output alias");
-                else
-                    Check(json.StartsWith("'Label', "), "Nested CASE used a SQL alias inside a JSON object field list");
+                string json = conditional.Render(relationship.SubQuery, parameters, flavor, true);
+                Check(json.Contains(" AS " + "Label".DbWrap(flavor)), "Nested CASE lost its native output alias");
             });
             test($"aggregate concat rendering retains scalar arguments and grouping bindings, {flavor}", () =>
             {
@@ -35,8 +32,8 @@ internal static class ComplexRelationshipChecks
                 var upper = new SelectFuncStatement(SqlFunc.UPPER, "Label", table.Columns.TryGet(nameof(Root.Name)));
                 var concat = new SelectFuncStatement(SqlFunc.CONCAT, "Label", upper, "!");
                 var parameters = new ParameterCollection(flavor);
-                string scalar = concat.Render(query, parameters, flavor, false, false);
-                string json = concat.Render(query, parameters, flavor, true, true);
+                string scalar = concat.Render(query, parameters, flavor, false);
+                string json = concat.Render(query, parameters, flavor, true);
                 string grouping = concat.RenderForGroupBy(query, parameters, flavor).Single();
                 Check(json.Contains(scalar), "JSON wrapper changed the nested scalar function");
                 Check(grouping == scalar && parameters.Count == 1, "Repeated scalar/group expression changed parameter identity");

@@ -26,7 +26,7 @@ namespace SqlLinqer.Components.Where
         /// <summary>Creates a predicate group with the supplied logical operator.</summary>
         public WhereCollection(SqlWhereOp where_op) : base()
         {
-            UUID = SqlLinqer.Extensions.StringExtensions.StringExtensions.GetRandomHashString();
+            UUID = ModelIdentityScope.Next("$w");
             WhereOp = where_op;
         }
 

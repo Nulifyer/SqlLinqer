@@ -48,12 +48,25 @@ internal static class ConnectorBindingRegressionTests
         foreach (var factory in factories)
         {
             var flavor = factory.Key.Contains("tvp") ? DbFlavor.SqlServer : DbFlavor.PostgreSql;
+            FakeDatabase Fixture()
+            {
+                var database = new FakeDatabase();
+                if (factory.Key.StartsWith("select") && factory.Key.EndsWith("auto"))
+                    database.ReaderFactory = _ =>
+                    {
+                        var plan = Item.BeginSelectAuto().Capture().Render(flavor).NativePlan;
+                        var table = new System.Data.DataTable();
+                        for (int i = 0; i < plan.FieldCount; i++) table.Columns.Add("c" + i, typeof(object));
+                        return table.CreateDataReader();
+                    };
+                return database;
+            }
             test($"{factory.Key} retains its connector and forwards caller transactions", () =>
             {
                 var previous = Default.Connector;
                 try
                 {
-                    var database = new FakeDatabase();
+                    var database = Fixture();
                     var connector = new FakeConnector(database, flavor);
                     var otherDatabase = new FakeDatabase { FailAt = "open" };
                     Default.Connector = new FakeConnector(otherDatabase, flavor);
@@ -90,10 +103,10 @@ internal static class ConnectorBindingRegressionTests
                 var previous = Default.Connector;
                 try
                 {
-                    var original = new FakeDatabase();
+                    var original = Fixture();
                     Default.Connector = new FakeConnector(original, flavor);
                     var execute = factory.Value(null);
-                    var current = new FakeDatabase();
+                    var current = Fixture();
                     Default.Connector = new FakeConnector(current, flavor);
                     var response = execute(null, null);
                     Check(response.State == ResponseState.Valid, response.Error?.ToString());

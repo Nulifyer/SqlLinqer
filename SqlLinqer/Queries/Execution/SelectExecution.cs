@@ -15,7 +15,7 @@ namespace SqlLinqer.Queries.Execution
         internal static SqlResponse<List<T>> Execute<T>(Core.SelectQuery query, BaseConnector connector, DbTransaction transaction, TimeSpan? commandTimeout = null) where T : class
         {
             if (connector == null) throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
-            return connector.ExecuteReaderJson<T>(query.Render(connector), transaction, commandTimeout: commandTimeout);
+            return connector.ExecuteReaderModel<T>(query.Capture().RenderForExecution<T>(connector), transaction, commandTimeout);
         }
 
         internal static async Task<SqlResponse<List<T>>> ExecuteAsync<T>(Core.SelectQuery query, BaseConnector connector,
@@ -23,7 +23,7 @@ namespace SqlLinqer.Queries.Execution
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (connector == null) throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
-            return await connector.ExecuteReaderJsonAsync<T>(query.Render(connector), transaction, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
+            return await connector.ExecuteReaderModelAsync<T>(query.Capture().RenderForExecution<T>(connector), transaction, cancellationToken, commandTimeout).ConfigureAwait(false);
         }
 
         internal static SqlSelectResponse<T> ExecuteWithTotalCount<T>(Core.SelectQuery query, BaseConnector connector,
@@ -34,7 +34,7 @@ namespace SqlLinqer.Queries.Execution
             var snapshot = query.Capture();
             bool needsCount = NeedsCount(query);
             var response = new SqlSelectResponse<T>();
-            var data = connector.ExecuteReaderJson<T>(snapshot.Render(connector), transaction, commandTimeout: commandTimeout);
+            var data = connector.ExecuteReaderModel<T>(snapshot.RenderForExecution<T>(connector), transaction, commandTimeout);
             if (data.State == ResponseState.Error) response.SetError(data.Error);
             else if (needsCount)
             {
@@ -55,7 +55,7 @@ namespace SqlLinqer.Queries.Execution
             var snapshot = query.Capture();
             bool needsCount = NeedsCount(query);
             var response = new SqlSelectResponse<T>();
-            var data = await connector.ExecuteReaderJsonAsync<T>(snapshot.Render(connector), transaction, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
+            var data = await connector.ExecuteReaderModelAsync<T>(snapshot.RenderForExecution<T>(connector), transaction, cancellationToken, commandTimeout).ConfigureAwait(false);
             if (data.State == ResponseState.Error) response.SetError(data.Error);
             else if (needsCount)
             {
@@ -83,7 +83,7 @@ namespace SqlLinqer.Queries.Execution
             DbTransaction transaction, [EnumeratorCancellation] CancellationToken cancellationToken, TimeSpan? commandTimeout = null) where T : class
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await foreach (var row in connector.ExecuteReaderJsonAsyncStream<T>(snapshot.Render(connector), transaction, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false))
+            await foreach (var row in connector.ExecuteReaderModelAsyncStream<T>(snapshot.RenderForExecution<T>(connector), transaction, cancellationToken, commandTimeout).ConfigureAwait(false))
                 yield return row;
         }
     }

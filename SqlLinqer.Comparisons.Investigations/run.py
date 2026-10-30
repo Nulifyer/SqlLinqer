@@ -14,7 +14,7 @@ import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PROJECT = pathlib.Path(__file__).resolve().parent
-MODES = ["native", "tabular", "json", "json-standard", "stored-json", "stored-standard"]
+MODES = ["native", "tabular", "model", "json-standard", "stored-standard"]
 
 
 def main():

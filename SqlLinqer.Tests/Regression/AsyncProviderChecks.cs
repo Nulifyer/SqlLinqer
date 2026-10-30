@@ -50,7 +50,7 @@ internal static class AsyncProviderChecks
                 .Output(x => x.Name).ExecuteWithOutputAsync(connector)))
                 Check(output.Rows.Count == 1 && (string)output.Rows[0][0] == "changed", "Async output differs");
             var tabular = new SelectQuery<Row>().SelectRootColumns().Where(x => x.Id, id, SqlOp.EQ);
-            var rendered = new RenderedQuery(); rendered.Text = tabular.Render(rendered.Parameters, flavor, false);
+            var rendered = new RenderedQuery(); rendered.Text = tabular.RenderRows(rendered.Parameters, flavor);
             using (var table = Result(await connector.ExecuteReaderDataTableAsync(rendered)))
                 Check(((byte[])table.Rows[0][nameof(Row.Payload)]).SequenceEqual(new byte[] { 0, 128, 255 }), "Async tabular binary values differ");
             var tabularSync = Result(connector.ExecuteReaderList<Row>(rendered)).Single();
@@ -76,7 +76,7 @@ internal static class AsyncProviderChecks
             var snapshot = nested.Capture();
             var children = Result(await nested.ExecuteAsync(connector));
             Check(children[0].Children.Single().Name == "child" && children[1].Children.Count == 0, "Nested collection contract differs");
-            Check(Result(connector.ExecuteReaderJson<Parent>(snapshot.Render(flavor)))[1].Children.Count == 0, "Captured and async result shapes differ");
+            Check(Result(connector.ExecuteReaderModel<Parent>(snapshot.Render(flavor)))[1].Children.Count == 0, "Captured and async result shapes differ");
             var deleted = await new DeleteWithPrimaryKeyQuery<Row, int>().Where(x => x.Id, id, SqlOp.EQ).ExecuteAsync(connector);
             Check(Result(deleted) == 1 && deleted.TouchedPrimaryKeys.Single() == id, "Async deleted keys differ");
             Check(!Result(await new SelectPrimaryKeyExistsQuery<Row, int>(id).ExecuteAsync(connector)), "Deleted row still exists");

@@ -62,7 +62,7 @@ internal static class QueryChecks
             Expect(first.Text == query.Render(connector).Text && first.Parameters.GetAll().Single().Placehodler == "$P1", "Wrong DuckDB parameter syntax");
             Expect(query.Render(DbFlavor.SqlServer).Parameters.GetAll().Single().Placehodler == "@P1", "Other dialect changed");
             Expect(first.Text == query.Render(DbFlavor.DuckDb).Text, "Repeated render changed SQL");
-            Expect(Result(connector.ExecuteReaderJson<Person>(first)).Single().Name == "two", "Direct flavor execution failed");
+            Expect(Result(connector.ExecuteReaderModel<Person>(first)).Single().Name == "two", "Direct flavor execution failed");
             var parameters = new ParameterCollection();
             string sql = query.Render(parameters, DbFlavor.DuckDb);
             Expect(sql.Contains("$P1") && parameters.GetAll().Single().Value.Equals("two"), "Existing collection syntax wrong");
@@ -74,7 +74,7 @@ internal static class QueryChecks
             var query = new SelectQuery<Person>().SelectRootColumns().Where(x => x.Id, 101, SqlOp.EQ);
             string sql = query.Render(parameters, DbFlavor.DuckDb);
             var rendered = new RenderedQuery($"{sql} AND {first} = 100") { Parameters = parameters };
-            Expect(Result(connector.ExecuteReaderJson<Person>(rendered)).Single().Id == 101 && parameters.GetAll().Count() == 2, "Parameters lost/collided");
+            Expect(Result(connector.ExecuteReaderModel<Person>(rendered)).Single().Id == 101 && parameters.GetAll().Count() == 2, "Parameters lost/collided");
         });
         Test("common string/date functions and aggregate aliases", () =>
         {
@@ -91,7 +91,7 @@ internal static class QueryChecks
             var query = new ConfigurableSelect<Person>();
             query.Add(new SelectFuncStatement(SqlFunc.RIGHT, "Tail", table.Columns.TryGet("Name"), 2));
             query.Add(new SelectFuncStatement(SqlFunc.COUNT_BIG, "Total", table.Columns.TryGet("Id")));
-            var groups = Result(connector.ExecuteReaderJson<GroupSummary>(query.Render(DbFlavor.DuckDb)));
+            var groups = Result(connector.ExecuteReaderModel<GroupSummary>(query.Render(DbFlavor.DuckDb)));
             Expect(groups.Sum(x => x.Total) == 4, "Grouped parameterized function failed");
             var nested = new ConfigurableSelect<Person>();
             nested.Add(new SelectFuncStatement(SqlFunc.UPPER, "Name", new SelectFuncStatement(SqlFunc.LOWER, "inner", table.Columns.TryGet("Name"))));
@@ -112,7 +112,7 @@ internal static class QueryChecks
             {
                 var query = new ConfigurableSelect<Person>();
                 query.Add(new SelectFuncStatement(function, "Value", column));
-                var value = Result(connector.ExecuteReaderJson<NumericSummary>(query.Render(DbFlavor.DuckDb))).Single().Value;
+                var value = Result(connector.ExecuteReaderModel<NumericSummary>(query.Render(DbFlavor.DuckDb))).Single().Value;
                 Expect(value > 0, "Aggregate failed: " + function);
             }
         });
@@ -207,13 +207,13 @@ internal static class QueryChecks
             var nested = new ConfigurableSelect<Person>();
             nested.Add(new SelectFuncStatement(SqlFunc.UPPER, "Tail", text));
             nested.Add(new SelectFuncStatement(SqlFunc.COUNT, "Total", table.Columns.TryGet("Id")));
-            var rows = Result(connector.ExecuteReaderJson<GroupSummary>(nested.Render(DbFlavor.DuckDb)));
+            var rows = Result(connector.ExecuteReaderModel<GroupSummary>(nested.Render(DbFlavor.DuckDb)));
             Expect(rows.Count == 2 && rows.All(x => x.Total == 2) && rows.Select(x => x.Tail).Order().SequenceEqual(new[] { "LARGE", "SMALL" }), "Function wrapping CASE failed");
             var conditional = new CaseStatement<Person>(table, "Tail");
             conditional.AddCaseValue(new SelectFuncStatement(SqlFunc.UPPER, "inner", table.Columns.TryGet("Name")), w => w.Where(p => p.Id, 101, SqlOp.EQ)).AddElseValue("other");
             var outer = new ConfigurableSelect<Person>(); outer.Add(conditional);
             outer.Add(new SelectFuncStatement(SqlFunc.COUNT, "Total", table.Columns.TryGet("Id")));
-            var nestedRows = Result(connector.ExecuteReaderJson<GroupSummary>(outer.Render(DbFlavor.DuckDb)));
+            var nestedRows = Result(connector.ExecuteReaderModel<GroupSummary>(outer.Render(DbFlavor.DuckDb)));
             Expect(nestedRows.Count == 2 && nestedRows.Single(x => x.Tail == "CHANGED").Total == 1 && nestedRows.Single(x => x.Tail == "other").Total == 3, "CASE wrapping function failed");
         });
         Test("LEFT projection dispatch and nested functions retain aliases", () =>

@@ -12,9 +12,9 @@ import tempfile
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--rows", nargs="+", type=int, default=[100_000, 1_000_000])
-parser.add_argument("--providers", nargs="+", choices=["sqlite", "duckdb", "duckdb-scan", "sqlite-document"], default=["sqlite", "duckdb", "sqlite-document"])
+parser.add_argument("--providers", nargs="+", choices=["sqlite", "duckdb", "duckdb-scan"], default=["sqlite", "duckdb"])
 parser.add_argument("--modes", nargs="+", choices=["buffered", "stream", "batch", "collect", "first"], default=["buffered", "stream", "batch", "collect", "first"])
-parser.add_argument("--iterations", type=int, default=3)
+parser.add_argument("--iterations", type=int, default=7)
 parser.add_argument("--width", type=int, default=256)
 parser.add_argument("--batch-size", type=int, default=1000)
 parser.add_argument("--output", type=pathlib.Path, required=True)

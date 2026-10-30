@@ -8,6 +8,7 @@ namespace SqlLinqer.Components.Ordering
     internal sealed class ProjectionOrderBy : IOrderByStatement
     {
         private readonly string _alias;
+        internal string Alias => _alias;
         internal ProjectionOrderBy(string alias) { _alias = alias; }
 
         public string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)

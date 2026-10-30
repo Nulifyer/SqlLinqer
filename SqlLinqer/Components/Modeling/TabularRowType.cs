@@ -17,7 +17,7 @@ namespace SqlLinqer.Components.Modeling
         internal readonly Type Type;
         private readonly bool _scalar;
         private readonly UnprocessedColumnMember[] _members;
-        private readonly ConstructorInfo _constructor;
+        private readonly Action<object, object>[] _setters;
         private readonly int[] _constructorMembers;
         private readonly bool[] _fromConstructor;
         private readonly Type[] _memberTypes;
@@ -38,24 +38,12 @@ namespace SqlLinqer.Components.Modeling
             var names = _members.Select(x => x.ColumnInfo?.Name ?? x.Member.Name).ToArray();
             if (names.Distinct(StringComparer.OrdinalIgnoreCase).Count() != names.Length)
                 throw new InvalidOperationException($"Result row type '{type}' maps multiple members to the same column.");
-            _constructor = type.GetConstructor(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
-                null, Type.EmptyTypes, null);
-            if (_constructor == null && !type.IsValueType)
-            {
-                var constructors = type.GetConstructors().Where(c => c.GetParameters().All(p =>
-                    _members.Any(m => string.Equals(m.Member.Name, p.Name, StringComparison.OrdinalIgnoreCase)
-                        && m.Member.GetFieldOrPropValueType() == p.ParameterType))).ToArray();
-                if (constructors.Length != 1)
-                    throw new InvalidOperationException($"Result row type '{type}' needs a parameterless constructor or one public constructor matching its mapped members.");
-                _constructor = constructors[0];
-            }
-            _constructorMembers = (_constructor?.GetParameters() ?? Array.Empty<ParameterInfo>()).Select(p =>
-                Array.FindIndex(_members, m => string.Equals(m.Member.Name, p.Name, StringComparison.OrdinalIgnoreCase))).ToArray();
-            var arguments = Expression.Parameter(typeof(object[]), "values");
-            Expression create = _constructor == null ? (Expression)Expression.Default(type)
-                : Expression.New(_constructor, _constructorMembers.Select(i =>
-                    Expression.Convert(Expression.ArrayIndex(arguments, Expression.Constant(i)), _memberTypes[i])));
-            _create = Expression.Lambda<Func<object[], object>>(Expression.Convert(create, typeof(object)), arguments).Compile();
+            SqlModelType model;
+            try { model = SqlModelType.Get(type, relationships: false); }
+            catch (NotSupportedException error) { throw new InvalidOperationException(error.Message, error); }
+            _constructorMembers = model.ParameterMembers.Select(p => Array.FindIndex(_members, m => Equals(m.Member, p))).ToArray();
+            _create = model.CreateForMembers(_members.Select(m => m.Member).ToArray());
+            _setters = _members.Select(m => model.Setters.TryGetValue(m.Member, out var setter) ? setter : null).ToArray();
             _fromConstructor = new bool[_members.Length];
             foreach (int member in _constructorMembers) _fromConstructor[member] = true;
             for (int i = 0; i < _members.Length; i++)
@@ -108,7 +96,7 @@ namespace SqlLinqer.Components.Modeling
             }
             var instance = _create(values);
             for (int i = 0; i < values.Length; i++)
-                if (!_fromConstructor[i]) _members[i].Member.SetFieldOrPropValue(instance, values[i]);
+                if (!_fromConstructor[i]) _setters[i](instance, values[i]);
             return instance;
         }
     }

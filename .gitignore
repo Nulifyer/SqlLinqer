@@ -63,6 +63,10 @@ dlldata.c
 # Benchmark Results
 BenchmarkDotNet.Artifacts/
 
+# Generated test and benchmark reports
+[Rr]esults/
+*.trx
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json
@@ -402,3 +406,10 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Local diagnostic recordings
+*.nettrace
+*.nettrace.etlx
+*.speedscope.json
+*.perf.data
+*.perf.script.txt

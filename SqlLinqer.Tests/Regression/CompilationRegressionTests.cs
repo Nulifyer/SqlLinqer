@@ -14,6 +14,35 @@ internal static class CompilationRegressionTests
 {
     internal static void Run(Action<string, Action> test)
     {
+        foreach (var flavor in Enum.GetValues<DbFlavor>())
+            test("native DISTINCT shares CTE bindings across node sources " + flavor, () =>
+            {
+                var query = NativeResultRegressionTests.Graph().Distinct()
+                    .Where(x => x.Orders.First().Id, Enumerable.Range(1, 900).ToArray(), SqlArrayOp.IN);
+                using var first = query.Render(flavor);
+                using var second = query.Render(flavor);
+                Check(first.Parameters.Count <= 910, "CTE bindings multiplied with graph depth");
+                Check(first.Text == second.Text, "Native resource names changed reusable SQL");
+                Check(first.Parameters.GetAll().Count(p => p.Value is int value && value is >= 1 and <= 900) == 900,
+                    "CTE input values were lost or duplicated");
+            });
+        test("SELECT base string rendering does not recursively dispatch overrides", () =>
+        {
+            var query = new TaggedSelect().SelectRootColumns();
+            var parameters = new ParameterCollection(DbFlavor.PostgreSql);
+            string sql = query.Render(parameters, DbFlavor.PostgreSql);
+            Check(sql.Split("-- string extension").Length == 2, "String override reentered");
+        });
+        test("typed SELECT compilation hook preserves layout, counts and snapshot isolation", () =>
+        {
+            var query = new CompiledSelect().SelectRootColumns().Where(x => x.Name, "name", SqlOp.EQ).Page(1, 2);
+            var snapshot = query.Capture();
+            string before = snapshot.Render(DbFlavor.PostgreSql).Text;
+            var count = snapshot.RenderForCount(DbFlavor.PostgreSql);
+            Check(count.Text.Contains("COUNT(") && count.Text.EndsWith("-- count extension"), "Count hook received data SQL");
+            Check(snapshot.Render(DbFlavor.PostgreSql).Text == before && before.EndsWith("-- data extension"), "Hook mutated captured state");
+            Check(count.Parameters.Count == 1 && snapshot.Render(DbFlavor.PostgreSql).NativePlan != null, "Hook lost parameters or result plan");
+        });
         test("capture freezes model aliases, builder paging, and predicates", () =>
         {
             var table = new Table("app", "original", "u");
@@ -125,6 +154,21 @@ internal static class CompilationRegressionTests
     {
         public override string Render(ParameterCollection parameters, DbFlavor flavor)
             => base.Render(parameters, flavor) + " -- custom";
+    }
+    private sealed class TaggedSelect : SelectQuery<Row>
+    {
+        public override string Render(ParameterCollection parameters, DbFlavor flavor)
+            => base.Render(parameters, flavor) + " -- string extension";
+    }
+    private sealed class CompiledSelect : SelectQuery<Row>
+    {
+        protected internal override RenderedQuery CompileSelect(DbFlavor flavor, bool count)
+        {
+            QueryName = "working state";
+            var result = base.CompileSelect(flavor, count);
+            result.Text += count ? "-- count extension" : "-- data extension";
+            return result;
+        }
     }
     private sealed class MeasureQuery : SelectQuery<Row>
     {

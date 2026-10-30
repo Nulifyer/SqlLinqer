@@ -45,7 +45,7 @@ Rendering a count does not change the captured page.
 To execute the captured select:
 
 ```csharp
-var response = await connector.ExecuteReaderJsonAsync<User>(
+var response = await connector.ExecuteReaderModelAsync<User>(
     snapshot.Render(connector),
     cancellationToken: cancellationToken);
 if (response.State != ResponseState.Valid)
@@ -85,3 +85,5 @@ foreach (var member in rendered.ResultShape.Members)
 
 A missing one-to-one relationship loads as `null`. A collection with no matches loads as an empty collection.
 Commands other than regular selects, including count-only commands, can have a null `ResultShape`.
+
+Keep the `RenderedQuery` together and pass it to the model reader shown above. Rebuilding a command from `Text` alone loses the information needed to load nested results.

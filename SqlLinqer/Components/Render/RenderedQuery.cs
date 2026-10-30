@@ -40,6 +40,7 @@ namespace SqlLinqer.Components.Render
         // Set only by the SELECT compiler. Raw scalar commands retain their
         // existing transaction behavior because they can perform writes.
         internal bool IsReadOnlySelect;
+        internal SqlLinqer.Components.Native.NativeResultPlan NativePlan;
         /// <summary>An optional diagnostic name. It does not modify the SQL text or parameter bindings.</summary>
         public string QueryName { get; set; }
         /// <summary>A stable diagnostic command role such as Select or Count. Raw commands default to Command. It does not change execution.</summary>

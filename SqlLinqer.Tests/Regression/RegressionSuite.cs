@@ -34,6 +34,7 @@ internal static class RegressionSuite
             => Regex.Replace(query.Render(flavor).Text, @"\s+", " ").Trim();
 
         CacheRegressionTests.Run(Test);
+        ModelIdentityRegressionTests.Run(Test);
         ConnectionFactoryRegressionTests.Run(Test);
         CommandTimeoutRegressionTests.Run(Test);
         RelatedAggregateRegressionTests.Run(Test);
@@ -204,7 +205,7 @@ internal static class RegressionSuite
         {
             ["nonquery"] = (c, q, t) => c.ExecuteNonQuery(q, t),
             ["scalar"] = (c, q, t) => c.ExecuteScalar<long>(q, t),
-            ["json"] = (c, q, t) => c.ExecuteReaderJson<Item>(q, t),
+            ["json"] = (c, q, t) => c.ExecuteReaderModel<Item>(q, t),
             ["table"] = (c, q, t) => c.ExecuteReaderDataTable(q, t),
         };
         foreach (var method in executionMethods)
@@ -387,16 +388,17 @@ internal static class RegressionSuite
         TabularRegressionTests.Run(Test);
         ValueConversionRegressionTests.Run(Test);
         StreamingRegressionTests.Run(Test);
+        NativeResultRegressionTests.Run(Test);
+        QueryDistinctChecks.Run(Test);
+        MappingOwnershipChecks.Run(Test);
         TvpRegressionTests.Run(Test);
         ReusableTvpChecks.Run(Test);
         StoredProcedureRegressionTests.Run(Test);
-        JsonRegressionTests.Run(Test);
         ReviewRegressionTests.Run(Test);
         ComplexRelationshipChecks.RunRendering(Test);
         RelationshipMappingChecks.Run(Test);
         SelectResponseChecks.Run(Test);
         WriteResponseChecks.Run(Test);
-        StableContractChecks.Run(Test);
         CompatibleQueryRegressionTests.Run(Test);
         if (benchmark) CompatibleQueryRegressionTests.MeasureRendering();
 
@@ -423,8 +425,8 @@ public class Category
     [SqlPrimaryKey] public int Id { get; set; }
     public string Name { get; set; }
 }
-internal sealed class RowJsonConnector(FakeDatabase database, DbFlavor flavor) : BaseConnector(flavor, new ConnectorOptions())
+internal sealed class RowJsonConnector(FakeDatabase database, DbFlavor flavor) : BaseConnector(flavor, new ConnectorOptions { })
 {
     public override DbConnection CreateConnection() => new FakeConnection(database);
-    public override bool JsonResultsRowByRow() => true;
+
 }

@@ -62,6 +62,11 @@ namespace SqlLinqer.Components.Joins
         internal bool ContainsLocalTable(Table table)
             => HasKey(table.UUID) || DirectJoins.GetAll().Any(x => x.Child.UUID == table.UUID);
 
+        internal IEnumerable<Table> NativeLocalTables => GetAll().Concat(DirectJoins.GetAll().Select(x => x.Child))
+            .GroupBy(x => x.UUID).Select(x => x.First());
+        internal IEnumerable<Column> NativeReferences => DirectJoins.GetAll().SelectMany(x =>
+            x.Condition.GetColumnReferences().Concat(x.AdditionalCondition.GetColumnReferences()));
+
         /// <summary>Renders this component for the selected database dialect.</summary>
         public string Render(JoinQuery query, ParameterCollection parameters, DbFlavor flavor)
         {

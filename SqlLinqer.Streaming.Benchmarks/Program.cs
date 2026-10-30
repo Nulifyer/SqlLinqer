@@ -11,18 +11,17 @@ using SqlLinqer.Connections;
 using SqlLinqer.Modeling;
 using SqlLinqer.Queries.Typed;
 
-if (args.Length == 1 && args[0] == "mapping") return MappingBenchmarks.Run();
 if (args.Length == 1 && args[0] == "cache") return MappingBenchmarks.RunCache();
 
 // Setup runs in a different process from every measurement. The Python runner
 // interleaves modes and preserves every raw sample, including first-row latency.
 if (args.Length < 4 || args[0] is not ("setup" or "measure"))
 {
-    Console.Error.WriteLine("setup <sqlite|duckdb> <file> <rows> [width]\nmeasure <sqlite|duckdb|duckdb-scan|sqlite-document> <file> <rows> <buffered|stream|batch|collect|first> [batch-size]");
+    Console.Error.WriteLine("setup <sqlite|duckdb> <file> <rows> [width]\nmeasure <sqlite|duckdb|duckdb-scan> <file> <rows> <buffered|stream|batch|collect|first> [batch-size]");
     return 2;
 }
 string operation = args[0], provider = args[1], file = Path.GetFullPath(args[2]);
-if (provider is not ("sqlite" or "duckdb" or "duckdb-scan" or "sqlite-document")) throw new ArgumentException("Unknown provider");
+if (provider is not ("sqlite" or "duckdb" or "duckdb-scan")) throw new ArgumentException("Unknown provider");
 int rowCount = int.Parse(args[3]);
 if (rowCount < 1) throw new ArgumentOutOfRangeException(nameof(rowCount));
 bool duck = provider.StartsWith("duckdb", StringComparison.Ordinal);
@@ -56,7 +55,7 @@ string mode = args.Length > 4 ? args[4] : "stream";
 if (mode is not ("buffered" or "stream" or "batch" or "collect" or "first")) throw new ArgumentException("Unknown mode");
 int batchSize = args.Length > 5 ? int.Parse(args[5]) : 1000;
 if (batchSize < 1) throw new ArgumentOutOfRangeException(nameof(batchSize));
-var connector = new BenchmarkConnector(Create, duck ? DbFlavor.DuckDb : DbFlavor.Sqlite, provider == "sqlite-document");
+var connector = new BenchmarkConnector(Create, duck ? DbFlavor.DuckDb : DbFlavor.Sqlite);
 SelectQuery<BenchRow> Query(int count)
 {
     var query = new SelectQuery<BenchRow>().SelectRootColumns().Top(count);
@@ -64,15 +63,10 @@ SelectQuery<BenchRow> Query(int count)
     return query;
 }
 
-RenderedQuery Document(int count) => new($"SELECT CASE WHEN Id=1 THEN '[' ELSE ',' END || json_object('Id',Id,'Name',Name,'Note',Note) || CASE WHEN Id={count} THEN ']' ELSE '' END FROM bench_rows WHERE Id <= {count} ORDER BY Id");
-IAsyncEnumerable<BenchRow> ExecuteAsyncStream(int count) => provider == "sqlite-document"
-    ? connector.ExecuteReaderJsonAsyncStream<BenchRow>(Document(count))
-    : Query(count).ExecuteAsyncStream(connector);
+IAsyncEnumerable<BenchRow> ExecuteAsyncStream(int count) => Query(count).ExecuteAsyncStream(connector);
 async Task<List<BenchRow>> ExecuteAsync(int count)
 {
-    var response = provider == "sqlite-document"
-        ? await connector.ExecuteReaderJsonAsync<BenchRow>(Document(count))
-        : await Query(count).ExecuteAsync(connector);
+    var response = await Query(count).ExecuteAsync(connector);
     if (response.State == ResponseState.Error) throw response.Error;
     return response.Result;
 }
@@ -200,9 +194,9 @@ internal sealed class BenchRow
     public string Note { get; set; }
 }
 
-internal sealed class BenchmarkConnector(Func<DbConnection> factory, DbFlavor flavor, bool document)
+internal sealed class BenchmarkConnector(Func<DbConnection> factory, DbFlavor flavor)
     : BaseConnector(flavor, new ConnectorOptions { CommandTimeout = TimeSpan.FromMinutes(5) })
 {
     public override DbConnection CreateConnection() => factory();
-    public override bool JsonResultsRowByRow() => !document;
+
 }

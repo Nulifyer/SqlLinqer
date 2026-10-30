@@ -42,8 +42,6 @@ jobs:
           dotnet format whitespace SqlLinqer.Diagnostics/SqlLinqer.Diagnostics.csproj --verify-no-changes --no-restore
           dotnet format whitespace SqlLinqer.Integrations.Tests/SqlLinqer.Integrations.Tests.csproj --verify-no-changes --no-restore
           dotnet format whitespace samples/SqlLinqer.MinimalApi/SqlLinqer.MinimalApi.csproj --verify-no-changes --no-restore
-      - name: Compare stable SQL JSON contracts
-        run: bash TestDBs/test-stable-contracts.sh
       - name: Validate minimum SQLite engine
         run: python3 SqlLinqer.Tests/Sqlite/validate-minimum.py
 

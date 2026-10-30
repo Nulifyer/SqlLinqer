@@ -13,7 +13,7 @@ internal static class ConnectionChecks
         Test("JSON and tabular readers honor command deadlines", () =>
         {
             var timed = new ConnectionFactoryConnector(connector.CreateConnection, DbFlavor.DuckDb, new ConnectorOptions { CommandTimeout = TimeSpan.FromMilliseconds(10) });
-            var json = timed.ExecuteReaderJson<NumericSummary>(new RenderedQuery("SELECT json_object('Value', sum(sin(i::DOUBLE))) FROM range(9223372036854775807) t(i)"));
+            var json = timed.ExecuteReaderModel<NumericSummary>(new RenderedQuery("SELECT sum(sin(i::DOUBLE)) AS Value FROM range(9223372036854775807) t(i)"));
             Expect(json.State == ResponseState.Error && json.Error.InnerException is TimeoutException, "JSON execution did not cancel");
             var table = timed.ExecuteReaderDataTable(new RenderedQuery("SELECT sum(sin(i::DOUBLE)) FROM range(9223372036854775807) t(i)"));
             Expect(table.State == ResponseState.Error && table.Error.InnerException is TimeoutException, "Tabular execution did not cancel");

@@ -56,7 +56,7 @@ internal static class CommandInterruptionRegressionTests
         try
         {
             if (mode.StartsWith("stream"))
-                await foreach (var _ in guarded.ExecuteReaderJsonAsyncStream<ValueRow>(new(source + "json_object('Value',SUM(x)) FROM n"), cancellationToken: cancel.Token)) { }
+                await foreach (var _ in guarded.ExecuteReaderModelAsyncStream<ValueRow>(new(source + "SUM(x) AS Value FROM n"), cancellationToken: cancel.Token)) { }
             else
             {
                 var query = new RenderedQuery(source + "SUM(x) FROM n");

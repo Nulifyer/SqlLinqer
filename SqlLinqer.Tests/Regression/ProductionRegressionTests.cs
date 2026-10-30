@@ -21,13 +21,13 @@ internal static class ProductionRegressionTests
                     : flavor == DbFlavor.MySql ? "`odd``name`" : "\"odd\"\"name\"";
                 Check(input.DbWrap(flavor) == expected, "Identifier delimiter was not escaped");
             });
-            test($"apostrophes in JSON projection names are escaped for {flavor}", () =>
+            test($"apostrophes in projection names are escaped for {flavor}", () =>
             {
                 Check("O'Reilly".DbWrapString(flavor) == "'O''Reilly'", "Literal apostrophe was not escaped");
                 var query = new SelectQuery<CompilationRegressionTests.Row>();
                 string rendered = new SelectFuncStatement(SqlFunc.CONCAT, "O'Reilly", "value")
-                    .Render(query, new ParameterCollection(), flavor, true, true);
-                Check(rendered.Contains(flavor is DbFlavor.SqlServer or DbFlavor.AzureSql ? "[O'Reilly]" : "'O''Reilly'"),
+                    .Render(query, new ParameterCollection(), flavor, true);
+                Check(rendered.Contains("O'Reilly".DbWrap(flavor)),
                     "Projection emitted an invalid output name");
             });
         }
@@ -47,7 +47,7 @@ internal static class ProductionRegressionTests
             {
                 var query = new SelectQuery<CompilationRegressionTests.Row>();
                 string sql = new SelectFuncStatement(SqlFunc.SOUNDDEX, "phonetic", "Smith")
-                    .Render(query, new ParameterCollection(), flavor, false, true);
+                    .Render(query, new ParameterCollection(), flavor, true);
                 Check(sql.StartsWith("SOUNDEX("), "Phonetic function name is misspelled");
             });
         }

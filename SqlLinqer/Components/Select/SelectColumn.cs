@@ -30,53 +30,12 @@ namespace SqlLinqer.Components.Select
         }
 
         /// <inheritdoc/>
-        public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool forJson, bool include_alias)
+        public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool include_alias)
         {
             query.Joins.AddTable(Column.Table);
 
-            if (forJson)
-            {
-                switch (flavor)
-                {
-                    case DbFlavor.Sqlite:
-                    case DbFlavor.DuckDb:
-                    case DbFlavor.PostgreSql:
-                    case DbFlavor.MySql:
-                        return $"{Alias.DbWrapString(flavor)}, {RenderJsonValue(query, parameters, flavor)}";
-                    case DbFlavor.SqlServer:
-                    case DbFlavor.AzureSql:
-                        string alias = include_alias ? $" AS {Alias.DbWrap(flavor)}" : null;
-                        return Column.Render(flavor) + alias;
-                    default:
-                        throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(SelectColumn)}.{nameof(Render)}");
-                }
-            }
-            else
-            {
-                string alias = include_alias ? $" AS {Alias.DbWrap(flavor)}" : null;
-                return Column.Render(flavor) + alias;
-            }
-        }
-
-        internal override string RenderJsonValue(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
-        {
-            query.Joins.AddTable(Column.Table);
-            string value = Column.Render(flavor);
-            if (Column.DbType == System.Data.DbType.Binary || Column.Table.Columns.GetAll<ReflectedColumn>()
-                .Any(x => x.ColumnName == Column.ColumnName && x.ValueType == typeof(byte[])))
-            {
-                // Preserve the byte[] wire format when JSON is built outside a
-                // derived projection as well as when it is built directly.
-                return flavor switch
-                {
-                    DbFlavor.Sqlite => $"CASE WHEN {value} IS NULL THEN NULL ELSE hex({value}) END",
-                    DbFlavor.DuckDb => $"to_base64({value})",
-                    DbFlavor.PostgreSql => $"replace(encode({value}, 'base64'), chr(10), '')",
-                    DbFlavor.MySql => $"REPLACE(TO_BASE64({value}), CHAR(10), '')",
-                    _ => value,
-                };
-            }
-            return value;
+            string alias = include_alias ? $" AS {Alias.DbWrap(flavor)}" : null;
+            return Column.Render(flavor) + alias;
         }
 
         /// <inheritdoc/>
@@ -84,6 +43,6 @@ namespace SqlLinqer.Components.Select
 
         /// <inheritdoc/>
         public override IEnumerable<string> RenderForGroupBy(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
-            => new[] { Render(query, parameters, flavor, false, false) };
+            => new[] { Render(query, parameters, flavor, false) };
     }
 }

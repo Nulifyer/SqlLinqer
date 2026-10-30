@@ -31,7 +31,7 @@ var totalMatches = response.TotalResults;
 This example uses the [sample models](getting-started/model-mapping.md) and a [configured connector](getting-started/connections.md).
 Import `SqlLinqer` for operators and response states.
 `Result` contains users with their selected manager and permissions populated.
-The graph loads in one command; the count runs as a separate command.
+Server providers and DuckDB load the graph in one command. SQLite reuses prepared child commands on the same embedded connection. A requested total is a separate operation.
 Filtering through a relationship and selecting that relationship are separate decisions.
 
 Use [optional filters](queries/select.md#add-optional-search-filters) to build the query from application input.
@@ -39,13 +39,11 @@ Use an [aggregate projection](queries/select.md#build-an-aggregate-projection) w
 
 ## How related results arrive
 
-SqlLinqer uses database JSON functions to represent selected nested objects and collections.
-It decodes that JSON into the mapped C# members. A missing selected object becomes `null`.
+SqlLinqer maps native database values into selected nested objects and collections. A missing selected object becomes `null`.
 A selected collection with no matching rows becomes an empty collection.
 Application JSON attributes and serializer settings do not change the SQL loading contract.
 
-This moves graph construction into the generated SQL and its result mapper.
-Database JSON generation and client decoding both cost work.
+Loading more relationships increases the work needed to build each result.
 The number and size of children, indexes, selected columns, and database query plans affect the result.
 One command is useful information about the execution strategy, not a performance guarantee.
 
@@ -86,10 +84,10 @@ SqlLinqer's workflow uses explicit query builders and writes over a schema you m
 
 ## Measure the work you need
 
-The [comparison suite](../SqlLinqer.Comparisons/README.md) runs equivalent SQLite workloads with all five libraries.
+The [comparison suite](../eng/comparisons.md) runs equivalent SQLite workloads with all five libraries.
 It includes flat reads, two selected collections, a filtered graph page with its total, and flat streaming.
 It validates results and records SQL, command counts, latency, and managed allocations.
 EF Core has both single-query and split-query cases. Dapper batches graph reads.
 
 The suite is a local baseline. It does not measure remote server round trips, database server CPU, or network traffic.
-Use the [recorded results and methodology](../SqlLinqer.Comparisons/results/README.md) to inspect the evidence, then measure representative queries on your deployment database.
+Follow the [comparison methodology](../eng/comparisons.md) to generate local reports, then measure representative queries on your deployment database.

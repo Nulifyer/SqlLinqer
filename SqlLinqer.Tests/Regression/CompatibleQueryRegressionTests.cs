@@ -194,14 +194,16 @@ internal static class CompatibleQueryRegressionTests
             var result = new InsertWithPrimaryKeyQuery<BatchRow, int>().InsertAuto(new[] { new BatchRow(), new BatchRow(), new BatchRow() }).Execute(connector);
             Check(result.State == ResponseState.Valid && result.Result == 3 && result.TouchedPrimaryKeys.Count == 3, "Batch keys or count lost");
         });
-        test("PostgreSQL DISTINCT JSON and totals use comparable projections", () =>
+        test("PostgreSQL DISTINCT native plan keeps nested shapes and applies paging after distinct", () =>
         {
             var query = new SelectQuery<Order>().Select(x => x.Billing.Name).Select(x => x.Shipping.Name).Distinct().Page(3, 2);
-            string data = query.Render(DbFlavor.PostgreSql).Text;
-            string count = query.RenderForCount(new ParameterCollection(), DbFlavor.PostgreSql);
-            Check(new[] { data, count }.All(sql => sql.Contains("SELECT DISTINCT") && sql.Contains(" AS jsonb)")),
-                "DISTINCT compared PostgreSQL relationship json values instead of jsonb");
-            Check(!Regex.IsMatch(count, @"LIMIT 2\b|OFFSET 4\b") && count.Contains("LIMIT 1"), "Total changed root or relationship paging");
+            var data = query.Render(DbFlavor.PostgreSql); var count = query.Capture().RenderForCount(DbFlavor.PostgreSql);
+            Check(data.Text.Contains("DISTINCT") && data.Text.Contains("LIMIT 2 OFFSET 4"),
+                "DISTINCT paging was applied before complete native values");
+            Check(count.NativePlan == null && count.Text.Contains("COUNT(*)"),
+                "Total retained root paging");
+            Check(!data.Text.Contains("json", StringComparison.OrdinalIgnoreCase) && data.NativePlan.Nodes.Length == 3,
+                "Native nested values still use a JSON transport");
         });
         foreach (string stage in new[] { "open", "command", "parameter", "begin", "commit", "dispose-connection", "dispose-transaction" })
             test($"owned batch failures remain error values at {stage}", () =>

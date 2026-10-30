@@ -47,7 +47,7 @@ namespace SqlLinqer.Queries.Typed
                 throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
 
             var renderedQuery = new SqlLinqer.Components.Render.RenderedQuery();
-            renderedQuery.Text = this.Render(renderedQuery.Parameters, connector.DbFlavor, false);
+            renderedQuery.Text = this.RenderRows(renderedQuery.Parameters, connector.DbFlavor);
             var response = await connector.ExecuteScalarAsync<int>(renderedQuery, transaction, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
 
             var bool_response = new SqlResponse<bool>();

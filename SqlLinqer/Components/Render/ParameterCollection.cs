@@ -64,6 +64,13 @@ namespace SqlLinqer.Components.Render
             _flavor = flavor;
         }
 
+        internal ParameterCollection CopyBindings()
+        {
+            var copy = new ParameterCollection(_flavor);
+            foreach (var parameter in GetAll()) copy.AddComponent(parameter.Placehodler, parameter);
+            return copy;
+        }
+
         private string NextId()
         {
             string id;

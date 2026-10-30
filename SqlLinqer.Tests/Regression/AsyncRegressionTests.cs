@@ -89,11 +89,11 @@ internal static class AsyncRegressionTests
             });
         }
 
-        Async("async SQL Server mapper combines JSON document chunks", async () =>
+        Async("async SQL Server mapper reads typed rows", async () =>
         {
-            var database = new FakeDatabase { JsonRows = ["[{\"Id\":", "7,\"Name\":\"雪\"}]"] };
+            var database = new FakeDatabase { JsonRows = ["{\"Id\":7,\"Name\":\"雪\"}"] };
             var result = Result(await new SelectQuery<Row>().SelectRootColumns().ExecuteAsync(new FakeConnector(database, DbFlavor.SqlServer)));
-            Check(result.Single().Id == 7 && result[0].Name == "雪" && database.AsyncReads == 3, "Chunked JSON mapping differs");
+            Check(result.Single().Id == 7 && result[0].Name == "雪" && database.AsyncReads == 2, "Native mapping differs");
         });
 
         Async("async tabular loading preserves synchronous schema and row-state behavior", async () =>
@@ -285,11 +285,11 @@ internal static class AsyncRegressionTests
         return response.Result;
     }
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
-    private sealed class Connector(FakeDatabase database, DbFlavor flavor) : BaseConnector(flavor, new ConnectorOptions())
+    private sealed class Connector(FakeDatabase database, DbFlavor flavor) : BaseConnector(flavor, new ConnectorOptions { })
     {
         internal int Created, AsyncInterceptions, SyncInterceptions;
         public override DbConnection CreateConnection() { Created++; return new FakeConnection(database); }
-        public override bool JsonResultsRowByRow() => true;
+
         protected override SqlResponse<T> ExecuteCommand<T>(RenderedQuery query, Func<SqlResponse<T>> action)
         { SyncInterceptions++; return base.ExecuteCommand(query, action); }
         protected override Task<SqlResponse<T>> ExecuteCommandAsync<T>(RenderedQuery query, Func<Task<SqlResponse<T>>> action, CancellationToken cancellationToken)

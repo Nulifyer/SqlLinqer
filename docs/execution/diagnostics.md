@@ -138,7 +138,7 @@ The integration emits no Critical events. The host determines whether a failure 
 
 Query events 1000 through 1004 include `QueryName`, `ExecutionId`, `CommandRole`, `TraceId` and `SpanId` where available. Execution IDs exist without a tracing listener. A page and its total receive different IDs and Select/Count roles. Compiler-created regular commands also identify Insert, Update and Delete. Raw or specialized commands can retain Command. Callers can label a raw `RenderedQuery.CommandRole` explicitly without changing execution.
 
-Completion records include `Outcome`, `DurationMs`, `CommandDurationMs`, `ReturnedRows`, `ErrorType`, `WrapperType`, `FailureKind` and `ProviderErrorCode`. ErrorType unwraps SqlResponseException. The wrapper remains available separately. FailureKind identifies known timeout, cancellation, database and JSON-mapping failures, with Execution as the fallback. Provider codes use available SQL state or numeric error-code metadata. These fields do not include exception messages.
+Completion records include `Outcome`, `DurationMs`, `CommandDurationMs`, `ReturnedRows`, `ErrorType`, `WrapperType`, `FailureKind` and `ProviderErrorCode`. ErrorType unwraps SqlResponseException. The wrapper remains available separately. FailureKind identifies known timeout, cancellation, database and native-value mapping failures, with Execution as the fallback. Provider codes use available SQL state or numeric error-code metadata. These fields do not include exception messages.
 
 Full exception logging remains separately opt-in. These settings govern this observer. HTTP exception handlers, provider logging and other observers have their own policies.
 
@@ -176,10 +176,7 @@ Existing event IDs 1000 through 1003 and the two-argument constructor remain ava
 
 `IncludeSql` remains an alias for IncludeSqlInLogs. It no longer enables SQL in activities. Set IncludeSqlInActivities explicitly for that destination. Parameter detail is now structured and bounded rather than one flattened string. Consumers parsing log text should migrate to the structured fields.
 
-The MVC showcase follows the same levels through its custom observer. It uses category `SqlLinqer.Showcase.Services.QueryJournal` and ActivitySource `Dispatch.SqlLinqer`. Its inspector has separate controls and is disabled by production defaults. Development enables the synthetic-data inspector explicitly. See its `docs/logging.md` for configuration.
 
-## Custom observers and user stories
+## Send events to another telemetry system
 
 Implement `IQueryObserver` for another telemetry system. Start returns an observation or null. Complete receives the outcome after cleanup. Treat the context query and bindings as read-only. Observers must support concurrent operations and release resources if Start or Complete fails. The connector isolates observer failures from query results.
-
-The [user-flow plan](../contributing/diagnostics-flows.md) maps adoption, local debugging, production operation, incidents, parameter conversion, exports, parallel commands and independent destinations to acceptance checks.

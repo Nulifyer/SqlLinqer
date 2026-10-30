@@ -66,7 +66,7 @@ internal static class IntegrationSuite
             IntegrationItem Read(int id) => Valid(new SelectQuery<IntegrationItem>().SelectRootColumns().Where(x => x.Id, id, SqlOp.EQ).Execute(connector)).Single();
             IntegrationItem NewItem(string name) => new(name, true, 1, DatabaseFixture.SampleDate.AddTicks(1234560));
 
-            SqlLinqer.Tests.Regression.SqlJsonContractChecks.Run(connector, Test);
+            SqlLinqer.Tests.Regression.SqlModelContractChecks.Run(connector, Test);
 
             Test("async select, nested results, and totals match synchronous execution", () =>
             {

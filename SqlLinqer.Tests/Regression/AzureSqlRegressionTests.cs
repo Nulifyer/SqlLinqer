@@ -92,12 +92,13 @@ internal static class AzureSqlRegressionTests
                     Same(select.RenderForCount(left, DbFlavor.SqlServer), select.RenderForCount(right, DbFlavor.AzureSql));
                     SameParameters(left, right);
                 });
-                test($"Azure direct non-JSON select equivalence: {query.Key}", () =>
-                {
-                    var left = new ParameterCollection(); var right = new ParameterCollection();
-                    Same(select.Render(left, DbFlavor.SqlServer, false), select.Render(right, DbFlavor.AzureSql, false));
-                    SameParameters(left, right);
-                });
+                if (!select.Selects.GetAll().Any(s => s is SelectRelationship))
+                    test($"Azure direct relational select equivalence: {query.Key}", () =>
+                    {
+                        var left = new ParameterCollection(); var right = new ParameterCollection();
+                        Same(select.RenderRows(left, DbFlavor.SqlServer), select.RenderRows(right, DbFlavor.AzureSql));
+                        SameParameters(left, right);
+                    });
             }
         }
 
@@ -238,16 +239,14 @@ internal static class AzureSqlRegressionTests
             {
                 new SelectColumn(column), new SelectFuncStatement(SqlFunc.COUNT, "count", 1),
                 new CaseStatement<Item>(table, "flag").AddCaseValue(1, w => w.Where(x => x.Enabled, true, SqlOp.EQ)).AddElseValue(0),
-                new SelectRelationship(query, table.Relationships.GetAll().First()),
             };
             foreach (var statement in statements)
-                foreach (bool json in new[] { false, true })
-                    foreach (bool alias in new[] { false, true })
-                        Same(statement.Render(query, new ParameterCollection(), DbFlavor.SqlServer, json, alias),
-                            statement.Render(query, new ParameterCollection(), DbFlavor.AzureSql, json, alias));
+                foreach (bool alias in new[] { false, true })
+                    Same(statement.Render(query, new ParameterCollection(), DbFlavor.SqlServer, alias),
+                        statement.Render(query, new ParameterCollection(), DbFlavor.AzureSql, alias));
             var selects = new SelectCollection(); selects.AddStatement(statements[0]);
-            Same(selects.Render(query, new ParameterCollection(), DbFlavor.SqlServer, true),
-                selects.Render(query, new ParameterCollection(), DbFlavor.AzureSql, true));
+            Same(selects.Render(query, new ParameterCollection(), DbFlavor.SqlServer),
+                selects.Render(query, new ParameterCollection(), DbFlavor.AzureSql));
             var order = new ColumnOrderBy(column, SqlDir.DESC);
             Same(order.Render(query, new ParameterCollection(), DbFlavor.SqlServer),
                 order.Render(query, new ParameterCollection(), DbFlavor.AzureSql));
@@ -325,7 +324,6 @@ internal static class AzureSqlRegressionTests
             {
                 var db = new FakeDatabase { JsonRows = new[] { "[{\"Id\":7,", "\"Name\":\"sample\"}]" } };
                 var connector = new FakeConnector(db, DbFlavor.AzureSql) { Options = { ReuseTvpTypes = false } };
-                Check(!connector.JsonResultsRowByRow(), "Azure JSON must be assembled across chunks");
                 ISqlResponse result;
                 switch (operation)
                 {

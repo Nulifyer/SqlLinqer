@@ -78,7 +78,7 @@ internal static class SqliteSuite
                 RelationshipChecks.Run(connector, keeper, label, Test);
                 WriteChecks.UpdateAndDelete(connector, keeper, item, label, Test);
                 SqlLinqer.Tests.Regression.CompatibleDatabaseTests.Run(connector, (name, action) => Test($"{label}: {name}", action));
-                SqlLinqer.Tests.Regression.SqlJsonContractChecks.Run(connector, (name, action) => Test($"{label}: {name}", action));
+                SqlLinqer.Tests.Regression.SqlModelContractChecks.Run(connector, (name, action) => Test($"{label}: {name}", action));
                 Test($"{label}: attached schema remains qualified and missing schemas fail", () =>
                 {
                     using var transaction = keeper.BeginTransaction();

@@ -1,0 +1,43 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{margin:0;font-family:var(--font-sans);color:var(--foreground)}.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 10px}button,input,select{font:inherit;font-size:13px;color:var(--foreground);background:var(--secondary);border:1px solid var(--border);border-radius:5px;padding:7px}input{width:155px}.note,#detail,#metric{font-size:12px;line-height:1.5;color:var(--muted-foreground);margin:8px 0}.graph{height:360px;overflow:auto;border:1px solid var(--border);border-radius:5px}svg{display:block;width:100%;min-width:560px}svg text{font-family:var(--font-mono);font-size:10px;fill:var(--foreground);pointer-events:none}svg rect{cursor:pointer;stroke:var(--background);stroke-width:.5}svg rect:hover{stroke:var(--foreground);stroke-width:1.5}.layers{display:flex;gap:4px;height:16px;border-radius:4px;overflow:hidden;margin:9px 0}.layers div{min-width:1px}table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;padding:6px 4px;border-bottom:1px solid var(--border)}th:nth-child(n+2),td:nth-child(n+2){text-align:right;white-space:nowrap}td:first-child{max-width:410px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}h4{font-size:13px;margin:14px 0 6px}#detail{min-height:36px;overflow-wrap:anywhere}.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--muted-foreground)}.legend span:before{content:' ';display:inline-block;width:8px;height:8px;background:var(--swatch);margin-right:4px}#alert{font-size:12px;color:var(--warning);margin:5px 0}
+</style></head><body>
+<div class="controls"><select id="profile" aria-label="Captured workload"></select><button id="reset">Reset zoom</button><input id="search" placeholder="Highlight function" aria-label="Highlight function"></div>
+<div id="metric"></div><div id="alert"></div><div class="layers" id="layers"></div><div class="legend" id="legend"></div>
+<div class="graph" id="viewport"><svg id="flame" role="img" aria-label="Interactive stack flame graph"></svg></div><div id="detail">Click a frame to zoom; hover for its full name and inclusive share. Scroll upward for deeper frames.</div>
+<h4>Hot functions in selected call paths</h4><table><thead><tr><th>Function</th><th>Self</th><th>Inclusive</th></tr></thead><tbody id="functions"></tbody></table>
+<div class="note">Widths show relative sample weight within library/provider call paths for this workload. Runtime/provider callees remain included; background stacks without those paths are excluded. Inclusive shares overlap. Paths below 0.1% are grouped. CPU captures sample user-space execution; managed captures can include waits and GC safe-point bias. These are separate workloads, not a decomposition of one query.</div>
+<script>
+const DATA=__PROFILE_DATA__;
+const $=id=>document.getElementById(id), ns='http://www.w3.org/2000/svg';
+let current,zoom;
+const palette=['var(--chart-1)','var(--chart-2)','var(--chart-3)','var(--chart-4)','var(--chart-5)','var(--chart-6)'];
+const short=name=>{let n=name,b=n.indexOf('!'),s=n.indexOf(' ');if(b>=0&&(s<0||b<s))n=n.slice(b+1);return n.replace(/^(instance|static) [^[]*\[[^\]]+\] /,'').replace(/\[OptimizedTier\w*\]/g,'').replace(/SqlLinqer\.(Components\.Native|Components\.Modeling|Compilation)\./g,'').replace(/\(.*$/,'')};
+DATA.profiles.forEach((p,i)=>{let o=document.createElement('option');o.value=i;o.textContent=p.name;$('profile').append(o)});
+function depth(n){return 1+Math.max(0,...n.c.map(depth))}
+function draw(){
+ const svg=$('flame');svg.replaceChildren();let h=depth(zoom)*19,width=Math.max(560,$('viewport').clientWidth);svg.setAttribute('viewBox',`0 0 ${width} ${h}`);svg.setAttribute('preserveAspectRatio','none');svg.style.height=h+'px';
+ const needle=$('search').value.toLowerCase();
+ function frame(n,x,w,d){
+  if(w<.5)return;let y=h-(d+1)*19,r=document.createElementNS(ns,'rect');
+  let name=DATA.frames[n.f],hash=[...name].reduce((a,c)=>a+c.charCodeAt(0),0);
+  for(let [k,v] of Object.entries({x,y,width:w,height:18,fill:`color-mix(in srgb,${palette[hash%6]} 40%,var(--card))`}))r.setAttribute(k,v);
+  if(needle&&!name.toLowerCase().includes(needle))r.setAttribute('opacity','.25');
+  const title=document.createElementNS(ns,'title');title.textContent=name+' — '+(n.w/current.total*100).toFixed(2)+'% inclusive';r.append(title);
+  r.onmouseenter=()=>$('detail').textContent=title.textContent;
+  r.onclick=()=>{zoom=n;draw();$('viewport').scrollTop=$('viewport').scrollHeight};svg.append(r);
+  if(w>35){let t=document.createElementNS(ns,'text');t.setAttribute('x',x+3);t.setAttribute('y',y+12);t.textContent=short(name).slice(0,Math.max(0,Math.floor(w/6.1)-1));svg.append(t)}
+  let next=x;n.c.forEach(c=>{let cw=w*c.w/n.w;frame(c,next,cw,d+1);next+=cw});
+ }frame(zoom,0,width,0);
+}
+function choose(){
+ current=DATA.profiles[+$('profile').value];zoom=current.tree;
+ $('metric').textContent=current.metric+' · '+Math.round(current.total).toLocaleString()+' selected weight · '+current.unresolved.toFixed(1)+'% unresolved leaf weight';
+ $('alert').textContent=current.poll>25?current.poll.toFixed(1)+'% of selected weight ends at a GC poll. Use the CPU capture to check function attribution.':'';
+ $('layers').replaceChildren();$('legend').replaceChildren();
+ current.groups.forEach((g,i)=>{let c=palette[i%6],d=document.createElement('div');d.style.width=g.percent+'%';d.style.background=c;d.title=g.name+' '+g.percent.toFixed(1)+'%';$('layers').append(d);let s=document.createElement('span');s.style.setProperty('--swatch',c);s.textContent=g.name+' '+g.percent.toFixed(1)+'%';$('legend').append(s)});
+ $('functions').replaceChildren();current.hot.filter(f=>f.self>.05).sort((a,b)=>b.self-a.self).slice(0,8).forEach(f=>{let tr=document.createElement('tr');[short(DATA.frames[f.f]),f.self.toFixed(1)+'%',f.inc.toFixed(1)+'%'].forEach((s,i)=>{let td=document.createElement('td');td.textContent=s;if(i===0)td.title=DATA.frames[f.f];tr.append(td)});$('functions').append(tr)});
+ draw();$('viewport').scrollTop=$('viewport').scrollHeight;
+}
+$('profile').onchange=choose;$('reset').onclick=()=>{zoom=current.tree;draw();$('viewport').scrollTop=$('viewport').scrollHeight};$('search').oninput=draw;
+$('profile').value=Math.max(0,DATA.profiles.findIndex(p=>p.name==='render (CPU)'));choose();
+</script></body></html>

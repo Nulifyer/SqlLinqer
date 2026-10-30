@@ -188,7 +188,7 @@ internal static class LiveSuite
                 live("direct non-JSON rendering and CTE execution", () =>
                 {
                     var query = new SelectQuery<AzureParent>().SelectRootColumns().OrderBy(x => x.Id, SqlDir.ASC);
-                    var rendered = new RenderedQuery(); rendered.Text = query.Render(rendered.Parameters, DbFlavor.AzureSql, false);
+                    var rendered = new RenderedQuery(); rendered.Text = query.RenderRows(rendered.Parameters, DbFlavor.AzureSql);
                     using var table = Valid(connector.ExecuteReaderDataTable(rendered, tx));
                     Require(table.Rows.Count == 3 && table.Rows.Cast<DataRow>().Any(x => Equals(x["Name"], "alpha \"雪\"")), "Direct rendering differs");
                     var cteRows = Valid(new ParentCteSelect().Execute(connector, tx));
@@ -374,7 +374,7 @@ internal static class LiveSuite
             ReusableTvpChecks.RunLive(connection, connectionString, schema, connector.DbFlavor, live);
             TvpLeaseChecks.RunLive(connection, connectionString, schema, connector.DbFlavor, live);
             CurrentCheck = "SQL JSON contract fixture setup";
-            SqlLinqer.Tests.Regression.SqlJsonContractChecks.Run(connector, live);
+            SqlLinqer.Tests.Regression.SqlModelContractChecks.Run(connector, live);
             live("owned truncate commits", () =>
             {
                 Valid(new TruncateQuery<ScopedRow>(schema).Execute(connector));

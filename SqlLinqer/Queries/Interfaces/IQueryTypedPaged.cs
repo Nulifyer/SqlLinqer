@@ -35,7 +35,7 @@ namespace SqlLinqer.Queries.Interfaces
         /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
         TQuery Limit(int limit, int offset);
         /// <summary>
-        /// Enables or disables DISTINCT for the selected projection. Total-count execution counts distinct projected rows.
+        /// Enables or disables SQL DISTINCT for this query. Selected scalars and required relationship keys participate; child queries are unchanged. Total-count execution counts distinct parent rows.
         /// </summary>
         /// <param name="distinct">True to remove duplicate projected rows. Defaults to true.</param>
         /// <returns>The same mutable query builder, so further calls can extend the query.</returns>

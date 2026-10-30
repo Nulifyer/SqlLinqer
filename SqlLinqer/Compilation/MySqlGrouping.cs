@@ -22,7 +22,7 @@ namespace SqlLinqer.Compilation
                     // inside a larger expression containing an aggregate.
                     if (!(statement is SelectFuncStatement) && !(statement is CaseStatement)) return;
                     if (parameters.FindExpressionOverride(statement) != null) return;
-                    string value = statement.Render(query, parameters, DbFlavor.MySql, false, false);
+                    string value = statement.Render(query, parameters, DbFlavor.MySql, false);
                     string alias = "__sqlinqer_group" + joins.Count;
                     joins.Add($" CROSS JOIN LATERAL (SELECT {value} AS `Value`) AS `{alias}`");
                     parameters.OverrideExpression(statement, $"`{alias}`.`Value`");

@@ -101,16 +101,16 @@ internal static class ScaleSuite
                     Check(database.Count("scale_rows") == rows, "Insert count differs from fixture size");
                 }, warmup: false);
 
-                Test(provider, "full typed JSON preserves every key and payload", () =>
-                    MeasureResult(provider, "typed-json-all", rows,
+                Test(provider, "full typed native preserves every key and payload", () =>
+                    MeasureResult(provider, "typed-native-all", rows,
                         () => Result(new SelectQuery<ScaleRow>().SelectRootColumns().OrderBy(x => x.Id, SqlDir.ASC).Execute(connector)), actual =>
                         {
                             Check(actual.Count == rows, "JSON row count changed");
                             for (int i = 0; i < actual.Count; i++) CheckRow(actual[i], i + 1);
                         }));
 
-                Test(provider, "ExecuteAsync full typed JSON preserves every key and payload", () =>
-                    MeasureResult(provider, "typed-json-all-async", rows,
+                Test(provider, "ExecuteAsync full typed native preserves every key and payload", () =>
+                    MeasureResult(provider, "typed-native-all-async", rows,
                         () => Result(new SelectQuery<ScaleRow>().SelectRootColumns().OrderBy(x => x.Id, SqlDir.ASC)
                             .ExecuteAsync(connector).GetAwaiter().GetResult()), actual =>
                             {
@@ -132,7 +132,7 @@ internal static class ScaleSuite
                         return (count, sum);
                     }
                     // Streaming checks rows while consuming them to keep retention bounded.
-                    MeasureResult(provider, "typed-json-all-async-stream", rows, () => Consume().GetAwaiter().GetResult(), actual =>
+                    MeasureResult(provider, "typed-native-all-async-stream", rows, () => Consume().GetAwaiter().GetResult(), actual =>
                         Check(actual.Count == rows && actual.Sum == ScoreSum(rows), "Streaming count or checksum changed"));
                 });
 
@@ -367,7 +367,7 @@ internal static class ScaleSuite
                 LogicalProcessors = Environment.ProcessorCount,
                 Providers = providers,
                 PeakWorkingSetBytes = Process.GetCurrentProcess().PeakWorkingSet64,
-                MeasurementNotes = "Wall time includes query construction, connection creation, execution and materialization. Buffered full JSON, DataTable, grouped aggregate, nested objects/arrays and rendering validate outside timing/allocation samples. Async-stream full JSON validates each row during consumption without retaining results. Insert includes fixture generation and per-batch assertions; deep-page includes empty-page/state assertions. Managed bytes cover only the calling thread, excluding native/provider worker allocations; async work can switch threads. Peak working set covers the entire process, not individual workloads. Insert is one cold sample; other operations have one warmup. DataTable projects two columns; typed JSON projects six. These are different workloads, not an overhead comparison. No timing thresholds.",
+                MeasurementNotes = "Wall time includes query construction, connection creation, execution and materialization. Buffered full native, DataTable, grouped aggregate, nested objects/arrays and rendering validate outside timing/allocation samples. Async-stream full native validates each row during consumption without retaining results. Insert includes fixture generation and per-batch assertions; deep-page includes empty-page/state assertions. Managed bytes cover only the calling thread, excluding native/provider worker allocations; async work can switch threads. Peak working set covers the entire process, not individual workloads. Insert is one cold sample; other operations have one warmup. DataTable projects two columns; typed native projects six. These are different workloads, not an overhead comparison. No timing thresholds.",
                 Checks = checks,
                 Measurements = measurements,
                 Passed = failed == 0

@@ -54,7 +54,7 @@ namespace SqlLinqer.Components.Ordering
             // select aggregate column
             sub_query.Selects.AddStatement(new SelectFuncStatement(func, "__sqlinqer_order_value", Column));
             // render and build order by
-            string rendered = sub_query.Render(parameters, flavor, false);
+            string rendered = sub_query.RenderRows(parameters, flavor);
             return $"({rendered}) {Dir.GetDescription()}";
         }
     }

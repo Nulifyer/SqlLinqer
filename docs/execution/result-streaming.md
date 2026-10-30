@@ -51,7 +51,7 @@ if (batch.Count > 0)
 
 Import `System.Collections.Generic` and replace `ProcessBatchAsync` with your batch operation.
 The operation must finish using the list before returning, because the next step clears it.
-This runs one database query. It does not request a separate page for each batch.
+Batching does not request a separate page for each batch. Server providers and DuckDB use one native graph command; SQLite uses prepared child reads as each root is completed.
 Collecting every item into a list removes the memory benefit of streaming.
 
 ## Handle failures and cancellation
@@ -81,7 +81,7 @@ Import `System` for these exception and console types.
 A failure can occur after some rows have been processed. Streaming does not retry the operation or undo application work.
 The query uses the same [value conversion rules](value-conversions.md) as other typed reads.
 
-The reader and any connection opened by SqlLinqer are released when the loop finishes, breaks, or throws.
+An unfinished execution requests provider cancellation before reader disposal. The reader and any connection opened by SqlLinqer are released when the loop finishes, breaks, or throws.
 If you supply a transaction, you still control its commit, rollback, and disposal, including after cancellation.
 If you use an enumerator manually, dispose it when you finish.
 
@@ -97,6 +97,8 @@ Finish building the query before sharing it between callers.
 Streaming reduces the result rows retained by SqlLinqer. Your application still uses memory for the current model and any retained batches.
 Large nested collections, database sorting, aggregation, and provider buffers can use substantial memory.
 A batch size limits the number of models, not their size in bytes.
+`Distinct()` applies to selected scalar values and the parent values needed to load selected relationships. Two users with the same selected name remain separate when their relationship keys differ. Parent DISTINCT does not remove repeated permissions from a child collection. Database collation rules determine scalar equality.
+DISTINCT runs in SQL before nested expansion and paging. SqlLinqer does not retain previously returned graphs for comparison or create temporary tables for DISTINCT. SQLite queries work with `PRAGMA query_only=ON`; the database may still use its own internal storage for sorting or DISTINCT.
 
 For DuckDB, command timeout includes time spent processing rows inside the loop.
 A timeout can therefore occur while slow application code holds the stream open.

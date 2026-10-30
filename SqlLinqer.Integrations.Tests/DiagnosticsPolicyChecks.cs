@@ -142,7 +142,7 @@ internal static class DiagnosticsPolicyChecks
             db.Options.CancelCommand = command => SQLitePCL.raw.sqlite3_interrupt(((SqliteConnection)command.Connection!).Handle);
             var timed = await db.ExecuteReaderListAsync<long>(new("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<3000000) SELECT SUM(x) FROM n"), commandTimeout: TimeSpan.FromMilliseconds(20));
             Check(timed.State == ResponseState.Error && Equals(sink.Entries.Last(e => e.Id.Id == 1001).State["FailureKind"], "Timeout"), "Timeout classification missing");
-            var mapped = await db.ExecuteReaderJsonAsync<User>(new("SELECT json_object('Id','not-an-integer','Name','private-name')"));
+            var mapped = await db.ExecuteReaderModelAsync<User>(new("SELECT 'not-an-integer' AS Id, 'private-name' AS Name"));
             Check(mapped.State == ResponseState.Error && Equals(sink.Entries.Last(e => e.Id.Id == 1001).State["FailureKind"], "Mapping"), "Mapping classification missing");
             Check(sink.Entries.Where(e => e.Level == LogLevel.Error).All(e => e.Exception == null) && !sink.Text.Contains("private-name"), "Default failure detail exposed data");
         });

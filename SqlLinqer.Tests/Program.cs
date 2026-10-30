@@ -10,6 +10,7 @@ if (Environment.GetEnvironmentVariable("SQLLINQER_TVP_REUSE_WORKER") == "1")
     return SqlLinqer.Tests.SqlServer.ReusableTvpChecks.RunWorker(args);
 if (Environment.GetEnvironmentVariable("SQLLINQER_TVP_LEASE_WORKER") == "1")
     return TvpLeaseChecks.RunWorker(args);
+if (args.Length > 0 && args[0] == "--profile-layer") return SqlLinqer.Tests.Performance.ProfilingWorkloads.Run(args.Skip(1).ToArray());
 
 const string usage = """
     Usage: dotnet run --project SqlLinqer.Tests -- [options]

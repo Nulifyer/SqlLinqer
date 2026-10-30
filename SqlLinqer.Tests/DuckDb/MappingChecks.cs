@@ -30,7 +30,7 @@ internal static class MappingChecks
         {
             var query = new SelectQuery<Person>("main").SelectRootColumns().Where(x => x.Id, 100, SqlOp.EQ);
             var rendered = new RenderedQuery();
-            rendered.Text = query.Render(rendered.Parameters, DbFlavor.DuckDb, false);
+            rendered.Text = query.RenderRows(rendered.Parameters, DbFlavor.DuckDb);
             using var table = Result(connector.ExecuteReaderDataTable(rendered));
             var row = table.Rows[0];
             Expect((Guid)row["Token"] == person.Token && ((byte[])row["Payload"]).SequenceEqual(person.Payload) && (decimal)row["Amount"] == person.Amount && (bool)row["Enabled"] && (DateTime)row["Born"] == person.Born, "DataTable changed native types");

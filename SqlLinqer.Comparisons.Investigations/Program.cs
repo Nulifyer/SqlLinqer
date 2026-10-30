@@ -53,7 +53,7 @@ try
     if (args.Length != 5 || args[0] != "measure")
         throw new ArgumentException("setup <new-file> <rows> <width> | measure <mode> <file> <warmup> <operations>");
     string mode = args[1];
-    if (!new[] { "native", "tabular", "json", "json-standard", "stored-json", "stored-standard" }.Contains(mode))
+    if (!new[] { "native", "tabular", "model", "json-standard", "stored-standard" }.Contains(mode))
         throw new ArgumentException("Unknown mode");
     string connectionString = new SqliteConnectionStringBuilder { DataSource = args[2], Mode = SqliteOpenMode.ReadOnly, Pooling = false }.ToString();
     int warmup = Positive(args[3]), operations = Positive(args[4]);
@@ -74,7 +74,7 @@ try
     string active = query.Parameters.AddParameter(1), limit = query.Parameters.AddParameter(rowCount);
     query.Text = mode.StartsWith("stored", StringComparison.Ordinal)
         ? $"SELECT Payload FROM StoredJson WHERE Active = {active} AND Id <= {limit} ORDER BY Id"
-        : mode is "json" or "json-standard"
+        : mode == "json-standard"
             ? $"SELECT {Fixture.JsonExpression} FROM Customers WHERE Active = {active} AND Id <= {limit} ORDER BY Id"
             : $"SELECT Id, Name, Note, Active FROM Customers WHERE Active = {active} AND Id <= {limit} ORDER BY Id";
     var connector = new ConnectionFactoryConnector(() => new SqliteConnection(connectionString), DbFlavor.Sqlite);
@@ -87,10 +87,10 @@ try
     async Task<Digest> Consume()
     {
         List<FlatRow> rows;
-        if (mode is "tabular" or "json" or "stored-json")
+        if (mode is "tabular" or "model")
         {
             var response = mode == "tabular" ? await connector.ExecuteReaderListAsync<FlatRow>(query)
-                : await connector.ExecuteReaderJsonAsync<FlatRow>(query);
+                : await connector.ExecuteReaderModelAsync<FlatRow>(query);
             if (response.State != ResponseState.Valid) throw response.Error;
             rows = response.Result;
         }

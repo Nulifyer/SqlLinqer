@@ -84,7 +84,7 @@ internal static class CommandTimeoutRegressionTests
             var query = new SelectQuery<TimeoutRow>().SelectRootColumns();
             var inherited = query.ExecuteAsyncStream(connector);
             var explicitStream = query.ExecuteAsyncStream(connector, commandTimeout: TimeSpan.FromSeconds(71));
-            var raw = connector.ExecuteReaderJsonAsyncStream<TimeoutRow>(new("raw"));
+            var raw = connector.ExecuteReaderModelAsyncStream<TimeoutRow>(new("raw"));
             connector.Options.CommandTimeout = TimeSpan.FromSeconds(13);
             foreach (var sequence in new[] { inherited, explicitStream, raw })
                 await foreach (var row in sequence) Check(row.Id == 7, "Stream changed its result");
@@ -151,10 +151,10 @@ internal static class CommandTimeoutRegressionTests
             {
                 var connector = new ConnectionFactoryConnector(() => new DuckDBConnection("Data Source=:memory:"), DbFlavor.DuckDb,
                     new ConnectorOptions { CommandTimeout = TimeSpan.FromMilliseconds(1) });
-                var bounded = new RenderedQuery("SELECT json_object('Id', sum(i)::BIGINT) FROM range(1000000) t(i)");
+                var bounded = new RenderedQuery("SELECT sum(i)::BIGINT AS Id FROM range(1000000) t(i)");
                 Check((await Read(connector, mode, TimeSpan.FromMinutes(1), bounded)).Single().Id == 499999500000,
                     "Long override did not complete native work");
-                var unbounded = new RenderedQuery("SELECT json_object('Id', sum(sin(i::DOUBLE))) FROM range(9223372036854775807) t(i)");
+                var unbounded = new RenderedQuery("SELECT sum(sin(i::DOUBLE)) AS Id FROM range(9223372036854775807) t(i)");
                 try { await Read(connector, mode, null, unbounded); }
                 catch (SqlLinqer.Exceptions.SqlResponseException error) when (error.InnerException is TimeoutException)
                 {
@@ -168,15 +168,15 @@ internal static class CommandTimeoutRegressionTests
 
     private static async Task<List<TimeoutRow>> Read(BaseConnector connector, string mode, TimeSpan? timeout, RenderedQuery query = null)
     {
-        query ??= new RenderedQuery("SELECT json_object('Id', 7)");
+        query ??= new RenderedQuery("SELECT 7 AS Id");
         if (mode == "stream")
         {
             var result = new List<TimeoutRow>();
-            await foreach (var row in connector.ExecuteReaderJsonAsyncStream<TimeoutRow>(query, commandTimeout: timeout)) result.Add(row);
+            await foreach (var row in connector.ExecuteReaderModelAsyncStream<TimeoutRow>(query, commandTimeout: timeout)) result.Add(row);
             return result;
         }
-        var response = mode == "sync" ? connector.ExecuteReaderJson<TimeoutRow>(query, commandTimeout: timeout)
-            : await connector.ExecuteReaderJsonAsync<TimeoutRow>(query, commandTimeout: timeout);
+        var response = mode == "sync" ? connector.ExecuteReaderModel<TimeoutRow>(query, commandTimeout: timeout)
+            : await connector.ExecuteReaderModelAsync<TimeoutRow>(query, commandTimeout: timeout);
         if (response.State != ResponseState.Valid) throw response.Error;
         return response.Result;
     }

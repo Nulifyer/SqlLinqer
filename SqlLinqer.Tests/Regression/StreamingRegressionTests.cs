@@ -44,7 +44,7 @@ internal static class StreamingRegressionTests
             Async($"empty JSON results for {flavor}", async () =>
             {
                 var db = new FakeDatabase { JsonRows = IsDocument(flavor) ? ["[]"] : [] };
-                Check((await Collect(new FakeConnector(db, flavor).ExecuteReaderJsonAsyncStream<Row>(new("empty")))).Count == 0, "Empty result differs");
+                Check((await Collect(new FakeConnector(db, flavor).ExecuteReaderModelAsyncStream<Row>(new("empty")))).Count == 0, "Empty result differs");
                 Disposed(db);
             });
         }
@@ -54,7 +54,7 @@ internal static class StreamingRegressionTests
             var db = new FakeDatabase { Rows = 1000 };
             db.BeforeAsyncRead = _ => db.AsyncReads == 0 ? Task.CompletedTask
                 : throw new Exception("Read beyond the requested row");
-            await foreach (var row in new FakeConnector(db).ExecuteReaderJsonAsyncStream<Row>(new("SELECT json"))) break;
+            await foreach (var row in new FakeConnector(db).ExecuteReaderModelAsyncStream<Row>(new("SELECT json"))) break;
             Check(db.AsyncReads == 1, "First yield required multiple reads");
             Disposed(db);
         });
@@ -90,7 +90,7 @@ internal static class StreamingRegressionTests
             var db = new FakeDatabase();
             using var connection = new FakeConnection(db); connection.Open();
             using var transaction = (FakeTransaction)connection.BeginTransaction();
-            await foreach (var row in new FakeConnector(db).ExecuteReaderJsonAsyncStream<Row>(new("SELECT json"), transaction)) break;
+            await foreach (var row in new FakeConnector(db).ExecuteReaderModelAsyncStream<Row>(new("SELECT json"), transaction)) break;
             Check(!connection.IsDisposed && !transaction.IsDisposed && transaction.Commits == 0 && transaction.Rollbacks == 0,
                 "Library completed caller transaction");
             Check(db.Executed.Single().UsedTransaction == transaction && db.DisposedReaders == 1, "Reader or transaction binding differs");
@@ -104,7 +104,7 @@ internal static class StreamingRegressionTests
                 if (stage == "read") db.BeforeAsyncRead = _ => throw new InvalidOperationException("read");
                 if (stage == "json") db.JsonRows = ["{invalid}"];
                 var query = new RenderedQuery("SELECT json"); query.Parameters.AddParameter(1);
-                var error = await Error<SqlResponseException>(() => Collect(new FakeConnector(db).ExecuteReaderJsonAsyncStream<Row>(query)));
+                var error = await Error<SqlResponseException>(() => Collect(new FakeConnector(db).ExecuteReaderModelAsyncStream<Row>(query)));
                 Check(ReferenceEquals(error.Query, query) && error.InnerException != null, "Query context was lost");
                 Check(db.Connections.All(c => c.IsDisposed && c.Commands.All(x => x.IsDisposed)), "Failure leaked owned resources");
                 if (stage is "read" or "json") Check(db.DisposedReaders == 1, "Failure leaked reader");
@@ -117,7 +117,7 @@ internal static class StreamingRegressionTests
             int delivered = 0;
             await Error<SqlResponseException>(async () =>
             {
-                await foreach (var row in new FakeConnector(db).ExecuteReaderJsonAsyncStream<Row>(new("partial"))) delivered++;
+                await foreach (var row in new FakeConnector(db).ExecuteReaderModelAsyncStream<Row>(new("partial"))) delivered++;
             });
             Check(delivered == 1, "Failure erased or concealed partial progress");
             Disposed(db);
@@ -155,58 +155,15 @@ internal static class StreamingRegressionTests
             var db = new FakeDatabase();
             await Error<ApplicationException>(async () =>
             {
-                await foreach (var row in new FakeConnector(db).ExecuteReaderJsonAsyncStream<Row>(new("consumer"))) throw new ApplicationException("consumer");
+                await foreach (var row in new FakeConnector(db).ExecuteReaderModelAsyncStream<Row>(new("consumer"))) throw new ApplicationException("consumer");
             });
             Disposed(db);
         });
-
-        Async("SQL Server fragments split strings, escapes, surrogate pairs, and large tokens", async () =>
-        {
-            string name = "雪😀\"\\\n" + new string('x', 100_000);
-            string json = JsonSerializer.Serialize(new[] { new { Id = 1, Name = name }, new { Id = 2, Name = "tail" } });
-            // Include actual surrogate pairs, not just JSON escape sequences.
-            json = json.Replace("\\uD83D\\uDE00", "😀").Replace("\\u96EA", "雪");
-            Check(json.Contains("😀"), "Fixture does not contain a raw surrogate pair");
-            foreach (int fragmentSize in new[] { 1, 7, 4095, 17000 })
-            {
-                var db = new FakeDatabase
-                {
-                    JsonRows = Enumerable.Range(0, (json.Length + fragmentSize - 1) / fragmentSize)
-                    .Select(i => json.Substring(i * fragmentSize, Math.Min(fragmentSize, json.Length - i * fragmentSize))).ToArray()
-                };
-                var rows = await Collect(new FakeConnector(db, DbFlavor.SqlServer).ExecuteReaderJsonAsyncStream<Row>(new("fragments")));
-                Check(rows.Count == 2 && rows[0].Name == name && rows[1].Name == "tail", "Fragment boundary corrupted JSON");
-                Disposed(db);
-            }
-        });
-
-        Async("SQL Server yields before reading the complete document", async () =>
-        {
-            var db = new FakeDatabase
-            {
-                JsonRows = Enumerable.Range(1, 2000)
-                .Select(i => (i == 1 ? "[" : ",") + "{\"Id\":" + i + ",\"Name\":\"" + new string('x', 128) + "\"}" + (i == 2000 ? "]" : "")).ToArray()
-            };
-            await foreach (var row in new FakeConnector(db, DbFlavor.SqlServer).ExecuteReaderJsonAsyncStream<Row>(new("early-document"))) break;
-            Check(db.AsyncReads < db.JsonRows.Length / 2, "First object required reading most of the document");
-            Disposed(db);
-        });
-
-        foreach (string json in new[] { "[{\"Id\":1}", "[{bad}]", "[{\"Name\":\"unterminated" })
-        {
-            Async("SQL Server rejects malformed or truncated document " + json, async () =>
-            {
-                var db = new FakeDatabase { JsonRows = [json] };
-                var error = await Error<SqlResponseException>(() => Collect(new FakeConnector(db, DbFlavor.SqlServer).ExecuteReaderJsonAsyncStream<Row>(new("bad"))));
-                Check(error.InnerException is JsonException, "Malformed document did not report JSON failure");
-                Disposed(db);
-            });
-        }
 
         Async("streaming hook covers deferred reads and disposal", async () =>
         {
             var connector = new HookConnector(new());
-            var stream = connector.ExecuteReaderJsonAsyncStream<Row>(new("hook"));
+            var stream = connector.ExecuteReaderModelAsyncStream<Row>(new("hook"));
             Check(connector.Starts == 0, "Hook executed before enumeration");
             await foreach (var row in stream) break;
             Check(connector.Starts == 1 && connector.Ends == 1, "Hook missed early disposal");
@@ -219,7 +176,7 @@ internal static class StreamingRegressionTests
             connector.Options.CommandTimeout = TimeSpan.FromMilliseconds(30);
             var error = await Error<SqlResponseException>(async () =>
             {
-                await foreach (var row in connector.ExecuteReaderJsonAsyncStream<Row>(new("deadline"))) await Task.Delay(70);
+                await foreach (var row in connector.ExecuteReaderModelAsyncStream<Row>(new("deadline"))) await Task.Delay(70);
             });
             Check(error.InnerException is TimeoutException, "Deadline was lost across yield");
             Disposed(db);
@@ -276,7 +233,7 @@ internal static class StreamingRegressionTests
     private static string[] JsonRows(DbFlavor flavor)
     {
         const string first = "{\"Id\":1,\"Name\":\"雪😀\"}", second = "{\"Id\":2,\"Name\":null}";
-        return IsDocument(flavor) ? ["[" + first + ",", second + "]"] : [first, second];
+        return [first, second];
     }
     private static async Task<List<T>> Collect<T>(IAsyncEnumerable<T> stream)
     { var rows = new List<T>(); await foreach (var row in stream) rows.Add(row); return rows; }

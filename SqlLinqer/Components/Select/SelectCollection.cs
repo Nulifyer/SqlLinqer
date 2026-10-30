@@ -20,16 +20,15 @@ namespace SqlLinqer.Components.Select
             => base.Clear();
 
         /// <summary>Renders this component for the selected database dialect.</summary>
-        public string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool forJson)
+        public string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
             if (Count == 0)
                 return null;
 
-            var strs = GetAll().Select(x => x.Render(query, parameters, flavor, forJson, true));
+            var strs = GetAll().Select(x => x.Render(query, parameters, flavor, true));
 
             string fields = string.Join(",", strs);
-            return forJson ? SqlLinqer.Compilation.SqlDialect.For(flavor).JsonProjection(fields, query.Distinct,
-                query.IsSubQuery && query.Table.ParentRelationship?.Type != Modeling.RelationshipType.OneToOne) : fields;
+            return fields;
         }
 
         /// <summary>Renders the grouping expressions required by the current projection.</summary>

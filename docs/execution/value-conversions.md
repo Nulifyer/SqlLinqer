@@ -22,7 +22,7 @@ public class UserSummary
 
 SQL NULL can populate a nullable value type or a reference type.
 It cannot populate a non-nullable value type such as `int` or `DateTime`.
-Missing JSON properties keep model construction defaults. Tabular reads require a column for each mapped member.
+Unselected model members keep construction defaults. Tabular reads require a column for each mapped member.
 Use `SqlIgnore` for members that the query does not return.
 
 ## Choose a numeric type
@@ -40,8 +40,6 @@ Decimal and floating-point conversions can round values beyond their precision. 
 Numeric text must use a period as the decimal separator and cannot contain group separators.
 For example, `1234.50` is accepted, while `1,234.50` is rejected.
 
-When a database returns JSON, integer properties accept integer numbers and quoted integer text.
-JSON forms such as `1.0` and `1e2` are rejected for integer properties.
 For an ordinary column value, a provider-supplied whole decimal such as `1.0m` can become an integer.
 Decimal and floating-point properties accept exponent notation.
 
@@ -71,7 +69,6 @@ Use `DateTimeOffset` when your application needs to retain an explicit offset.
 Use UTC `DateTime` when your application works with instants normalized to UTC.
 The database and provider determine the available timestamp precision and timezone information.
 
-JSON `DateOnly` and `TimeOnly` support follows the runtime's converters.
 Native string-to-`DateOnly` and string-to-`TimeOnly` conversion is not provided.
 A native `DateOnly` can become `DateTime` or invariant date text.
 A native `TimeOnly` can become `TimeSpan` or invariant time text.
@@ -80,17 +77,16 @@ A native `TimeOnly` can become `TimeSpan` or invariant time text.
 
 | Property type | Behavior |
 | --- | --- |
-| `string` | Accepts JSON strings, numbers, and booleans. Objects and arrays cannot become strings. |
+| `string` | Accepts provider strings and compatible scalar values using invariant formatting. |
 | `Guid` | Accepts GUID text. |
 | An enum | Accepts names without regard to case, or numbers within its underlying type's range. Undefined numbers are retained. |
-| `bool` | JSON accepts booleans, boolean text, and numbers. Zero is false, and nonzero is true. |
+| `bool` | Accepts provider booleans, boolean text, and compatible numbers. Zero is false, and nonzero is true. |
 | `char` | Requires one UTF-16 code unit. |
-| `byte[]` | Loads binary data. JSON uses Base64, except SQLite typed projections, which use hex. |
+| `byte[]` | Loads native binary data into independently owned byte arrays. No Base64 or hexadecimal transport encoding is used. |
 
-JSON numbers loaded into strings retain their text, including trailing zeroes and exponent notation.
-Booleans become `true` or `false`.
+Native values use invariant CLR formatting when converted to strings.
 Native dates converted to strings use invariant round-trip `O` format, and native `TimeSpan` values use constant `c` format.
-Date strings already returned as JSON text are left unchanged when loaded into string properties.
+Date strings returned by the provider are left unchanged when loaded into string properties.
 Binary results remain usable after the query completes.
 Provider-specific types and arbitrary custom conversions are not supported automatically.
 

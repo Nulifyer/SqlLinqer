@@ -30,7 +30,7 @@ internal static class CompatibleDatabaseTests
             {
                 var parameters = new ParameterCollection(connector.DbFlavor);
                 var query = new SelectQuery<NativeAddress>().SelectRootColumns().OrderBy(x => x.Key, SqlDir.ASC);
-                var rendered = new RenderedQuery { Text = query.Render(parameters, connector.DbFlavor, false), Parameters = parameters };
+                var rendered = new RenderedQuery { Text = query.RenderRows(parameters, connector.DbFlavor), Parameters = parameters };
                 var rows = Result(asynchronous ? connector.ExecuteReaderListAsync<NativeAddress>(rendered).GetAwaiter().GetResult()
                     : connector.ExecuteReaderList<NativeAddress>(rendered));
                 Check(rows.Count == 2 && rows[0].Key == 1 && rows[1].Key == 2 && rows[0].Label == "billing" && rows[1].Label == "shipping", "Native mapping changed earlier rows while reusing scratch storage");
@@ -180,7 +180,7 @@ internal static class CompatibleDatabaseTests
             SelectColumn(Table.FindColumnFromPath(new[] { nameof(Order.Billing), nameof(Address.Name) }), "Billing", false);
             SelectColumn(Table.FindColumnFromPath(new[] { nameof(Order.Shipping), nameof(Address.Name) }), "Shipping", false);
         }
-        public override string Render(ParameterCollection parameters, DbFlavor flavor) => Render(parameters, flavor, false);
+        public override string Render(ParameterCollection parameters, DbFlavor flavor) => RenderRows(parameters, flavor);
     }
     [SqlTable("compat_orders")]
     private sealed class Order

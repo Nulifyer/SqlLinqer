@@ -22,6 +22,16 @@ var explicitById = User.BeginSelect(connector)
     .Where(x => x.Id, userId, SqlOp.EQ);
 ```
 
+## Select distinct parents
+
+Call `.Distinct()` to remove duplicate parent rows before paging and loading nested data.
+The database compares selected scalar values and values required to correlate selected relationships.
+For example, `.Select(x => x.Name).Select(x => x.Permissions).Distinct()` keeps separate users when their relationship IDs differ, even if their names match.
+Repeated permissions remain in each collection. Parent DISTINCT does not apply recursively.
+With DISTINCT, order by a selected scalar column or a required relationship key.
+There is currently no typed fluent operation to configure DISTINCT on one selected child collection.
+For a flat `.Select(x => x.Name).Distinct()` projection, only the selected name participates.
+
 ## Select root columns
 
 `SelectRootColumns` selects the user's columns without loading relationships:
@@ -35,7 +45,7 @@ var rootQuery = User.BeginSelect(connector)
 ## Select relationships
 
 Select relationship members to load related models. See [relationship updates](relationship-changes.md) to change their links.
-SqlLinqer projects the selected graph through database JSON and populates the nested C# members in one command.
+SqlLinqer maps native provider values into complete roots and their selected nested members. Server providers and DuckDB use one graph command; SQLite uses prepared local child commands on the same connection.
 A missing object becomes `null`; a collection with no matches becomes an empty collection.
 Selecting relationships does not execute an additional query for each returned model.
 Use `First()` to reference a column through a collection relationship:

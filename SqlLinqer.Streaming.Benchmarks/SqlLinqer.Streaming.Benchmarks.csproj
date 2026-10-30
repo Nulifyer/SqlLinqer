@@ -6,6 +6,7 @@
     <Nullable>disable</Nullable>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
+  <ItemGroup><Compile Remove="SqlServer/**/*.cs" /></ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../SqlLinqer/SQLLinqer.csproj" />
   </ItemGroup>

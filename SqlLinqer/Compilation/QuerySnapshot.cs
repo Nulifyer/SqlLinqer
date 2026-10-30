@@ -36,6 +36,11 @@ namespace SqlLinqer.Compilation
             return Render(connector.DbFlavor);
         }
 
+        internal RenderedQuery RenderForExecution<T>(BaseConnector connector) where T : class
+        {
+            return Render(connector);
+        }
+
         /// <summary>
         /// Renders a count of the captured root projection before paging, preserving DISTINCT, grouping, and nested query paging.
         /// The rendered SELECT count executes without an owned write transaction. Caller-supplied transactions remain caller-owned.
@@ -46,16 +51,12 @@ namespace SqlLinqer.Compilation
         public RenderedQuery RenderForCount(DbFlavor flavor)
         {
             if (!(definition is SelectQuery select)) throw new InvalidOperationException("Only SELECT snapshots have a total count.");
-            var result = new RenderedQuery();
-            result.QueryName = definition.QueryName;
-            result.IsReadOnlySelect = true;
-            result.CommandRole = "Count";
-            result.Text = RenderSelect(SnapshotGraph.Capture(select), result.Parameters, flavor, true, true);
-            return result;
+            return SnapshotGraph.Capture(select).CompileSelect(flavor, count: true);
         }
 
         internal static RenderedQuery RenderQuery(BaseQuery source, DbFlavor flavor)
         {
+            if (source is SelectQuery nativeSelect) return SnapshotGraph.Capture(nativeSelect).CompileSelect(flavor, count: false);
             var working = SnapshotGraph.Capture(source);
             var result = new RenderedQuery();
             result.QueryName = working.QueryName;
@@ -72,12 +73,12 @@ namespace SqlLinqer.Compilation
             return result;
         }
 
-        internal static string RenderSelect(SelectQuery source, ParameterCollection parameters, DbFlavor flavor, bool forJson, bool count)
+        internal static string RenderSelect(SelectQuery source, ParameterCollection parameters, DbFlavor flavor, bool count)
         {
             var working = source.IsCompilationCopy ? source : SnapshotGraph.Capture(source);
             var context = new RenderContext(parameters, SqlDialect.For(flavor));
             return count ? SelectPreparation.Count(working, context)
-                : context.Dialect.Render(SelectPreparation.Prepare(working, context, forJson));
+                : context.Dialect.Render(SelectPreparation.Prepare(working, context));
         }
     }
 }

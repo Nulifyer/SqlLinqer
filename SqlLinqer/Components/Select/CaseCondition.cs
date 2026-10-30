@@ -58,7 +58,7 @@ namespace SqlLinqer.Components.Select
             }
             else if (ReturnValue is SelectStatement statement)
             {
-                returnValue = statement.Render(query, parameters, flavor, false, false);
+                returnValue = statement.Render(query, parameters, flavor, false);
             }
             else
             {

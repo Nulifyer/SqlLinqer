@@ -14,13 +14,13 @@ namespace SqlLinqer.Compilation
     internal sealed class PreparedSelect
     {
         internal readonly string With, Select, From, Where, GroupBy, OrderBy;
-        internal readonly bool Distinct, ForJson, IsSubQuery, Collection;
+        internal readonly bool Distinct;
         internal readonly int Top, Limit, Offset;
         internal PreparedSelect(string with, string select, string from, string where, string groupBy, string orderBy,
-            bool distinct, bool forJson, bool isSubQuery, bool collection, int top, int limit, int offset)
+            bool distinct, int top, int limit, int offset)
         {
             With = with; Select = select; From = from; Where = where; GroupBy = groupBy; OrderBy = orderBy;
-            Distinct = distinct; ForJson = forJson; IsSubQuery = isSubQuery; Collection = collection;
+            Distinct = distinct;
             Top = top; Limit = limit; Offset = offset;
         }
     }

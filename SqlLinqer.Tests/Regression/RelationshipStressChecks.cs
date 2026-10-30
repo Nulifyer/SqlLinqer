@@ -229,7 +229,7 @@ internal static class RelationshipStressChecks
     {
         internal readonly ConcurrentQueue<RenderedQuery> Commands = new();
         public override DbConnection CreateConnection() => inner.CreateConnection();
-        public override bool JsonResultsRowByRow() => inner.JsonResultsRowByRow();
+
         protected override SqlResponse<T> ExecuteCommand<T>(RenderedQuery query, Func<SqlResponse<T>> action)
         { Commands.Enqueue(query); return base.ExecuteCommand(query, action); }
         protected override Task<SqlResponse<T>> ExecuteCommandAsync<T>(RenderedQuery query, Func<Task<SqlResponse<T>>> action, CancellationToken token)

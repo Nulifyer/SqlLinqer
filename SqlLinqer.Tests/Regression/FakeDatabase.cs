@@ -33,7 +33,7 @@ internal sealed class FakeDatabase
 }
 
 internal sealed class FakeConnector(FakeDatabase database, DbFlavor flavor = DbFlavor.PostgreSql)
-    : BaseConnector(flavor, new ConnectorOptions())
+    : BaseConnector(flavor, new ConnectorOptions { })
 {
     public int Created { get; private set; }
     public override DbConnection CreateConnection()
@@ -148,7 +148,8 @@ internal sealed class FakeCommand(FakeConnection connection) : DbCommand
     protected override DbConnection DbConnection { get; set; } = connection;
     protected override DbTransaction DbTransaction { get; set; }
     protected override DbParameterCollection DbParameterCollection { get; } = new FakeParameters();
-    public override void Cancel() { }
+    public int CancelCalls { get; private set; }
+    public override void Cancel() { CancelCalls++; }
     public override void Prepare() { }
     protected override DbParameter CreateDbParameter()
     {
@@ -213,16 +214,40 @@ internal sealed class FakeCommand(FakeConnection connection) : DbCommand
         }
         else
         {
-            table.Columns.Add("json", typeof(string));
+            table.Columns.Add("Id", typeof(object)); table.Columns.Add("Name", typeof(object));
+            table.Columns.Add("Enabled", typeof(object)); table.Columns.Add("Payload", typeof(object));
             if (connection.DatabaseState.JsonRows != null)
             {
-                foreach (string json in connection.DatabaseState.JsonRows)
-                    table.Rows.Add(json);
+                foreach (string fixture in connection.DatabaseState.JsonRows.FirstOrDefault()?.StartsWith("[") == true
+                    ? new[] { string.Concat(connection.DatabaseState.JsonRows) } : connection.DatabaseState.JsonRows)
+                {
+                    try
+                    {
+                        using var doc = System.Text.Json.JsonDocument.Parse(fixture);
+                        if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                            foreach (var row in doc.RootElement.EnumerateArray()) Add(row);
+                        else Add(doc.RootElement);
+                    }
+                    catch (System.Text.Json.JsonException) { table.Rows.Add("invalid integer", DBNull.Value, false, DBNull.Value); }
+                }
             }
-            else
+            else for (int i = 0; i < connection.DatabaseState.Rows; i++) table.Rows.Add(7, "sample", false, DBNull.Value);
+            void Add(System.Text.Json.JsonElement value)
             {
-                for (int i = 0; i < connection.DatabaseState.Rows; i++)
-                    table.Rows.Add("{\"Id\":7,\"Name\":\"sample\"}");
+                foreach (var property in value.EnumerateObject()) if (!table.Columns.Contains(property.Name)) table.Columns.Add(property.Name, typeof(object));
+                var row = table.NewRow();
+                foreach (var property in value.EnumerateObject()) row[property.Name] = property.Value.ValueKind switch
+                {
+                    System.Text.Json.JsonValueKind.Null => DBNull.Value,
+                    System.Text.Json.JsonValueKind.String => property.Value.GetString(),
+                    System.Text.Json.JsonValueKind.True => true,
+                    System.Text.Json.JsonValueKind.False => false,
+                    System.Text.Json.JsonValueKind.Number when property.Value.TryGetInt64(out long number) => number,
+                    System.Text.Json.JsonValueKind.Number => property.Value.GetDecimal(),
+                    _ => throw new InvalidOperationException("Native fake fixtures require native nested record rows."),
+                };
+                if (row.IsNull("Enabled")) row["Enabled"] = false;
+                table.Rows.Add(row);
             }
         }
         return table.CreateDataReader();

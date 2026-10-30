@@ -34,7 +34,7 @@ namespace SqlLinqer.Components.Ordering
                         var selected = query.Selects.TryGet(Column.Alias);
                         if (selected == null)
                             throw new InvalidOperationException($"No selected expression matches ordering column '{Column.Alias}'.");
-                        return $"{selected.Render(query, parameters, flavor, false, false)} {Dir.GetDescription()}";
+                        return $"{selected.Render(query, parameters, flavor, false)} {Dir.GetDescription()}";
                     }
                     query.Joins.AddTable(Column.Table);
                     return $"{Column.Render(flavor)} {Dir.GetDescription()}";
@@ -43,8 +43,8 @@ namespace SqlLinqer.Components.Ordering
                 case DbFlavor.MySql:
                     var selectStatement = query.Selects.TryGet(Column.Alias);
                     string staement = flavor == DbFlavor.DuckDb
-                        ? parameters.FindExpression(selectStatement) ?? selectStatement.Render(query, parameters, flavor, false, false)
-                        : selectStatement.Render(query, parameters, flavor, false, false);
+                        ? parameters.FindExpression(selectStatement) ?? selectStatement.Render(query, parameters, flavor, false)
+                        : selectStatement.Render(query, parameters, flavor, false);
                     return $"{staement} {Dir.GetDescription()}";
                 case DbFlavor.SqlServer:
                 case DbFlavor.AzureSql:

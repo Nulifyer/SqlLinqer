@@ -36,7 +36,7 @@ internal static class QueryChecks
             var count = query.Capture().RenderForCount(DbFlavor.Sqlite);
             Expect(Result(connector.ExecuteScalar<long>(count)) == 3);
             Expect(Result(connector.ExecuteScalarAsync<long>(count).GetAwaiter().GetResult()) == 3);
-            Expect(Result(connector.ExecuteScalar<string>(query.Render(DbFlavor.Sqlite))).Contains("\"Id\":1"));
+            Expect(Result(connector.ExecuteScalar<int>(query.Render(DbFlavor.Sqlite))) == 1);
             Expect(query.ExecuteWithTotalCount(connector).EnsureSuccess().TotalResults == 3);
             Expect(query.ExecuteWithTotalCountAsync(connector).GetAwaiter().GetResult().EnsureSuccess().TotalResults == 3);
         });
@@ -61,7 +61,7 @@ internal static class QueryChecks
         Test($"{label}: nested pagination orders and limits before JSON aggregation", () =>
         {
             var query = new NestedPageQuery();
-            var rows = Result(connector.ExecuteReaderJson<Item>(query.Render(DbFlavor.Sqlite)));
+            var rows = Result(connector.ExecuteReaderModel<Item>(query.Render(DbFlavor.Sqlite)));
             Expect(rows.Single(x => x.Id == 1).Children.Select(x => x.Name).SequenceEqual(["m"]));
             Expect(rows.Single(x => x.Id == 3).Children.Count == 0);
         });
@@ -232,7 +232,7 @@ internal static class QueryChecks
             Expect(Result(new SelectQuery<Item>().SelectRootColumns().Where(x => x.Id, Array.Empty<int>(), SqlArrayOp.IN).Execute(connector)).Count == 0);
             Expect(Result(new SelectQuery<Item>().SelectRootColumns().Where(x => x.Id, Array.Empty<int>(), SqlArrayOp.NOTIN).Execute(connector)).Count == 3);
         });
-        Test($"{label}: identifiers literals and JSON keys escape quotes", () =>
+        Test($"{label}: identifiers literals and selected aliases escape quotes", () =>
         {
             Run("CREATE TABLE \"odd\"\"table\" (Id INTEGER PRIMARY KEY, \"va\"\"lue\" TEXT)");
             Result(new InsertQuery<QuotedRow>().InsertAuto(new QuotedRow { Value = "quote'\"" }).Execute(connector));
@@ -243,8 +243,7 @@ internal static class QueryChecks
             var selects = (SelectCollection)typeof(SqlLinqer.Queries.Core.SelectQuery).GetField("Selects", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(query);
             selects.AddStatement(new SelectColumn(table.Columns.TryGet(nameof(QuotedRow.Value)), key));
             var raw = Result(connector.ExecuteReaderDataTable(query.Render(DbFlavor.Sqlite)));
-            using var json = JsonDocument.Parse((string)raw.Rows[0][0]);
-            Expect(json.RootElement.GetProperty(key).GetString() == "quote'\"");
+            Expect(raw.Columns[0].ColumnName == key && (string)raw.Rows[0][0] == "quote'\"");
             Expect("'".DbWrapString(DbFlavor.Sqlite) == "''''");
         });
     }

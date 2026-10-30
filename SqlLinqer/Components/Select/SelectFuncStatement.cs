@@ -37,33 +37,14 @@ namespace SqlLinqer.Components.Select
         }
 
         /// <inheritdoc/>
-        public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool forJson, bool include_alias)
+        public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool include_alias)
         {
             string val = parameters.FindExpressionOverride(this) ?? RenderValue(query, parameters, flavor);
 
             if (flavor == DbFlavor.DuckDb)
                 parameters.RememberExpression(this, val);
 
-            if (forJson)
-            {
-                switch (flavor)
-                {
-                    case DbFlavor.Sqlite:
-                    case DbFlavor.DuckDb:
-                    case DbFlavor.PostgreSql:
-                    case DbFlavor.MySql:
-                        return $"{Alias.DbWrapString(flavor)}, {val}";
-                    case DbFlavor.SqlServer:
-                    case DbFlavor.AzureSql:
-                        return $"{val}{(include_alias ? $" AS {Alias.DbWrap(flavor)}" : null)}";
-                    default:
-                        throw new NotSupportedException($"The {nameof(SqlLinqer.DbFlavor)} {flavor} is not supported by {nameof(SelectFuncStatement)}.{nameof(Render)}");
-                }
-            }
-            else
-            {
-                return $"{val}{(include_alias ? $" AS {Alias.DbWrap(flavor)}" : null)}";
-            }
+            return $"{val}{(include_alias ? $" AS {Alias.DbWrap(flavor)}" : null)}";
         }
 
         private string RenderValue(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
@@ -86,7 +67,7 @@ namespace SqlLinqer.Components.Select
                         }
                         break;
                     case SelectStatement sub_statement:
-                        string rendered_sub_stm = sub_statement.Render(query, parameters, flavor, false, false);
+                        string rendered_sub_stm = sub_statement.Render(query, parameters, flavor, false);
                         args_processed.Add($"({rendered_sub_stm})");
                         break;
                     default:
@@ -217,8 +198,8 @@ namespace SqlLinqer.Components.Select
 
             if (Func.GroupByOutput())
                 return new[] { flavor == DbFlavor.DuckDb
-                    ? parameters.FindExpression(this) ?? Render(query, parameters, flavor, false, false)
-                    : Render(query, parameters, flavor, false, false) };
+                    ? parameters.FindExpression(this) ?? Render(query, parameters, flavor, false)
+                    : Render(query, parameters, flavor, false) };
 
             var cols = GetTargetColumns();
             return cols.Select(c => c.Render(flavor)).ToArray();

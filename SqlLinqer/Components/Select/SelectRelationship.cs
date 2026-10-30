@@ -40,12 +40,9 @@ namespace SqlLinqer.Components.Select
         }
 
         /// <inheritdoc/>
-        public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool forJson, bool include_alias)
+        public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool include_alias)
         {
-            // Relationships remain JSON-valued columns even in tabular projections.
-            string sql = SubQuery.Render(parameters, flavor, true);
-            return SqlLinqer.Compilation.SqlDialect.For(flavor).Relationship(sql, Alias,
-                Relationship.Type != RelationshipType.OneToOne, forJson, include_alias);
+            throw new InvalidOperationException("Nested projections are compiled as native result plans. Render the complete SELECT snapshot.");
         }
 
         /// <inheritdoc/>

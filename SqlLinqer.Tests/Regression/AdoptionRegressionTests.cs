@@ -84,7 +84,7 @@ internal static class AdoptionRegressionTests
         var database = new FakeDatabase { JsonRows = ["{\"Id\":7,\"Name\":\"Ada\"}", "{\"Id\":8,\"Name\":\"Grace\"}"] };
         var observer = new RecordingObserver(database);
         var connector = new ConnectionFactoryConnector(() => new FakeConnection(database), DbFlavor.PostgreSql,
-            new ConnectorOptions { Observer = overrideObserver ?? observer });
+            new ConnectorOptions { Observer = overrideObserver ?? observer, });
         var query = connector.BeginSelect<PlainRow>().SelectRootColumns().Tag("users.read");
         if (mode == "stream")
         {

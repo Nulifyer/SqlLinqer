@@ -18,77 +18,61 @@ namespace SqlLinqer.Tests.Regression;
 
 internal static class ReviewRegressionTests
 {
+    private class CopyPlanBase : SqlLinqer.Queries.Core.SelectQuery
+    {
+        private byte[] shared = new byte[] { 7 };
+        public byte[] Shared => shared;
+        public readonly List<object> Readonly;
+        protected CopyPlanBase() : base(new SqlLinqer.Components.Modeling.Table("schema", "rows"))
+        { Readonly = new List<object> { shared }; }
+    }
+    private sealed class CopyPlanQuery : CopyPlanBase { public object Link; }
     internal static void Run(Action<string, Action> test)
     {
-        foreach (var flavor in Enum.GetValues<DbFlavor>())
-            foreach (string mode in new[] { "sync", "async", "stream" })
-                foreach (bool empty in new[] { false, true })
-                {
-                    test($"review framework collection SQL loading {flavor}, {mode}, empty={empty}", () =>
-                    {
-                        string values = empty ? "[]" : "[{\"Id\":7}]";
-                        string dictionary = empty ? "{}" : "{\"one\":{\"Id\":7}}";
-                        string json = $"{{\"Array\":{values},\"List\":{values},\"ReadOnly\":{values},\"Dictionary\":{dictionary},\"ImmutableDictionary\":{dictionary},\"Set\":{values},\"Interface\":{values}}}";
-                        var db = new FakeDatabase { JsonRows = [flavor is DbFlavor.SqlServer or DbFlavor.AzureSql ? "[" + json + "]" : json] };
-                        var connector = new FakeConnector(db, flavor);
-                        var row = Read<Collections>(connector, new("JSON"), mode).Single();
-                        int count = empty ? 0 : 1;
-                        Check(row.Array.Length == count && row.List.Count == count && row.ReadOnly.Count == count && row.Dictionary.Count == count && row.ImmutableDictionary.Count == count && row.Set.Count == count && row.Interface.Count == count, "Collection shape differs");
-                        if (!empty) Check(row.Array[0].Id == 7 && row.List[0].Id == 7 && row.ReadOnly[0].Id == 7 && row.Dictionary["one"].Id == 7, "API attributes changed SQL members");
-                    });
-                }
-
-        foreach (string mode in new[] { "sync", "async", "stream" })
+        test("snapshot field plans copy inherited private and readonly state with cycles", () =>
         {
-            test($"review SQLite hex decoding and JSON member matching, {mode}", () =>
+            var source = new CopyPlanQuery(); source.Link = source;
+            Parallel.For(0, 64, _ =>
             {
-                var bytes = Enumerable.Range(0, 4096).Select(x => (byte)x).ToArray();
-                foreach (string hex in new[] { Convert.ToHexString(bytes), Convert.ToHexString(bytes).ToLowerInvariant(), "", "006\\u0031FF" })
-                {
-                    var connector = new FakeConnector(new() { JsonRows = [$"{{\"data\":\"{hex}\",\"k\\u0065Y\":7}}"] }, DbFlavor.Sqlite);
-                    var row = Read<BinaryRow>(connector, new("JSON"), mode).Single();
-                    var expected = hex == "" ? [] : hex.Contains("\\u") ? new byte[] { 0, 97, 255 } : bytes;
-                    Check(row.Data.SequenceEqual(expected) && row.Key == 7, "Hex or escaped/case-insensitive member matching differs");
-                }
-                foreach (string hex in new[] { "0", "0G", "é0", "00\\u0058F" })
-                {
-                    var connector = new FakeConnector(new() { JsonRows = [$"{{\"Data\":\"{hex}\"}}"] }, DbFlavor.Sqlite);
-                    try { Read<BinaryRow>(connector, new("JSON"), mode); throw new Exception("Invalid hex was accepted"); }
-                    catch (SqlLinqer.Exceptions.SqlResponseException error) { Check(error.GetBaseException() is JsonException, "Invalid hex lost its JSON error"); }
-                }
-                var nullConnector = new FakeConnector(new() { JsonRows = ["{\"Data\":null}"] }, DbFlavor.Sqlite);
-                Check(Read<BinaryRow>(nullConnector, new("JSON"), mode).Single().Data == null, "SQL NULL binary changed");
+                var copy = SqlLinqer.Compilation.SnapshotGraph.Capture(source);
+                Check(ReferenceEquals(copy.Link, copy), "Query cycle escaped its snapshot");
+                Check(ReferenceEquals(copy.Shared, copy.Readonly[0]), "Private/readonly fields lost shared identity");
+                copy.Shared[0] = 8;
+                Check(source.Shared[0] == 7 && copy.Readonly.Count == 1, "Compiled field copy retained mutable state");
             });
-        }
-        test("review segmented hex input decodes without retaining source storage", () =>
-        {
-            byte[] json = Encoding.UTF8.GetBytes("\"00aaFF\"");
-            var first = new Segment(json.AsMemory(0, 4));
-            var last = first.Append(json.AsMemory(4));
-            var reader = new Utf8JsonReader(new ReadOnlySequence<byte>(first, 0, last, last.Memory.Length));
-            Check(reader.Read() && reader.HasValueSequence, "Fixture did not split a string token");
-            var type = typeof(BaseConnector).Assembly.GetType("SqlLinqer.Components.Json.DatabaseHexBytesConverter", true);
-            var converter = (JsonConverter<byte[]>)Activator.CreateInstance(type, true);
-            byte[] result = converter.Read(ref reader, typeof(byte[]), new JsonSerializerOptions());
-            Array.Fill(json, (byte)'0');
-            Check(result.SequenceEqual(new byte[] { 0, 170, 255 }), "Segmented decoding retained source memory");
         });
-
-        test("SQL string conversion preserves segmented numeric tokens", () =>
+        test("snapshot collection factories preserve comparers, aliases and cycles", () =>
         {
-            const string token = "1.234500000000000000000000000000000e+400";
-            byte[] json = Encoding.UTF8.GetBytes(token);
-            var first = new Segment(json.AsMemory(0, 10));
-            var last = first.Append(json.AsMemory(10));
-            var reader = new Utf8JsonReader(new ReadOnlySequence<byte>(first, 0, last, last.Memory.Length));
-            Check(reader.Read() && reader.HasValueSequence, "Fixture did not split a numeric token");
-            var type = typeof(BaseConnector).Assembly.GetType("SqlLinqer.Components.Json.DatabaseStringConverter", true);
-            var converter = (JsonConverter<string>)Activator.CreateInstance(type, true);
-            string result = converter.Read(ref reader, typeof(string), new JsonSerializerOptions());
-            Array.Fill(json, (byte)'0');
-            Check(result == token, "Numeric text lost precision, formatting, or ownership");
+            var bytes = new byte[] { 1, 2 };
+            var list = new List<object> { bytes, bytes }; list.Add(list);
+            var source = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase) { ["Items"] = list };
+            var copy = SqlLinqer.Compilation.SnapshotGraph.Capture(source);
+            var copied = (List<object>)copy["ITEMS"];
+            Check(ReferenceEquals(copy.Comparer, source.Comparer), "Dictionary comparer changed");
+            Check(!ReferenceEquals(copied, list) && !ReferenceEquals(copied[0], bytes), "Snapshot retained mutable values");
+            Check(ReferenceEquals(copied[0], copied[1]) && ReferenceEquals(copied[2], copied), "Shared references or collection cycles changed");
+            ((byte[])copied[0])[0] = 9;
+            Check(bytes[0] == 1, "Captured array mutation escaped");
         });
-
+        test("snapshot collection factories isolate concurrent copies", () =>
+        {
+            var source = new Dictionary<string, List<byte[]>>(StringComparer.OrdinalIgnoreCase) { ["Values"] = new() { new byte[] { 7 } } };
+            Parallel.For(0, 128, i =>
+            {
+                var copy = SqlLinqer.Compilation.SnapshotGraph.Capture(source);
+                copy["VALUES"][0][0] = 8;
+                Check(source["values"][0][0] == 7 && copy["VALUES"].Count == 1, "Concurrent snapshots shared mutable storage");
+            });
+        });
+        foreach (var type in new[] { typeof(Child[]), typeof(List<Child>), typeof(ReadOnlyCollection<Child>), typeof(IReadOnlyList<Child>), typeof(ImmutableArray<Child>), typeof(ImmutableList<Child>), typeof(ImmutableHashSet<Child>) })
+            foreach (bool empty in new[] { true, false })
+                test($"native collection construction {type}, empty={empty}", () =>
+                {
+                    var values = empty ? new List<object>() : new List<object> { new Child { Id = 7 } };
+                    var binding = new SqlLinqer.Components.Native.NativeCollectionBinding(type);
+                    var result = (IEnumerable<Child>)binding.Build(values);
+                    Check(type.IsInstanceOfType(result) && result.Count() == (empty ? 0 : 1), "Native collection changed its declared type or elements");
+                });
         foreach (bool asynchronous in new[] { false, true })
         {
             test($"review cached native mapping isolates concurrent readers, async={asynchronous}", () =>
@@ -174,7 +158,7 @@ internal static class ReviewRegressionTests
                 var connector = new FakeConnector(new(), DbFlavor.Sqlite);
                 var queries = new SqlLinqer.Queries.Core.Abstract.BaseQuery[]
                 {
-                    Renamed.BeginSelect(connector), Renamed.BeginInsert(connector).InsertAuto(new Renamed { Key = 7 }),
+                    Renamed.BeginSelect(connector).SelectRootColumns(), Renamed.BeginInsert(connector).InsertAuto(new Renamed { Key = 7 }),
                     Renamed.BeginUpdate(connector).Update(x => x.Key, 8), Renamed.BeginDelete(connector),
                     Renamed.BeginPrimaryKeyExists(7, connector)
                 };
@@ -234,9 +218,9 @@ internal static class ReviewRegressionTests
 
     private static List<T> Read<T>(BaseConnector connector, RenderedQuery query, string mode) where T : class
     {
-        if (mode == "sync") return Result(connector.ExecuteReaderJson<T>(query));
-        if (mode == "async") return Result(connector.ExecuteReaderJsonAsync<T>(query).GetAwaiter().GetResult());
-        async Task<List<T>> Collect() { var rows = new List<T>(); await foreach (var row in connector.ExecuteReaderJsonAsyncStream<T>(query)) rows.Add(row); return rows; }
+        if (mode == "sync") return Result(connector.ExecuteReaderModel<T>(query));
+        if (mode == "async") return Result(connector.ExecuteReaderModelAsync<T>(query).GetAwaiter().GetResult());
+        async Task<List<T>> Collect() { var rows = new List<T>(); await foreach (var row in connector.ExecuteReaderModelAsyncStream<T>(query)) rows.Add(row); return rows; }
         return Collect().GetAwaiter().GetResult();
     }
     private static T Result<T>(SqlResponse<T> response) => response.State == ResponseState.Valid ? response.Result : throw response.Error;

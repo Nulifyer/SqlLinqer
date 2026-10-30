@@ -98,7 +98,8 @@ internal static class LocalChecks
             local("Azure T-SQL parser " + test.Name, () => Parse(test.Query.Render(DbFlavor.AzureSql).Text));
             if (test.Query is SqlLinqer.Queries.Core.SelectQuery select)
             {
-                local("Azure T-SQL non-JSON parser " + test.Name, () => Parse(select.Render(new ParameterCollection(), DbFlavor.AzureSql, false)));
+                if (!select.Selects.GetAll().Any(s => s is SqlLinqer.Components.Select.SelectRelationship))
+                    local("Azure T-SQL relational parser " + test.Name, () => Parse(select.RenderRows(new ParameterCollection(), DbFlavor.AzureSql)));
                 local("Azure T-SQL count parser " + test.Name, () => Parse(select.RenderForCount(new ParameterCollection(), DbFlavor.AzureSql)));
             }
         }

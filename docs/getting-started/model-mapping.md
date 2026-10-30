@@ -45,13 +45,12 @@ Use this approach to adopt SqlLinqer for one query while keeping your existing c
 
 ## Share a class between the database and API
 
-SqlLinqer owns the SQL → JSON → C# loading pipeline. It always follows mapped C# member names and SqlLinqer attributes.
+Use SqlLinqer attributes to control database mappings and your serializer attributes to control API output.
 It ignores API JSON attributes, including `JsonIgnore`, `JsonPropertyName`, `JsonConverter`, and `JsonConstructor`.
 Application serializer options do not affect database loading.
 Constructors and converters selected only by API JSON configuration do not control SQL loading.
-This behavior cannot be disabled or replaced with an API JSON contract.
 
-Mapped `byte[]` results use Base64 JSON on SQL Server, PostgreSQL, MySQL, and DuckDB. SQLite uses the library's hexadecimal JSON converter.
+Mapped `byte[]` results use native binary provider values and remain independently owned after the reader closes.
 For nullable binary parameters, declare `SqlColumn` with `System.Data.DbType.Binary` so SQL Server receives a typed binary NULL.
 The same SQL model contract applies to `Execute`, `ExecuteAsync`, and `ExecuteAsyncStream`.
 
@@ -82,7 +81,7 @@ SQL loads `Name` from `user_name` and can load `InternalNote`. Normal API serial
 Use `SqlIgnore` to exclude a database member. Use `SqlAutoSelectExclude` to omit it from automatic selection.
 
 SQL loading uses a public or private parameterless constructor when one exists.
-Otherwise, a class needs one public constructor whose parameter names and types match its mapped members.
+Otherwise, a class needs one public constructor whose parameter names and types match its mapped members. Parameters can use either a C# member name or its `SqlColumn` name.
 This rule supports anonymous projections and does not use `JsonConstructor` to select a constructor.
 Private API members do not become database members through `JsonInclude`.
 

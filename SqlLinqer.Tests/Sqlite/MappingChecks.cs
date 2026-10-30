@@ -28,7 +28,7 @@ internal static class MappingChecks
             var query = new SelectQuery<Item>().Select(x => x.Name).Where(x => x.Name, item.Name, SqlOp.EQ);
             var direct = query.Render(DbFlavor.Sqlite);
             Expect(direct.Parameters.GetAll().Single().Placehodler == "@P1");
-            Expect(Result(connector.ExecuteReaderJson<Item>(direct)).Single().Name == item.Name);
+            Expect(Result(connector.ExecuteReaderModel<Item>(direct)).Single().Name == item.Name);
             Expect(Result(query.Execute(connector)).Single().Name == item.Name);
         });
         Test($"{label}: DateTime clock roundtrips but Kind is not stored", () =>

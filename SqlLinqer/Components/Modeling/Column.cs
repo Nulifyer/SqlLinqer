@@ -18,7 +18,7 @@ namespace SqlLinqer.Components.Modeling
                 var tableId = Table.UUID;
                 if (_uuid == null || _uuidTable != tableId || _uuidColumn != ColumnName)
                 {
-                    _uuid = $"{tableId}.{ColumnName}".GetHashString();
+                    _uuid = Table.Identities.Column(tableId, ColumnName);
                     _uuidTable = tableId;
                     _uuidColumn = ColumnName;
                 }
@@ -58,6 +58,8 @@ namespace SqlLinqer.Components.Modeling
         /// <summary>Renders this component for the selected database dialect.</summary>
         public string Render(DbFlavor flavor)
         {
+            if (Table.NativeBindings != null && Table.NativeBindings.TryGetValue(ColumnName, out var expression))
+                return expression;
             return $"{Table.Alias?.DbWrap(flavor)}.{ColumnName?.DbWrap(flavor)}";
         }
 

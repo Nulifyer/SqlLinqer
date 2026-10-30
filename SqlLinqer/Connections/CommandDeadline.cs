@@ -63,6 +63,21 @@ namespace SqlLinqer.Connections
                     throw new TimeoutException($"The {provider} command exceeded its execution timeout.", error ?? cancellationError);
         }
 
+        // Normal early disposal must interrupt before the provider disposes its
+        // reader (which can otherwise drain the remaining network result).
+        // Interruption failures must not replace a consumer's own exception.
+        internal void StopEarly()
+        {
+            lock (gate)
+            {
+                if (!active) return;
+                try { cancelCommand(command); }
+                catch (Exception error) { cancellationError = error; }
+                active = false;
+            }
+            registration.Dispose(); timer?.Dispose();
+        }
+
         internal T Execute<T>(Func<T> action)
         {
             try

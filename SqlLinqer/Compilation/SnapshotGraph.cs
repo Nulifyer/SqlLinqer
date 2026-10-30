@@ -21,7 +21,10 @@ namespace SqlLinqer.Compilation
     internal sealed class SnapshotGraph
     {
         private static readonly Func<object, object> ShallowCopy = CreateShallowCopy();
-        private static readonly ConcurrentDictionary<Type, FieldInfo[]> Fields = new ConcurrentDictionary<Type, FieldInfo[]>();
+        private static readonly ConcurrentDictionary<Type, Action<SnapshotGraph, object, object>> Fields = new ConcurrentDictionary<Type, Action<SnapshotGraph, object, object>>();
+        private static readonly ConcurrentDictionary<Type, Func<object, object>> CollectionFactories = new ConcurrentDictionary<Type, Func<object, object>>();
+        private static readonly Func<Type, Action<SnapshotGraph, object, object>> FieldCopierFactory = CreateFieldCopier;
+        private static readonly Func<Type, Func<object, object>> CollectionFactory = CreateCollectionFactory;
         private readonly Dictionary<object, object> copies = new Dictionary<object, object>(ReferenceComparer.Instance);
 
         internal static T Capture<T>(T value) where T : class => (T)new SnapshotGraph().Copy(value);
@@ -62,7 +65,7 @@ namespace SqlLinqer.Compilation
         {
             if (value == null) return null;
             var type = value.GetType();
-            if (type.IsValueType || value is string || value is Type || value is MemberInfo || value is Delegate)
+            if (type.IsValueType || value is string || value is Type || value is MemberInfo || value is Delegate || value is ModelIdentityScope)
                 return value;
             if (copies.TryGetValue(value, out var existing)) return existing;
 
@@ -88,8 +91,7 @@ namespace SqlLinqer.Compilation
             }
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Dictionary<,>))
             {
-                var comparer = type.GetProperty("Comparer").GetValue(value);
-                var result = (IDictionary)Activator.CreateInstance(type, comparer);
+                var result = (IDictionary)CollectionFactories.GetOrAdd(type, CollectionFactory)(value);
                 copies.Add(value, result);
                 foreach (DictionaryEntry item in (IDictionary)value)
                     result.Add(Copy(item.Key), Copy(item.Value));
@@ -97,7 +99,7 @@ namespace SqlLinqer.Compilation
             }
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
             {
-                var result = (IList)Activator.CreateInstance(type);
+                var result = (IList)CollectionFactories.GetOrAdd(type, CollectionFactory)(value);
                 copies.Add(value, result);
                 foreach (var item in (IList)value) result.Add(Copy(item));
                 return result;
@@ -109,20 +111,17 @@ namespace SqlLinqer.Compilation
                 return result;
             }
 
-            bool queryNode = value is BaseQuery || value is SelectStatement || value is IWhereComponent
-                || value is SqlLinqer.Components.Ordering.IOrderByStatement || value is SqlLinqer.Components.Outputs.IOutputStatement;
-            for (var owner = type; !queryNode && owner != null; owner = owner.BaseType)
-                queryNode = owner.Assembly == typeof(BaseQuery).Assembly
-                    && (owner.Namespace.StartsWith("SqlLinqer.Components.", StringComparison.Ordinal)
-                        || owner.Namespace.StartsWith("SqlLinqer.Modeling", StringComparison.Ordinal));
             // Provider-specific scalar values and runtime dependencies remain opaque.
             // They must be immutable for the lifetime of a snapshot, as documented.
-            if (!queryNode) return value;
+            if (!Fields.TryGetValue(type, out var copyFields))
+            {
+                if (!IsQueryNode(type)) return value;
+                copyFields = Fields.GetOrAdd(type, FieldCopierFactory);
+            }
 
             var clone = ShallowCopy(value);
             copies.Add(value, clone);
-            foreach (var field in Fields.GetOrAdd(type, GetFields))
-                field.SetValue(clone, Copy(field.GetValue(value)));
+            copyFields(this, value, clone);
             if (clone is BaseQuery query) query.IsCompilationCopy = true;
             if (clone is SqlLinqer.Components.Insert.InsertRowCollection inserts) inserts.CaptureValues(Copy);
             return clone;
@@ -145,6 +144,56 @@ namespace SqlLinqer.Compilation
                 fields.AddRange(current.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
                     .Where(f => !f.FieldType.IsValueType && f.FieldType != typeof(string)));
             return fields.ToArray();
+        }
+
+        private static bool IsQueryNode(Type type)
+        {
+            if (typeof(BaseQuery).IsAssignableFrom(type) || typeof(SelectStatement).IsAssignableFrom(type)
+                || typeof(IWhereComponent).IsAssignableFrom(type)
+                || typeof(SqlLinqer.Components.Ordering.IOrderByStatement).IsAssignableFrom(type)
+                || typeof(SqlLinqer.Components.Outputs.IOutputStatement).IsAssignableFrom(type)) return true;
+            for (var owner = type; owner != null; owner = owner.BaseType)
+                if (owner.Assembly == typeof(BaseQuery).Assembly
+                    && (owner.Namespace.StartsWith("SqlLinqer.Components.", StringComparison.Ordinal)
+                        || owner.Namespace.StartsWith("SqlLinqer.Modeling", StringComparison.Ordinal))) return true;
+            return false;
+        }
+
+        private static Action<SnapshotGraph, object, object> CreateFieldCopier(Type type)
+        {
+            var graph = Expression.Parameter(typeof(SnapshotGraph));
+            var source = Expression.Parameter(typeof(object));
+            var destination = Expression.Parameter(typeof(object));
+            var copy = typeof(SnapshotGraph).GetMethod(nameof(Copy), BindingFlags.NonPublic | BindingFlags.Instance);
+            var setValue = typeof(FieldInfo).GetMethod(nameof(FieldInfo.SetValue), new[] { typeof(object), typeof(object) });
+            var assignments = new List<Expression>();
+            foreach (var field in GetFields(type))
+            {
+                var input = Expression.Field(Expression.Convert(source, field.DeclaringType), field);
+                var output = Expression.Call(graph, copy, Expression.Convert(input, typeof(object)));
+                // Readonly backing fields still need reflection to preserve the
+                // existing snapshot contract; other fields use direct access.
+                assignments.Add(field.IsInitOnly
+                    ? (Expression)Expression.Call(Expression.Constant(field), setValue, destination, output)
+                    : Expression.Assign(Expression.Field(Expression.Convert(destination, field.DeclaringType), field), Expression.Convert(output, field.FieldType)));
+            }
+            assignments.Add(Expression.Empty());
+            return Expression.Lambda<Action<SnapshotGraph, object, object>>(Expression.Block(assignments), graph, source, destination).Compile();
+        }
+
+        private static Func<object, object> CreateCollectionFactory(Type type)
+        {
+            var source = Expression.Parameter(typeof(object));
+            var typed = Expression.Convert(source, type);
+            var count = Expression.Property(typed, "Count");
+            NewExpression create;
+            if (type.GetGenericTypeDefinition() == typeof(Dictionary<,>))
+            {
+                var comparer = Expression.Property(typed, "Comparer");
+                create = Expression.New(type.GetConstructor(new[] { typeof(int), comparer.Type }), count, comparer);
+            }
+            else create = Expression.New(type.GetConstructor(new[] { typeof(int) }), count);
+            return Expression.Lambda<Func<object, object>>(Expression.Convert(create, typeof(object)), source).Compile();
         }
 
         private static Func<object, object> CreateShallowCopy()
