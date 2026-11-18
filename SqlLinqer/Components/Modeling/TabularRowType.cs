@@ -15,6 +15,8 @@ namespace SqlLinqer.Components.Modeling
         internal static TabularRowType GetCached(Type type) => Types.GetOrAdd(type, t => new TabularRowType(t));
 
         internal readonly Type Type;
+        // True when each row is a single value, such as int or string, and not a class of members.
+        internal bool IsScalar => _scalar;
         private readonly bool _scalar;
         private readonly UnprocessedColumnMember[] _members;
         private readonly Action<object, object>[] _setters;

@@ -83,6 +83,40 @@ internal static class UpsertRegressionTests
                     "Batches: " + string.Join(",", database.Executed.Select(c => c.Parameters.Count)));
                 Check(database.Executed.Sum(c => c.Parameters.Count) == 420 * 5 + 2 * 2, "Rows or conflict values were lost across batches");
             });
+        test("typed output is validated before the write runs", () =>
+        {
+            var database = new FakeDatabase();
+            var connector = new FakeConnector(database);
+            Throws<InvalidOperationException>(() => new UpdateQuery<Lease>().Update(x => x.State, "x").Where(x => x.DocumentId, 1, SqlOp.EQ).ExecuteWithOutput<int>(connector));
+            Throws<InvalidOperationException>(() => new DeleteQuery<Lease>().Where(x => x.DocumentId, 1, SqlOp.EQ).ExecuteWithOutputAsync<int>(connector).GetAwaiter().GetResult());
+            Throws<InvalidOperationException>(() => Insert().ExecuteWithOutput<int>(connector));
+            // A scalar row type can receive only one column.
+            Throws<InvalidOperationException>(() => Insert().Output(x => x.Generation).Output(x => x.Token).ExecuteWithOutput<int>(connector));
+            Throws<InvalidOperationException>(() => new UpdateQuery<Lease>().Update(x => x.State, "x").Where(x => x.DocumentId, 1, SqlOp.EQ)
+                .Output(x => x.Generation).Output(x => x.Token).ExecuteWithOutputAsync<int>(connector).GetAwaiter().GetResult());
+            Check(database.Executed.Count == 0 && connector.Created == 0, "An invalid typed-output request reached the database");
+        });
+        foreach (bool asynchronous in new[] { false, true })
+            test($"typed output rolls back the write when its rows cannot be mapped, async={asynchronous}", () =>
+            {
+                // The fake returns one integer column named Id, which this row type cannot be built from.
+                foreach (var write in new Func<FakeConnector, ISqlResponse>[]
+                {
+                    c => asynchronous ? Insert().Output(x => x.Generation).ExecuteWithOutputAsync<Unmappable>(c).GetAwaiter().GetResult() : Insert().Output(x => x.Generation).ExecuteWithOutput<Unmappable>(c),
+                    c => { var q = new UpdateQuery<Lease>().Update(x => x.State, "x").Where(x => x.DocumentId, 1, SqlOp.EQ).Output(x => x.Generation);
+                           return asynchronous ? q.ExecuteWithOutputAsync<Unmappable>(c).GetAwaiter().GetResult() : q.ExecuteWithOutput<Unmappable>(c); },
+                    c => { var q = new DeleteQuery<Lease>().Where(x => x.DocumentId, 1, SqlOp.EQ).Output(x => x.Generation);
+                           return asynchronous ? q.ExecuteWithOutputAsync<Unmappable>(c).GetAwaiter().GetResult() : q.ExecuteWithOutput<Unmappable>(c); },
+                })
+                {
+                    var database = new FakeDatabase();
+                    var response = write(new FakeConnector(database));
+                    Check(response.State == ResponseState.Error, "A row that could not be mapped was reported as success");
+                    var transactions = database.Connections.SelectMany(c => c.Transactions).ToList();
+                    Check(transactions.Count == 1 && transactions[0].Rollbacks == 1 && transactions[0].Commits == 0,
+                        $"The write was not rolled back: {transactions.Count} transactions, {transactions.Sum(t => t.Commits)} commits");
+                }
+            });
         test("upsert: a captured query keeps its conflict action", () =>
         {
             var query = Upsert();
@@ -105,6 +139,11 @@ internal static class UpsertRegressionTests
     {
         try { run(); } catch (T) { return; }
         throw new Exception("Expected " + typeof(T).Name);
+    }
+
+    private sealed class Unmappable
+    {
+        public string Missing { get; set; }
     }
 
     [SqlLinqer.Modeling.SqlTable("upsert_leases")]

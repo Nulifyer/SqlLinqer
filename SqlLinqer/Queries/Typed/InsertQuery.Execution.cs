@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SqlLinqer.Components.Render;
 using SqlLinqer.Connections;
+using SqlLinqer.Queries.Execution;
 
 namespace SqlLinqer.Queries.Typed
 {
@@ -57,10 +58,11 @@ namespace SqlLinqer.Queries.Typed
             if (connector == null)
                 throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
             commandTimeout = connector.ResolveCommandTimeout(commandTimeout);
+            WriteExecution.ValidateTypedOutput<TRow>(Outputs);
             if (this.Inserts.Count == 0)
                 return new SqlResponse<List<TRow>>(new List<TRow>());
             return ExecuteBatches<List<TRow>>(connector, transaction,
-                (query, tx) => connector.ExecuteReaderList<TRow>(query, tx, commandTimeout: commandTimeout),
+                (query, tx) => connector.ExecuteReaderList<TRow>(query, tx, null, true, commandTimeout),
                 (all, batch) => { all.AddRange(batch); return all; }, commandTimeout: commandTimeout);
         }
 
@@ -264,10 +266,11 @@ namespace SqlLinqer.Queries.Typed
             if (connector == null)
                 throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
             commandTimeout = connector.ResolveCommandTimeout(commandTimeout);
+            WriteExecution.ValidateTypedOutput<TRow>(Outputs);
             if (this.Inserts.Count == 0)
                 return new SqlResponse<List<TRow>>(new List<TRow>());
             return await ExecuteBatchesAsync<List<TRow>>(connector, transaction,
-                async (query, tx) => await connector.ExecuteReaderListAsync<TRow>(query, tx, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false),
+                async (query, tx) => await connector.ExecuteReaderListAsync<TRow>(query, tx, null, true, cancellationToken, commandTimeout).ConfigureAwait(false),
                 (all, batch) => { all.AddRange(batch); return all; }, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
         }
 

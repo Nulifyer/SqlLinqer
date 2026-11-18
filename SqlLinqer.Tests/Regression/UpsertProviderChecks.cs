@@ -116,6 +116,13 @@ internal static class UpsertProviderChecks
             var updated = (asynchronous ? await update.ExecuteWithOutputAsync<LeaseChange>() : update.ExecuteWithOutput<LeaseChange>()).GetResultOrThrow();
             Check(updated.OrderBy(x => x.DocumentId).Select(x => x.Generation).SequenceEqual(new[] { 2, 6 }), "An update did not return its changed rows as models");
 
+            // A row type that the output cannot fill is an error, and the write it belonged to is rolled back.
+            var unmapped = db.BeginUpdate<Lease>().Update(x => x.Generation, 99).Where(x => x.DocumentId, 1, SqlOp.EQ).Output(x => x.DocumentId);
+            var failed = asynchronous ? await unmapped.ExecuteWithOutputAsync<LeaseChange>() : unmapped.ExecuteWithOutput<LeaseChange>();
+            Check(failed.State == ResponseState.Error, "An output row missing a mapped column was reported as success");
+            Check(db.BeginSql($"SELECT {Q("generation")} FROM {table} WHERE {Q("document_id")} = @id", new { id = 1 }).ExecuteScalar<int>().GetResultOrThrow() == 2,
+                "A write whose output could not be mapped was committed");
+
             var delete = db.BeginDelete<Lease>().Where(x => x.DocumentId, 2, SqlOp.EQ).Output(x => x.Token);
             var deleted = (asynchronous ? await delete.ExecuteWithOutputAsync<string>() : delete.ExecuteWithOutput<string>()).GetResultOrThrow();
             Check(deleted.SequenceEqual(new[] { "b" }), "A delete did not return its removed value as a scalar list");

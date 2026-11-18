@@ -132,6 +132,16 @@ Every mapped member of that class must be one of the output columns, so declare 
 For one output column, use a scalar type such as `int`.
 Updates and deletes have the same terminal. `ExecuteWithOutput()` without a type still returns a `DataTable`.
 
+SqlLinqer checks the request before it runs the write. These cases throw `InvalidOperationException` and change no data:
+
+- No column was selected with `Output`.
+- `TRow` is a scalar type and the write returns more than one column.
+
+`BeginInsert<T, TKey>`, `BeginUpdate<T, TKey>`, and `BeginDelete<T, TKey>` always return the primary key as an output column.
+With one of them, a further `Output` call makes two columns, so use a row class and not a scalar type.
+
+If a returned row cannot be mapped to `TRow`, the response is an error and SqlLinqer rolls the write back.
+If you passed a transaction, the write stays in your transaction and you decide whether to roll it back.
 With a conflict update, the returned row is the row after the insert or the update.
 With `OnConflictDoNothing`, a skipped row returns nothing. Except on MySQL, it does not add to the affected-row count.
 `BeginInsert<T, TKey>` returns the keys of inserted and updated rows in `TouchedPrimaryKeys`.
