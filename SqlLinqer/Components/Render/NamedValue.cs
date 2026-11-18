@@ -6,12 +6,15 @@ namespace SqlLinqer.Components.Render
         internal readonly string Name;
         internal readonly object Value;
         internal readonly System.Data.DbType? DbType;
+        // A list value holds an object[] and renders one parameter for each element.
+        internal readonly bool IsList;
 
-        internal NamedValue(string name, object value, System.Data.DbType? dbType)
+        internal NamedValue(string name, object value, System.Data.DbType? dbType, bool isList = false)
         {
             Name = name;
             Value = value;
             DbType = dbType;
+            IsList = isList;
         }
     }
 }

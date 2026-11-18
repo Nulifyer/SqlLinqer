@@ -274,5 +274,123 @@ namespace SqlLinqer.Connections
                 }
             }, cancellationToken, commandTimeout: commandTimeout, existingConnection: existingConnection);
         }
+
+        // Reads the current row and replaces provider-specific values, as the list readers do.
+        private void LoadRowValues(DbDataReader reader, object[] values)
+        {
+            reader.GetValues(values);
+            for (int i = 0; i < values.Length; i++)
+            {
+                values[i] = DbValueConversion.NormalizeProviderValue(values[i], reader, i, DbFlavor);
+                if (values[i] is Stream stream)
+                    using (stream)
+                    using (var buffer = new MemoryStream())
+                    { stream.CopyTo(buffer); values[i] = buffer.ToArray(); }
+            }
+        }
+
+        /// <summary>
+        /// Executes a command that returns several result sets and buffers each one into its own collection.
+        /// Each result set maps as ExecuteReaderList maps its rows. The number of result sets must equal the number of tuple elements.
+        /// </summary>
+        /// <typeparam name="TResults">A value tuple of collections in result-set order, such as (List&lt;Order&gt;, List&lt;OrderLine&gt;).</typeparam>
+        /// <param name="query">The parameterized SQL text and bindings to execute.</param>
+        /// <param name="existingTransaction">An optional caller-owned transaction with an active connection. The library does not complete or dispose it.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
+        /// <returns>The mapped collections and execution state. Execution or mapping failures produce an error response without partial results.</returns>
+        /// <exception cref="InvalidOperationException">TResults is not a value tuple of at least two supported collections.</exception>
+        public SqlResponse<TResults> ExecuteReaderLists<TResults>(RenderedQuery query, DbTransaction existingTransaction = null, TimeSpan? commandTimeout = null)
+            => ExecuteReaderLists<TResults>(query, existingTransaction, null, query.Transactional, commandTimeout);
+
+        internal SqlResponse<TResults> ExecuteReaderLists<TResults>(RenderedQuery query, DbTransaction existingTransaction, DbConnection existingConnection,
+            bool transactional, TimeSpan? commandTimeout)
+        {
+            var shape = new MultiResultShape<TResults>();
+            return ExecuteOnConnection(query, existingTransaction, transactional, (command, observation) =>
+            {
+                var tables = new object[shape.Tables.Length];
+                int sets = 0;
+                using (var reader = ReadCommand(command, observation))
+                {
+                    do
+                    {
+                        if (reader.FieldCount == 0) continue;
+                        var table = NextResultSet(shape, sets);
+                        var ordinals = table.Row.GetOrdinals(reader);
+                        var values = new object[reader.FieldCount];
+                        var mapped = table.Row.CreateBuffer();
+                        var rows = table.CreateBuffer();
+                        while (reader.Read())
+                        {
+                            LoadRowValues(reader, values);
+                            rows.Add(table.Row.Read(reader, ordinals, values, mapped));
+                        }
+                        tables[sets++] = table.Materialize(rows);
+                    } while (reader.NextResult());
+                }
+                return CompleteResultSets(shape, tables, sets);
+            }, commandTimeout: commandTimeout, existingConnection: existingConnection);
+        }
+
+        /// <summary>
+        /// Asynchronously executes a command that returns several result sets and buffers each one into its own collection.
+        /// Uses the same mapping as ExecuteReaderLists. Requested cancellation throws.
+        /// </summary>
+        /// <typeparam name="TResults">A value tuple of collections in result-set order, such as (List&lt;Order&gt;, List&lt;OrderLine&gt;).</typeparam>
+        /// <param name="query">The parameterized SQL text and bindings to execute.</param>
+        /// <param name="existingTransaction">An optional caller-owned transaction with an active connection. The library does not complete or dispose it.</param>
+        /// <param name="cancellationToken">Cancels provider connection opening, command execution, row loading, and model mapping.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
+        /// <returns>The mapped collections and execution state. Execution or mapping failures produce an error response without partial results.</returns>
+        /// <exception cref="InvalidOperationException">TResults is not a value tuple of at least two supported collections.</exception>
+        /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
+        public Task<SqlResponse<TResults>> ExecuteReaderListsAsync<TResults>(RenderedQuery query,
+            DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+            => ExecuteReaderListsAsync<TResults>(query, existingTransaction, null, query.Transactional, cancellationToken, commandTimeout);
+
+        internal Task<SqlResponse<TResults>> ExecuteReaderListsAsync<TResults>(RenderedQuery query, DbTransaction existingTransaction, DbConnection existingConnection,
+            bool transactional, CancellationToken cancellationToken, TimeSpan? commandTimeout)
+        {
+            var shape = new MultiResultShape<TResults>();
+            return ExecuteOnConnectionAsync(query, existingTransaction, transactional, async (command, observation) =>
+            {
+                var tables = new object[shape.Tables.Length];
+                int sets = 0;
+                using (var reader = await ReadCommandAsync(command, observation, cancellationToken).ConfigureAwait(false))
+                {
+                    do
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        if (reader.FieldCount == 0) continue;
+                        var table = NextResultSet(shape, sets);
+                        var ordinals = table.Row.GetOrdinals(reader);
+                        var values = new object[reader.FieldCount];
+                        var mapped = table.Row.CreateBuffer();
+                        var rows = table.CreateBuffer();
+                        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            LoadRowValues(reader, values);
+                            rows.Add(table.Row.Read(reader, ordinals, values, mapped));
+                        }
+                        tables[sets++] = table.Materialize(rows);
+                    } while (await reader.NextResultAsync(cancellationToken).ConfigureAwait(false));
+                }
+                cancellationToken.ThrowIfCancellationRequested();
+                return CompleteResultSets(shape, tables, sets);
+            }, cancellationToken, commandTimeout: commandTimeout, existingConnection: existingConnection);
+        }
+
+        private static ResultTable NextResultSet<TResults>(MultiResultShape<TResults> shape, int set)
+        {
+            if (set >= shape.Tables.Length) throw new InvalidOperationException($"The command returned more than {shape.Tables.Length} result sets.");
+            return shape.Tables[set];
+        }
+
+        private static TResults CompleteResultSets<TResults>(MultiResultShape<TResults> shape, object[] tables, int sets)
+        {
+            if (sets != tables.Length) throw new InvalidOperationException($"The command returned {sets} result sets; expected {tables.Length}.");
+            return shape.Create(tables);
+        }
     }
 }

@@ -170,6 +170,13 @@ Single-column results can also use scalar types such as `int?`.
 
 An empty result returns an empty list. Mapping failures return an error without a partial list.
 These methods load the first tabular result and do not populate relationships.
+
+Two further connector methods follow the same mapping rules:
+
+- `ExecuteReaderLists<TResults>` and `ExecuteReaderListsAsync<TResults>` read several result sets into a value tuple of collections.
+- `ExecuteReaderListAsyncStream<T>` reads rows one at a time.
+
+`BeginSql` offers them as [`ExecuteLists<TResults>`](../queries/raw-sql.md#read-several-result-sets) and [`ExecuteAsyncStream<T>`](../queries/raw-sql.md#stream-rows).
 See [result property types](value-conversions.md) for null, numeric, and date rules.
 
 ## Reuse query builders safely

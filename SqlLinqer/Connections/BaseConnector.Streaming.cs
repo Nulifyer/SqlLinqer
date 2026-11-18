@@ -12,19 +12,28 @@ namespace SqlLinqer.Connections
 {
     public abstract partial class BaseConnector
     {
+        // Maps the rows of an open reader. Native SELECT results and flat tabular rows differ only here.
+        private delegate IAsyncEnumerable<T> StreamRows<T>(DbCommand command, DbDataReader reader, ExecutionObservation observation, CancellationToken cancellationToken);
+
         private IAsyncEnumerable<T> StartResultStream<T>(RenderedQuery query, DbTransaction transaction,
             CancellationToken cancellationToken, TimeSpan? commandTimeout) where T : class
+            => StartStream<T>(query, transaction, null, (command, reader, observation, token) => ReadNativeRows<T>(command, query, reader, observation, token),
+                CommandBehavior.SequentialAccess, cancellationToken, commandTimeout);
+
+        private IAsyncEnumerable<T> StartStream<T>(RenderedQuery query, DbTransaction transaction, DbConnection existingConnection,
+            StreamRows<T> rows, CommandBehavior behavior, CancellationToken cancellationToken, TimeSpan? commandTimeout)
         {
             if (query == null) throw new ArgumentNullException(nameof(query));
             cancellationToken.ThrowIfCancellationRequested();
             commandTimeout = ResolveCommandTimeout(commandTimeout);
             if (Options.Observer != null)
-                return ObserveStream<T>(query, transaction, cancellationToken, commandTimeout);
-            return ExecuteCommandAsyncStream(query, token => ExecuteOnConnectionAsyncStream<T>(query, transaction, token, commandTimeout: commandTimeout), cancellationToken);
+                return ObserveStream(query, transaction, existingConnection, rows, behavior, cancellationToken, commandTimeout);
+            return ExecuteCommandAsyncStream(query, token => ExecuteOnConnectionAsyncStream(query, transaction, existingConnection, rows, behavior, token,
+                commandTimeout: commandTimeout), cancellationToken);
         }
 
-        private async IAsyncEnumerable<T> ObserveStream<T>(RenderedQuery query, DbTransaction transaction,
-            [EnumeratorCancellation] CancellationToken cancellationToken, TimeSpan? commandTimeout) where T : class
+        private async IAsyncEnumerable<T> ObserveStream<T>(RenderedQuery query, DbTransaction transaction, DbConnection existingConnection,
+            StreamRows<T> mapRows, CommandBehavior behavior, [EnumeratorCancellation] CancellationToken cancellationToken, TimeSpan? commandTimeout)
         {
             var observation = ExecutionObservation.Start(Options.Observer, query, DbFlavor, true);
             Exception failure = null;
@@ -35,7 +44,7 @@ namespace SqlLinqer.Connections
             {
                 try
                 {
-                    rows = ExecuteCommandAsyncStream(query, token => ExecuteOnConnectionAsyncStream<T>(query, transaction, token,
+                    rows = ExecuteCommandAsyncStream(query, token => ExecuteOnConnectionAsyncStream(query, transaction, existingConnection, mapRows, behavior, token,
                         commandTimeout, observation), cancellationToken).GetAsyncEnumerator(cancellationToken);
                 }
                 catch (Exception error) { failure = error; throw; }
@@ -107,11 +116,12 @@ namespace SqlLinqer.Connections
             return error is SqlResponseException ? error : new SqlResponseException(query, error);
         }
 
-        private async IAsyncEnumerable<T> ExecuteOnConnectionAsyncStream<T>(RenderedQuery query, DbTransaction transaction,
-            [EnumeratorCancellation] CancellationToken cancellationToken, TimeSpan? commandTimeout = null, ExecutionObservation observation = null) where T : class
+        private async IAsyncEnumerable<T> ExecuteOnConnectionAsyncStream<T>(RenderedQuery query, DbTransaction transaction, DbConnection existingConnection,
+            StreamRows<T> rows, CommandBehavior behavior,
+            [EnumeratorCancellation] CancellationToken cancellationToken, TimeSpan? commandTimeout = null, ExecutionObservation observation = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var connection = ResolveConnection(transaction, null, out bool ownsConnection);
+            var connection = ResolveConnection(transaction, existingConnection, out bool ownsConnection);
             try
             {
                 if (connection.State != ConnectionState.Open)
@@ -131,15 +141,15 @@ namespace SqlLinqer.Connections
                         streaming.SetValue(command, true);
                     }
                     command.Transaction = transaction;
-                    var sequence = ReadNativeCommandStream<T>(command, query, timeout, observation, cancellationToken);
+                    var sequence = ReadCommandStream(command, rows, behavior, timeout, observation, cancellationToken);
                     await foreach (var row in sequence.ConfigureAwait(false)) yield return row;
                 }
             }
             finally { if (ownsConnection) connection.Dispose(); }
         }
 
-        private async IAsyncEnumerable<T> ReadNativeCommandStream<T>(DbCommand command, RenderedQuery query,
-            TimeSpan timeout, ExecutionObservation observation, [EnumeratorCancellation] CancellationToken cancellationToken) where T : class
+        private async IAsyncEnumerable<T> ReadCommandStream<T>(DbCommand command, StreamRows<T> mapRows, CommandBehavior behavior,
+            TimeSpan timeout, ExecutionObservation observation, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             // Also registers Cancel for text reads whose netstandard2.0
             // TextReader contracts cannot receive a cancellation token.
@@ -151,41 +161,88 @@ namespace SqlLinqer.Connections
                 try
                 {
                     deadline.ThrowIfInterrupted();
-                    reader = await ReadCommandAsync(command, observation, cancellationToken, CommandBehavior.SequentialAccess).ConfigureAwait(false);
+                    reader = await ReadCommandAsync(command, observation, cancellationToken, behavior).ConfigureAwait(false);
                 }
                 catch (Exception error) { deadline.ThrowIfInterrupted(error); throw; }
                 using (reader)
                 {
-                    using (var localMapper = query.NativePlan?.LocalQueries == true ? CreateLocalNativeMapper<T>(query, command, observation) : null)
+                    var rows = mapRows(command, reader, observation, cancellationToken).GetAsyncEnumerator(cancellationToken);
+                    bool completed = false;
+                    try
                     {
-                        var nativeMapper = localMapper == null ? new SqlLinqer.Components.Native.NativeResultMapper<T>(query.NativePlan, DbFlavor) : null;
-                        var sequence = localMapper != null ? localMapper.ReadAsyncStream(reader, cancellationToken) : nativeMapper.ReadAsyncStream(reader, cancellationToken);
-                        var rows = sequence.GetAsyncEnumerator(cancellationToken);
-                        bool completed = false;
-                        try
+                        while (true)
                         {
-                            while (true)
+                            bool next;
+                            try
                             {
-                                bool next;
-                                try
-                                {
-                                    deadline.ThrowIfInterrupted();
-                                    next = await rows.MoveNextAsync().ConfigureAwait(false);
-                                    deadline.ThrowIfInterrupted();
-                                }
-                                catch (Exception error) { deadline.ThrowIfInterrupted(error); throw; }
-                                if (!next) { completed = true; break; }
-                                yield return rows.Current;
+                                deadline.ThrowIfInterrupted();
+                                next = await rows.MoveNextAsync().ConfigureAwait(false);
+                                deadline.ThrowIfInterrupted();
                             }
+                            catch (Exception error) { deadline.ThrowIfInterrupted(error); throw; }
+                            if (!next) { completed = true; break; }
+                            yield return rows.Current;
                         }
-                        finally
-                        {
-                            if (!completed) deadline.StopEarly();
-                            await rows.DisposeAsync().ConfigureAwait(false);
-                        }
+                    }
+                    finally
+                    {
+                        if (!completed) deadline.StopEarly();
+                        await rows.DisposeAsync().ConfigureAwait(false);
                     }
                 }
             }
         }
+
+        // Disposing this sequence releases the child-query mapper after its rows, and before the reader closes.
+        private async IAsyncEnumerable<T> ReadNativeRows<T>(DbCommand command, RenderedQuery query, DbDataReader reader,
+            ExecutionObservation observation, [EnumeratorCancellation] CancellationToken cancellationToken) where T : class
+        {
+            using (var localMapper = query.NativePlan?.LocalQueries == true ? CreateLocalNativeMapper<T>(query, command, observation) : null)
+            {
+                var sequence = localMapper != null ? localMapper.ReadAsyncStream(reader, cancellationToken)
+                    : new SqlLinqer.Components.Native.NativeResultMapper<T>(query.NativePlan, DbFlavor).ReadAsyncStream(reader, cancellationToken);
+                await foreach (var row in sequence.ConfigureAwait(false)) yield return row;
+            }
+        }
+
+        // Maps flat rows as ExecuteReaderList does, one row at a time.
+        private async IAsyncEnumerable<T> ReadTabularRows<T>(DbDataReader reader, [EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            while (reader.FieldCount == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!await reader.NextResultAsync(cancellationToken).ConfigureAwait(false)) yield break;
+            }
+            var rowType = SqlLinqer.Components.Modeling.TabularRowType.GetCached(typeof(T));
+            var ordinals = rowType.GetOrdinals(reader);
+            var values = new object[reader.FieldCount];
+            var mapped = rowType.CreateBuffer();
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                LoadRowValues(reader, values);
+                yield return (T)rowType.Read(reader, ordinals, values, mapped);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        /// <summary>
+        /// Streams the rows of a tabular command without buffering them. Rows map as ExecuteReaderList maps them.
+        /// The command runs on enumeration, without an owned transaction. Dispose enumeration to cancel unfinished work and release owned resources.
+        /// </summary>
+        /// <typeparam name="T">A concrete mapped row type, or a scalar type for a single-column result.</typeparam>
+        /// <param name="query">The parameterized SQL text and bindings to execute.</param>
+        /// <param name="existingTransaction">An optional caller-owned transaction. Keep its connection available until enumeration is disposed.</param>
+        /// <param name="cancellationToken">Cancels execution and reading.</param>
+        /// <param name="commandTimeout">An optional execution timeout override.</param>
+        /// <returns>A deferred sequence. Mapping and database failures throw SqlResponseException during enumeration; requested cancellation throws.</returns>
+        public IAsyncEnumerable<T> ExecuteReaderListAsyncStream<T>(RenderedQuery query, DbTransaction existingTransaction = null,
+            CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+            => ExecuteReaderListAsyncStream<T>(query, existingTransaction, null, cancellationToken, commandTimeout);
+
+        internal IAsyncEnumerable<T> ExecuteReaderListAsyncStream<T>(RenderedQuery query, DbTransaction existingTransaction, DbConnection existingConnection,
+            CancellationToken cancellationToken, TimeSpan? commandTimeout)
+            => StartStream<T>(query, existingTransaction, existingConnection, (command, reader, observation, token) => ReadTabularRows<T>(reader, token),
+                CommandBehavior.Default, cancellationToken, commandTimeout);
     }
 }

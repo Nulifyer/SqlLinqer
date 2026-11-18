@@ -33,7 +33,7 @@ namespace SqlLinqer.Components.Modeling
                 var bind = new List<Func<ResultTable>>();
                 var values = Expression.Parameter(typeof(object[]), "tables");
                 var tuple = BuildTuple(typeof(TResults), values, collections, bind);
-                if (collections.Count < 2) throw new InvalidOperationException("Multi-callable results require a value tuple containing at least two result collections.");
+                if (collections.Count < 2) throw new InvalidOperationException("Several result sets require a value tuple containing at least two result collections, such as (List<A>, List<B>).");
                 _collections = collections.ToArray();
                 _bind = bind.ToArray();
                 Create = Expression.Lambda<Func<object[], TResults>>(tuple, values).Compile();
@@ -56,7 +56,7 @@ namespace SqlLinqer.Components.Modeling
             private static Expression BuildTuple(Type type, ParameterExpression values, List<Type> collections, List<Func<ResultTable>> bind)
             {
                 if (!type.IsValueType || !type.IsGenericType || type.Namespace != "System" || !type.Name.StartsWith("ValueTuple`", StringComparison.Ordinal))
-                    throw new InvalidOperationException("Multi-callable results must be a value tuple of result collections.");
+                    throw new InvalidOperationException("Several result sets must map to a value tuple of result collections, such as (List<A>, List<B>).");
                 var types = type.GetGenericArguments();
                 var arguments = new Expression[types.Length];
                 for (int i = 0; i < types.Length; i++)

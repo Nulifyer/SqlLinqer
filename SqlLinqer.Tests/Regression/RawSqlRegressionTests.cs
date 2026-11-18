@@ -129,6 +129,31 @@ internal static class RawSqlRegressionTests
                 Check(Transactions(list, false) == 0 && Transactions(table, false) == 0, "A raw read opened a transaction");
             });
         }
+        test("raw sql: a list value renders one parameter for each element", () =>
+        {
+            var rendered = new RawQuery("SELECT * FROM jobs WHERE id IN (@ids) AND state = @state OR parent IN (@IDS)", new { state = "queued" })
+                .ValueList("ids", new[] { 3, 5, 8 }, DbType.Int32).Render(DbFlavor.PostgreSql);
+            Check(rendered.Text == "SELECT * FROM jobs WHERE id IN (@ids1, @ids2, @ids3) AND state = @state OR parent IN (@ids1, @ids2, @ids3)", rendered.Text);
+            var parameters = rendered.Parameters.GetAll().ToDictionary(p => p.Placehodler);
+            Check(parameters.Count == 4 && (int)parameters["@ids2"].Value == 5 && parameters["@ids3"].DbType == DbType.Int32, "List elements were not bound in order");
+            Check(new RawQuery("SELECT @ids").ValueList("ids", new List<string> { "a", "b" }).Render(DbFlavor.DuckDb).Text == "SELECT $ids1, $ids2", "DuckDB list placeholders changed");
+            // The elements are copied, so later changes to the caller's list do not reach the command.
+            var source = new List<int> { 1, 2 };
+            var copied = new RawQuery("SELECT @n").ValueList("n", source);
+            source.Add(3);
+            Check(copied.Render(DbFlavor.Sqlite).Parameters.Count == 2, "A list value followed later changes to its source");
+            // Value and ValueList replace each other under one name.
+            Check(new RawQuery("SELECT @n").ValueList("n", new[] { 1, 2 }).Value("n", 7).Render(DbFlavor.MySql).Text == "SELECT @n", "Value did not replace a list");
+            Check(new RawQuery("SELECT @n").Value("n", 7).ValueList("N", new[] { 1, 2 }).Render(DbFlavor.MySql).Text == "SELECT @N1, @N2", "A list did not replace a value");
+            Throws<InvalidOperationException>(() => new RawQuery("SELECT @n").ValueList("n", Array.Empty<int>()).Render(DbFlavor.PostgreSql), "empty");
+            Throws<InvalidOperationException>(() => new RawQuery("SELECT 1").ValueList("n", new[] { 1 }).Render(DbFlavor.PostgreSql), "'n'");
+            Throws<ArgumentException>(() => new RawQuery("SELECT @n").ValueList("n", "text"), "one value");
+            Throws<ArgumentException>(() => new RawQuery("SELECT @n").ValueList("n", new byte[] { 1 }), "one value");
+            // A generated element name that another value already uses is rejected instead of binding the wrong value.
+            Throws<InvalidOperationException>(() => new RawQuery("SELECT @n1, @n").Value("n1", 1).ValueList("n", new[] { 2 }).Render(DbFlavor.PostgreSql), "@n1");
+            // A binary value passed through Values stays one parameter.
+            Check(new RawQuery("SELECT @blob", new { blob = new byte[] { 1, 2 } }).Render(DbFlavor.PostgreSql).Parameters.Count == 1, "A byte array was expanded");
+        });
         foreach (bool asynchronous in new[] { false, true })
         {
             test($"session connector: commands use the supplied connection and own their transactions, async={asynchronous}", () =>

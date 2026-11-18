@@ -290,5 +290,115 @@ namespace SqlLinqer.Queries.Raw
         /// <returns>The buffered table and execution state.</returns>
         public Task<SqlResponse<DataTable>> ExecuteDataTableAsync(BaseConnector connector, DbConnection connection, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
             => Require(connector).ExecuteReaderDataTableAsync(Render(connector), null, Require(connection), false, cancellationToken, commandTimeout);
+
+        /// <summary>Reads a command that returns several result sets, mapping each one into its own collection as ExecuteList maps rows. The number of result sets must equal the number of tuple elements. The command runs without an owned transaction.</summary>
+        /// <typeparam name="TResults">A value tuple of collections in result-set order, such as (List&lt;Order&gt;, List&lt;OrderLine&gt;).</typeparam>
+        /// <param name="transaction">An optional caller-owned transaction. Without one, the command runs without a transaction.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution.</param>
+        /// <returns>The mapped collections and execution state.</returns>
+        public SqlResponse<TResults> ExecuteLists<TResults>(DbTransaction transaction = null, TimeSpan? commandTimeout = null)
+            => ExecuteLists<TResults>(ExecutionConnector, transaction, commandTimeout: commandTimeout);
+
+        /// <summary>Reads a command that returns several result sets, mapping each one into its own collection as ExecuteList maps rows. The number of result sets must equal the number of tuple elements. The command runs without an owned transaction.</summary>
+        /// <typeparam name="TResults">A value tuple of collections in result-set order, such as (List&lt;Order&gt;, List&lt;OrderLine&gt;).</typeparam>
+        /// <param name="connector">The connector to execute with.</param>
+        /// <param name="transaction">An optional caller-owned transaction. Without one, the command runs without a transaction.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution.</param>
+        /// <returns>The mapped collections and execution state.</returns>
+        public SqlResponse<TResults> ExecuteLists<TResults>(BaseConnector connector, DbTransaction transaction = null, TimeSpan? commandTimeout = null)
+            => Require(connector).ExecuteReaderLists<TResults>(Render(connector), transaction, null, false, commandTimeout);
+
+        /// <summary>Reads a command that returns several result sets, mapping each one into its own collection as ExecuteList maps rows. The number of result sets must equal the number of tuple elements. Runs on the supplied open connection, without a transaction.</summary>
+        /// <typeparam name="TResults">A value tuple of collections in result-set order, such as (List&lt;Order&gt;, List&lt;OrderLine&gt;).</typeparam>
+        /// <param name="connection">An open caller-owned connection. It stays open.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution.</param>
+        /// <returns>The mapped collections and execution state.</returns>
+        public SqlResponse<TResults> ExecuteLists<TResults>(DbConnection connection, TimeSpan? commandTimeout = null)
+            => ExecuteLists<TResults>(ExecutionConnector, connection, commandTimeout: commandTimeout);
+
+        /// <summary>Reads a command that returns several result sets, mapping each one into its own collection as ExecuteList maps rows. The number of result sets must equal the number of tuple elements. Runs on the supplied open connection, without a transaction.</summary>
+        /// <typeparam name="TResults">A value tuple of collections in result-set order, such as (List&lt;Order&gt;, List&lt;OrderLine&gt;).</typeparam>
+        /// <param name="connector">The connector to execute with.</param>
+        /// <param name="connection">An open caller-owned connection. It stays open.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution.</param>
+        /// <returns>The mapped collections and execution state.</returns>
+        public SqlResponse<TResults> ExecuteLists<TResults>(BaseConnector connector, DbConnection connection, TimeSpan? commandTimeout = null)
+            => Require(connector).ExecuteReaderLists<TResults>(Render(connector), null, Require(connection), false, commandTimeout);
+
+        /// <summary>Asynchronously reads a command that returns several result sets, mapping each one into its own collection as ExecuteList maps rows. The number of result sets must equal the number of tuple elements. The command runs without an owned transaction. Requested cancellation throws.</summary>
+        /// <typeparam name="TResults">A value tuple of collections in result-set order, such as (List&lt;Order&gt;, List&lt;OrderLine&gt;).</typeparam>
+        /// <param name="transaction">An optional caller-owned transaction. Without one, the command runs without a transaction.</param>
+        /// <param name="cancellationToken">Cancels connection opening, command execution, and result loading.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution.</param>
+        /// <returns>The mapped collections and execution state.</returns>
+        public Task<SqlResponse<TResults>> ExecuteListsAsync<TResults>(DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+            => ExecuteListsAsync<TResults>(ExecutionConnector, transaction, cancellationToken, commandTimeout: commandTimeout);
+
+        /// <summary>Asynchronously reads a command that returns several result sets, mapping each one into its own collection as ExecuteList maps rows. The number of result sets must equal the number of tuple elements. The command runs without an owned transaction. Requested cancellation throws.</summary>
+        /// <typeparam name="TResults">A value tuple of collections in result-set order, such as (List&lt;Order&gt;, List&lt;OrderLine&gt;).</typeparam>
+        /// <param name="connector">The connector to execute with.</param>
+        /// <param name="transaction">An optional caller-owned transaction. Without one, the command runs without a transaction.</param>
+        /// <param name="cancellationToken">Cancels connection opening, command execution, and result loading.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution.</param>
+        /// <returns>The mapped collections and execution state.</returns>
+        public Task<SqlResponse<TResults>> ExecuteListsAsync<TResults>(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+            => Require(connector).ExecuteReaderListsAsync<TResults>(Render(connector), transaction, null, false, cancellationToken, commandTimeout);
+
+        /// <summary>Asynchronously reads a command that returns several result sets, mapping each one into its own collection as ExecuteList maps rows. The number of result sets must equal the number of tuple elements. Runs on the supplied open connection, without a transaction. Requested cancellation throws.</summary>
+        /// <typeparam name="TResults">A value tuple of collections in result-set order, such as (List&lt;Order&gt;, List&lt;OrderLine&gt;).</typeparam>
+        /// <param name="connection">An open caller-owned connection. It stays open.</param>
+        /// <param name="cancellationToken">Cancels command execution and result loading.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution.</param>
+        /// <returns>The mapped collections and execution state.</returns>
+        public Task<SqlResponse<TResults>> ExecuteListsAsync<TResults>(DbConnection connection, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+            => ExecuteListsAsync<TResults>(ExecutionConnector, connection, cancellationToken, commandTimeout: commandTimeout);
+
+        /// <summary>Asynchronously reads a command that returns several result sets, mapping each one into its own collection as ExecuteList maps rows. The number of result sets must equal the number of tuple elements. Runs on the supplied open connection, without a transaction. Requested cancellation throws.</summary>
+        /// <typeparam name="TResults">A value tuple of collections in result-set order, such as (List&lt;Order&gt;, List&lt;OrderLine&gt;).</typeparam>
+        /// <param name="connector">The connector to execute with.</param>
+        /// <param name="connection">An open caller-owned connection. It stays open.</param>
+        /// <param name="cancellationToken">Cancels command execution and result loading.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution.</param>
+        /// <returns>The mapped collections and execution state.</returns>
+        public Task<SqlResponse<TResults>> ExecuteListsAsync<TResults>(BaseConnector connector, DbConnection connection, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+            => Require(connector).ExecuteReaderListsAsync<TResults>(Render(connector), null, Require(connection), false, cancellationToken, commandTimeout);
+
+        /// <summary>Streams rows without buffering them, mapping each row as ExecuteList does. The SQL renders now and runs on enumeration, without an owned transaction. Dispose enumeration after an early exit. Requested cancellation throws.</summary>
+        /// <typeparam name="T">A row class, or a scalar type for a single-column result.</typeparam>
+        /// <param name="transaction">An optional caller-owned transaction. Without one, the command runs without a transaction.</param>
+        /// <param name="cancellationToken">Cancels connection opening, command execution, and result loading.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution.</param>
+        /// <returns>A deferred sequence. Mapping and database failures throw SqlResponseException during enumeration.</returns>
+        public IAsyncEnumerable<T> ExecuteAsyncStream<T>(DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+            => ExecuteAsyncStream<T>(ExecutionConnector, transaction, cancellationToken, commandTimeout: commandTimeout);
+
+        /// <summary>Streams rows without buffering them, mapping each row as ExecuteList does. The SQL renders now and runs on enumeration, without an owned transaction. Dispose enumeration after an early exit. Requested cancellation throws.</summary>
+        /// <typeparam name="T">A row class, or a scalar type for a single-column result.</typeparam>
+        /// <param name="connector">The connector to execute with.</param>
+        /// <param name="transaction">An optional caller-owned transaction. Without one, the command runs without a transaction.</param>
+        /// <param name="cancellationToken">Cancels connection opening, command execution, and result loading.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution.</param>
+        /// <returns>A deferred sequence. Mapping and database failures throw SqlResponseException during enumeration.</returns>
+        public IAsyncEnumerable<T> ExecuteAsyncStream<T>(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+            => Require(connector).ExecuteReaderListAsyncStream<T>(Render(connector), transaction, null, cancellationToken, commandTimeout);
+
+        /// <summary>Streams rows without buffering them, mapping each row as ExecuteList does. The SQL renders now and runs on enumeration, on the supplied open connection and without a transaction. Dispose enumeration after an early exit. Requested cancellation throws.</summary>
+        /// <typeparam name="T">A row class, or a scalar type for a single-column result.</typeparam>
+        /// <param name="connection">An open caller-owned connection. It stays open.</param>
+        /// <param name="cancellationToken">Cancels command execution and result loading.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution.</param>
+        /// <returns>A deferred sequence. Mapping and database failures throw SqlResponseException during enumeration.</returns>
+        public IAsyncEnumerable<T> ExecuteAsyncStream<T>(DbConnection connection, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+            => ExecuteAsyncStream<T>(ExecutionConnector, connection, cancellationToken, commandTimeout: commandTimeout);
+
+        /// <summary>Streams rows without buffering them, mapping each row as ExecuteList does. The SQL renders now and runs on enumeration, on the supplied open connection and without a transaction. Dispose enumeration after an early exit. Requested cancellation throws.</summary>
+        /// <typeparam name="T">A row class, or a scalar type for a single-column result.</typeparam>
+        /// <param name="connector">The connector to execute with.</param>
+        /// <param name="connection">An open caller-owned connection. It stays open.</param>
+        /// <param name="cancellationToken">Cancels command execution and result loading.</param>
+        /// <param name="commandTimeout">Overrides the connector command timeout for this execution.</param>
+        /// <returns>A deferred sequence. Mapping and database failures throw SqlResponseException during enumeration.</returns>
+        public IAsyncEnumerable<T> ExecuteAsyncStream<T>(BaseConnector connector, DbConnection connection, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+            => Require(connector).ExecuteReaderListAsyncStream<T>(Render(connector), null, Require(connection), cancellationToken, commandTimeout);
     }
 }

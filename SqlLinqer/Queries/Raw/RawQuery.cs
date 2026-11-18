@@ -76,13 +76,33 @@ namespace SqlLinqer.Queries.Raw
         /// <param name="dbType">An optional explicit provider parameter type.</param>
         /// <returns>This query.</returns>
         public RawQuery Value(string name, object value, DbType? dbType = null)
+            => SetValue(name, value, dbType, false);
+
+        /// <summary>
+        /// Sets a list of values for an @name marker. The marker renders one bound parameter for each element, separated by commas,
+        /// so IN (@ids) becomes IN (@ids1, @ids2, @ids3). An existing value with the same name is replaced.
+        /// An empty list is rejected when the command renders, because no replacement is correct for every use of the marker.
+        /// </summary>
+        /// <param name="name">The marker name, without the @ prefix.</param>
+        /// <param name="values">The elements to bind. The list is copied. A string or byte array is one value, not a list.</param>
+        /// <param name="dbType">An optional explicit provider parameter type for every element.</param>
+        /// <returns>This query.</returns>
+        public RawQuery ValueList(string name, System.Collections.IEnumerable values, DbType? dbType = null)
+        {
+            if (values == null) throw new ArgumentNullException(nameof(values));
+            if (values is string || values is byte[])
+                throw new ArgumentException("A string or byte array is one value. Use Value for it.", nameof(values));
+            return SetValue(name, values.Cast<object>().ToArray(), dbType, true);
+        }
+
+        private RawQuery SetValue(string name, object value, DbType? dbType, bool isList)
         {
             if (name == null) throw new ArgumentNullException(nameof(name));
             if (name.Length > 0 && name[0] == '@') name = name.Substring(1);
             if (!IsMarkerName(name))
                 throw new ArgumentException($"'{name}' is not a valid value name. Use letters, digits, and underscores, starting with a letter or underscore.", nameof(name));
             _values.RemoveAll(existing => string.Equals(existing.Name, name, StringComparison.OrdinalIgnoreCase));
-            _values.Add(new NamedValue(name, value, dbType));
+            _values.Add(new NamedValue(name, value, dbType, isList));
             return this;
         }
 
@@ -115,7 +135,7 @@ namespace SqlLinqer.Queries.Raw
         /// <param name="existingCollection">The collection receiving the bindings.</param>
         /// <param name="flavor">The target database, which selects the placeholder syntax.</param>
         /// <returns>The parameterized SQL text.</returns>
-        /// <exception cref="InvalidOperationException">A marker has no value, or a value has no marker.</exception>
+        /// <exception cref="InvalidOperationException">A marker has no value, a value has no marker, or a list value is empty.</exception>
         public override string Render(ParameterCollection existingCollection, DbFlavor flavor)
         {
             existingCollection.SetFlavor(flavor);
@@ -129,7 +149,17 @@ namespace SqlLinqer.Queries.Raw
                     if (_ignoreUnmatchedMarkers) return "@" + name;
                     throw new InvalidOperationException($"SQL marker @{name} has no value.");
                 }
-                placeholder = existingCollection.AddNamedParameter(value.Name, value.Value, value.DbType);
+                if (value.IsList)
+                {
+                    var items = (object[])value.Value;
+                    if (items.Length == 0)
+                        throw new InvalidOperationException($"SQL list value '{value.Name}' is empty. Decide what the statement means without values before running it.");
+                    var names = new string[items.Length];
+                    for (int i = 0; i < items.Length; i++)
+                        names[i] = existingCollection.AddNamedParameter(value.Name + (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture), items[i], value.DbType);
+                    placeholder = string.Join(", ", names);
+                }
+                else placeholder = existingCollection.AddNamedParameter(value.Name, value.Value, value.DbType);
                 placeholders.Add(name, placeholder);
                 return placeholder;
             });
