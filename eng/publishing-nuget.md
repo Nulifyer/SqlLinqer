@@ -63,6 +63,10 @@ An application that loads the dependency injection or diagnostics package then f
 A build, or a test that uses only the core package, does not show the fault.
 
 Use a new `dev.N` number for each local build. NuGet caches a package by version and does not notice that a file changed.
+
+Check which version the application resolved. If its restore cannot see the local folder, NuGet does not fail.
+It reports warning NU1603 and uses the nearest higher version from nuget.org, which is a release candidate, because `dev` sorts below `rc`.
+Read the resolved version in the application's `project.assets.json`, or treat NU1603 as an error during validation.
 `artifacts` is ignored by Git.
 
 ## Publish a version
