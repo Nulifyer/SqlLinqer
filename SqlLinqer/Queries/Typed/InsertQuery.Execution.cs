@@ -125,6 +125,7 @@ namespace SqlLinqer.Queries.Typed
                 return execute(first, existingTransaction);
 
             DbConnection connection = null;
+            bool ownsConnection = false;
             DbTransaction transaction = null;
             TResult result = default;
             bool hasResult = false;
@@ -134,12 +135,9 @@ namespace SqlLinqer.Queries.Typed
                 // Report connection and transaction start failures like a single-command insert does.
                 try
                 {
-                    connection = existingTransaction == null ? connector.CreateConnection()
-                        : existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
+                    connection = connector.ResolveConnection(existingTransaction, null, out ownsConnection);
                     if (connection.State != ConnectionState.Open) connection.Open();
-                    transaction = existingTransaction ?? connection.BeginTransaction(connector.DbFlavor == DbFlavor.Sqlite
-                        ? IsolationLevel.Serializable : connector.DbFlavor == DbFlavor.DuckDb
-                        ? IsolationLevel.Snapshot : IsolationLevel.ReadCommitted);
+                    transaction = existingTransaction ?? connection.BeginTransaction(connector.OwnedIsolationLevel);
                 }
                 catch (Exception error) { throw new SqlLinqer.Exceptions.SqlResponseException(first, error); }
                 for (int offset = 0; offset < Inserts.Count; offset += batchSize)
@@ -176,7 +174,7 @@ namespace SqlLinqer.Queries.Typed
                     try
                     {
                         try { transaction?.Dispose(); }
-                        finally { connection?.Dispose(); }
+                        finally { if (ownsConnection) connection?.Dispose(); }
                     }
                     catch (Exception cleanupError)
                     {
@@ -337,6 +335,7 @@ namespace SqlLinqer.Queries.Typed
                 return await execute(first, existingTransaction).ConfigureAwait(false);
 
             DbConnection connection = null;
+            bool ownsConnection = false;
             DbTransaction transaction = null;
             TResult result = default;
             bool hasResult = false;
@@ -346,12 +345,9 @@ namespace SqlLinqer.Queries.Typed
                 // Report connection and transaction start failures like a single-command insert does.
                 try
                 {
-                    connection = existingTransaction == null ? connector.CreateConnection()
-                        : existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
+                    connection = connector.ResolveConnection(existingTransaction, null, out ownsConnection);
                     if (connection.State != ConnectionState.Open) await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-                    transaction = existingTransaction ?? connection.BeginTransaction(connector.DbFlavor == DbFlavor.Sqlite
-                        ? IsolationLevel.Serializable : connector.DbFlavor == DbFlavor.DuckDb
-                        ? IsolationLevel.Snapshot : IsolationLevel.ReadCommitted);
+                    transaction = existingTransaction ?? connection.BeginTransaction(connector.OwnedIsolationLevel);
                 }
                 catch (Exception error) when (!cancellationToken.IsCancellationRequested) { throw new SqlLinqer.Exceptions.SqlResponseException(first, error); }
                 for (int offset = 0; offset < Inserts.Count; offset += batchSize)
@@ -390,7 +386,7 @@ namespace SqlLinqer.Queries.Typed
                     try
                     {
                         try { transaction?.Dispose(); }
-                        finally { connection?.Dispose(); }
+                        finally { if (ownsConnection) connection?.Dispose(); }
                     }
                     catch (Exception cleanupError)
                     {

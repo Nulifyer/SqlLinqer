@@ -111,9 +111,7 @@ namespace SqlLinqer.Connections
             [EnumeratorCancellation] CancellationToken cancellationToken, TimeSpan? commandTimeout = null, ExecutionObservation observation = null) where T : class
         {
             cancellationToken.ThrowIfCancellationRequested();
-            bool ownsConnection = transaction == null;
-            var connection = ownsConnection ? CreateConnection()
-                : transaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
+            var connection = ResolveConnection(transaction, null, out bool ownsConnection);
             try
             {
                 if (connection.State != ConnectionState.Open)

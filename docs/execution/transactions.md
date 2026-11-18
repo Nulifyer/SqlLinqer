@@ -71,6 +71,47 @@ Raw `ExecuteScalar` commands retain their owned transaction behavior because a s
 Its `WithoutTransaction()` method runs a command without the owned transaction.
 It can also run on one open connection that you supply, where SqlLinqer opens no transaction.
 
-A [row lock](../queries/select.md#lock-rows-for-update) lasts until its transaction ends. Pass your transaction to a select that calls `ForUpdate`.
+A [row lock](../queries/select.md#lock-rows-for-update) lasts until its transaction ends. Pass your transaction to a select that calls `ForUpdate` or `ForShare`.
+
+## Keep several queries on one connection
+
+Some state belongs to a database session and not to a transaction.
+Examples are a PostgreSQL advisory lock, a temporary table, and a session setting.
+`connector.OnConnection(connection)` returns a connector that runs every command on one open connection:
+
+```csharp
+using var connection = await connector.OpenConnectionAsync(cancellationToken);
+var session = connector.OnConnection(connection);
+
+await session.BeginSql("SELECT pg_advisory_lock(@key)", new { key })
+    .WithoutTransaction()
+    .ExecuteAsync(cancellationToken: cancellationToken);
+
+var pending = (await session.BeginSelect<TranslationBatch>()
+    .SelectRootColumns()
+    .Where(x => x.State, "queued", SqlOp.EQ)
+    .ExecuteAsync(cancellationToken: cancellationToken))
+    .GetResultOrThrow();
+
+await session.BeginUpdate<TranslationBatch>()
+    .Update(x => x.State, "running")
+    .Where(x => x.State, "queued", SqlOp.EQ)
+    .ExecuteAsync(cancellationToken: cancellationToken);
+```
+
+The returned connector behaves as the original connector does, with these differences:
+
+- Every builder, stored-procedure call, stream, and `GetServerTime` call runs on the connection you supplied.
+- SqlLinqer never opens, closes, or disposes that connection. You dispose it.
+- If the connection is not open, each command returns an error response.
+
+A write still opens its own transaction on the connection and commits or rolls it back.
+For that reason, the connection must not have an active transaction of yours. If it has one, pass that transaction to each terminal.
+A connection runs one command at a time. Do not use the returned connector from several tasks at once, and finish a stream before you run the next command.
+
+The returned connector is a shallow copy of the original. It shares the original's options.
+SQL Server table type management for `ExecuteTvp` still uses separate connections.
+
+A connection passed to a single `BeginSql` terminal behaves differently: [that command runs without any transaction](../queries/raw-sql.md#run-on-one-open-connection).
 
 See [response handling](responses-and-errors.md) for the difference between a successful result and an error.

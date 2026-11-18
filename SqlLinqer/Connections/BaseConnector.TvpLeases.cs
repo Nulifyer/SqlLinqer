@@ -135,7 +135,7 @@ namespace SqlLinqer.Connections
             schema = ResolveTvpLeaseSchema(schema);
             return ExecuteOnConnection(new RenderedQuery("-- Cleanup expired reusable TVPs") { CommandRole = "TvpCleanup" }, null, false,
                 (command, observation) => { ChangeTvpDatabase(command.Connection, databaseName); return CleanupTvpOnConnection(command.Connection, schema, commandTimeout); },
-                commandTimeout: commandTimeout);
+                commandTimeout: commandTimeout, independent: true);
         }
 
         /// <summary>Asynchronously removes expired managed TVP types. Uses the same bounded, lease-aware protocol as CleanupExpiredTvpTypes.</summary>
@@ -150,7 +150,7 @@ namespace SqlLinqer.Connections
             schema = ResolveTvpLeaseSchema(schema);
             return ExecuteOnConnectionAsync(new RenderedQuery("-- Cleanup expired reusable TVPs") { CommandRole = "TvpCleanup" }, null, false,
                 async (command, observation) => { ChangeTvpDatabase(command.Connection, databaseName); return await CleanupTvpOnConnectionAsync(command.Connection, schema, cancellationToken, commandTimeout).ConfigureAwait(false); },
-                cancellationToken, commandTimeout: commandTimeout);
+                cancellationToken, commandTimeout: commandTimeout, independent: true);
         }
 
         private string ResolveTvpLeaseSchema(string schema)

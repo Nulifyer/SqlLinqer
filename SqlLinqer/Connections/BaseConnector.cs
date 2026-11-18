@@ -88,6 +88,27 @@ namespace SqlLinqer.Connections
             }
         }
 
+        // Set only on the copy that OnConnection returns. Every command of that copy runs on this connection.
+        private DbConnection _sessionConnection;
+
+        /// <summary>
+        /// Returns a connector that runs every command on one open connection, which the caller owns.
+        /// Use it to keep session state, such as an advisory lock or a temporary table, across typed queries.
+        /// The returned connector never opens, closes, or disposes the connection, and reports an error response when it is not open.
+        /// It otherwise behaves as this connector does: a write opens and completes its own transaction on the connection,
+        /// and a transaction passed to a terminal is used as given. Do not run its commands concurrently.
+        /// SQL Server TVP type management still uses separate connections.
+        /// </summary>
+        /// <param name="connection">An open connection without an active transaction. Pass an active transaction to each terminal instead.</param>
+        /// <returns>A shallow copy of this connector bound to the connection. It shares this connector's options.</returns>
+        public BaseConnector OnConnection(DbConnection connection)
+        {
+            if (connection == null) throw new ArgumentNullException(nameof(connection));
+            var session = (BaseConnector)MemberwiseClone();
+            session._sessionConnection = connection;
+            return session;
+        }
+
         private void ImportFromTempQueryData(DbCommand command, RenderedQuery queryData)
         {
             command.CommandText = queryData.Text;

@@ -129,6 +129,72 @@ internal static class RawSqlRegressionTests
                 Check(Transactions(list, false) == 0 && Transactions(table, false) == 0, "A raw read opened a transaction");
             });
         }
+        foreach (bool asynchronous in new[] { false, true })
+        {
+            test($"session connector: commands use the supplied connection and own their transactions, async={asynchronous}", () =>
+            {
+                var database = new FakeDatabase
+                {
+                    ReaderFactory = _ => { var rows = new DataTable(); rows.Columns.Add("Id", typeof(int)); rows.Columns.Add("Name", typeof(string)); rows.Rows.Add(1, "a"); return rows.CreateDataReader(); },
+                };
+                var connector = new FakeConnector(database);
+                using var connection = new FakeConnection(database);
+                connection.Open();
+                var session = connector.OnConnection(connection);
+                Check(session is FakeConnector && ReferenceEquals(session.Options, connector.Options), "The session connector lost its type or options");
+
+                var write = session.BeginSql("UPDATE raw_rows SET Name = @name", new { name = "x" });
+                Check((asynchronous ? write.ExecuteAsync().GetAwaiter().GetResult() : write.Execute()).State == ResponseState.Valid, "A session write failed");
+                Check(connection.Transactions.Count == 1 && connection.Transactions[0].Commits == 1, "A session write did not own and commit a transaction on the connection");
+                var read = session.BeginSelect<RawRow>().SelectRootColumns();
+                Check((asynchronous ? read.ExecuteAsync().GetAwaiter().GetResult() : read.Execute()).GetResultOrThrow().Single().Name == "a", "A session read failed");
+                Check(connection.Transactions.Count == 1, "A session read opened a transaction");
+
+                // A transaction passed to a terminal is used as given.
+                using (var transaction = connection.BeginTransaction())
+                {
+                    Check((asynchronous ? write.ExecuteAsync(transaction).GetAwaiter().GetResult() : write.Execute(transaction)).State == ResponseState.Valid, "A caller transaction failed");
+                    Check(connection.Transactions.Count == 2 && connection.Transactions[1].Commits == 0, "A caller transaction was replaced or committed");
+                }
+
+                // A connection passed to one terminal still runs without a transaction.
+                using var other = new FakeConnection(database);
+                other.Open();
+                Check((asynchronous ? write.ExecuteAsync(other).GetAwaiter().GetResult() : write.Execute(other)).State == ResponseState.Valid && other.Transactions.Count == 0,
+                    "A connection passed to a terminal received a transaction");
+
+                Check(database.Connections.Count == 2 && ((FakeConnector)session).Created == 0 && connector.Created == 0, "A pooled connection was created");
+                Check(connection.State == ConnectionState.Open && !connection.IsDisposed, "The session connection was closed");
+                Check(connector.BeginSql("SELECT 1").ExecuteScalar<long>().State == ResponseState.Valid && connector.Created == 1,
+                    "The source connector stopped using pooled connections");
+
+                database.FailSql = "UPDATE raw_rows";
+                var failed = asynchronous ? write.ExecuteAsync().GetAwaiter().GetResult() : write.Execute();
+                Check(failed.State == ResponseState.Error && connection.Transactions.Last().Rollbacks == 1 && connection.State == ConnectionState.Open,
+                    "A failed session write was not rolled back, or closed the connection");
+                database.FailSql = null;
+
+                connection.Close();
+                var closed = asynchronous ? read.ExecuteAsync().GetAwaiter().GetResult() : read.Execute();
+                Check(closed.State == ResponseState.Error && closed.Error is SqlResponseException { InnerException: InvalidOperationException },
+                    "A closed session connection was not reported through the response");
+            });
+            test($"session connector: a batched insert shares one transaction on the connection, async={asynchronous}", () =>
+            {
+                var database = new FakeDatabase();
+                var connector = new FakeConnector(database);
+                connector.Options.ParameterLimit = 2;
+                using var connection = new FakeConnection(database);
+                connection.Open();
+                var insert = new InsertQuery<RawRow>().InsertAuto(new[] { new RawRow { Id = 1, Name = "a" }, new RawRow { Id = 2, Name = "b" } });
+                var session = connector.OnConnection(connection);
+                var response = asynchronous ? insert.ExecuteAsync(session).GetAwaiter().GetResult() : insert.Execute(session);
+                Check(response.State == ResponseState.Valid, response.Error?.ToString());
+                Check(database.Executed.Count == 2 && connection.Transactions.Count == 1 && connection.Transactions[0].Commits == 1,
+                    "The batches did not share one committed transaction on the session connection");
+                Check(database.Connections.Count == 1 && !connection.IsDisposed && connection.State == ConnectionState.Open, "The session connection was replaced or closed");
+            });
+        }
         test("raw sql: an unbound query executes with a supplied connector, like other builders", () =>
         {
             var database = new FakeDatabase();

@@ -129,13 +129,12 @@ namespace SqlLinqer.Queries.Typed
             var tempQuery = PrepareTvp(connector, out string createType, out string dropType, out var reusable);
             var response = new SqlResponse<TResult>();
             DbConnection conn = null;
+            bool ownsConnection = false;
             DbTransaction transaction = null;
             bool typeCleanupRequired = false;
             try
             {
-                conn = existingTransaction == null
-                    ? connector.CreateConnection()
-                    : existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
+                conn = connector.ResolveConnection(existingTransaction, null, out ownsConnection);
                 if (conn.State != ConnectionState.Open)
                     conn.Open();
 
@@ -183,7 +182,7 @@ namespace SqlLinqer.Queries.Typed
             }
             finally
             {
-                DisposeTvpResources(tempQuery, existingTransaction == null ? conn : null,
+                DisposeTvpResources(tempQuery, ownsConnection ? conn : null,
                     existingTransaction == null ? transaction : null, response);
             }
             return response;
@@ -297,13 +296,12 @@ namespace SqlLinqer.Queries.Typed
             var tempQuery = PrepareTvp(connector, out string createType, out string dropType, out var reusable);
             var response = new SqlResponse<TResult>();
             DbConnection conn = null;
+            bool ownsConnection = false;
             DbTransaction transaction = null;
             bool typeCleanupRequired = false;
             try
             {
-                conn = existingTransaction == null
-                    ? connector.CreateConnection()
-                    : existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
+                conn = connector.ResolveConnection(existingTransaction, null, out ownsConnection);
                 if (conn.State != ConnectionState.Open)
                     await conn.OpenAsync(cancellationToken).ConfigureAwait(false);
 
@@ -354,7 +352,7 @@ namespace SqlLinqer.Queries.Typed
             }
             finally
             {
-                DisposeTvpResources(tempQuery, existingTransaction == null ? conn : null,
+                DisposeTvpResources(tempQuery, ownsConnection ? conn : null,
                     existingTransaction == null ? transaction : null, response);
             }
             return response;

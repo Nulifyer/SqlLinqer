@@ -75,7 +75,7 @@ namespace SqlLinqer.Connections
                 using (var reader = ReadCommand(command, observation))
                     while (reader.Read()) rows.Add(ReadTvpType(reader));
                 return rows;
-            }, commandTimeout: commandTimeout);
+            }, commandTimeout: commandTimeout, independent: true);
         }
 
         /// <summary>Asynchronously lists SqlLinqer-owned reusable TVP types.</summary>
@@ -93,7 +93,7 @@ namespace SqlLinqer.Connections
                 using (var reader = await ReadCommandAsync(command, observation, cancellationToken).ConfigureAwait(false))
                     while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) rows.Add(ReadTvpType(reader));
                 return rows;
-            }, cancellationToken, commandTimeout: commandTimeout);
+            }, cancellationToken, commandTimeout: commandTimeout, independent: true);
         }
 
         /// <summary>
@@ -185,7 +185,7 @@ namespace SqlLinqer.Connections
                     }
                     catch { try { transaction.Rollback(); } catch { } throw; }
                 }
-            }, commandTimeout: timeout);
+            }, commandTimeout: timeout, independent: true);
 
         private Task<SqlResponse<int>> ExecuteTvpRegistryAsync(RenderedQuery query, string database, CancellationToken token, TimeSpan? timeout)
             => ExecuteOnConnectionAsync(query, null, false, async (command, observation) =>
@@ -203,7 +203,7 @@ namespace SqlLinqer.Connections
                     }
                     catch { try { transaction.Rollback(); } catch { } throw; }
                 }
-            }, token, commandTimeout: timeout);
+            }, token, commandTimeout: timeout, independent: true);
 
         private void RequireTvpProvider()
         {

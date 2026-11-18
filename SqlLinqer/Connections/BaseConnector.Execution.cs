@@ -17,19 +17,32 @@ namespace SqlLinqer.Connections
             return type == typeof(byte[]) || type == typeof(object) || type == typeof(string)
                 || type == typeof(DateTime) || type == typeof(DateTimeOffset);
         }
-        // A caller-supplied connection stays open and never receives an owned transaction.
-        private static DbConnection BorrowConnection(DbTransaction existingTransaction, DbConnection existingConnection)
+        // Chooses the connection for one execution. Only an owned connection is disposed afterwards.
+        // A supplied transaction decides first, then a supplied connection, then the connection of a session connector.
+        internal DbConnection ResolveConnection(DbTransaction existingTransaction, DbConnection existingConnection, out bool ownsConnection)
         {
-            if (existingConnection == null)
+            ownsConnection = false;
+            if (existingTransaction != null && existingConnection == null)
                 return existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
-            if (existingConnection.State != ConnectionState.Open)
+            var borrowed = existingConnection ?? _sessionConnection;
+            if (borrowed == null)
+            {
+                ownsConnection = true;
+                return CreateConnection();
+            }
+            if (borrowed.State != ConnectionState.Open)
                 throw new InvalidOperationException("The supplied connection must be open.");
-            return existingConnection;
+            return borrowed;
         }
+
+        // The isolation level of a transaction that the library opens and completes itself.
+        internal IsolationLevel OwnedIsolationLevel
+            => DbFlavor == DbFlavor.Sqlite ? IsolationLevel.Serializable
+                : DbFlavor == DbFlavor.DuckDb ? IsolationLevel.Snapshot : IsolationLevel.ReadCommitted;
 
         private SqlResponse<T> ExecuteOnConnection<T>(RenderedQuery query, DbTransaction existingTransaction,
             bool transactional, Func<DbCommand, ExecutionObservation, T> action, TimeSpan? commandTimeout = null,
-            DbConnection existingConnection = null)
+            DbConnection existingConnection = null, bool independent = false)
         {
             var timeout = ResolveCommandTimeout(commandTimeout);
             var observation = ExecutionObservation.Start(Options.Observer, query, DbFlavor, false);
@@ -37,10 +50,10 @@ namespace SqlLinqer.Connections
             {
                 var response = ExecuteCommand(query, () =>
                 {
-                    bool ownsConnection = existingTransaction == null && existingConnection == null;
-                    var connection = ownsConnection
-                        ? CreateConnection()
-                        : BorrowConnection(existingTransaction, existingConnection);
+                    // Type and lease management passes independent to stay off a session connection.
+                    bool ownsConnection = independent;
+                    var connection = independent ? CreateConnection()
+                        : ResolveConnection(existingTransaction, existingConnection, out ownsConnection);
                     DbTransaction ownedTransaction = null;
                     T materialized = default;
                     bool hasResult = false;
@@ -55,10 +68,9 @@ namespace SqlLinqer.Connections
                             ImportFromTempQueryData(command, query);
                             PreProcessCommand(command, timeout);
 
-                            if (transactional && ownsConnection)
-                                ownedTransaction = connection.BeginTransaction(DbFlavor == DbFlavor.Sqlite
-                                    ? IsolationLevel.Serializable : DbFlavor == DbFlavor.DuckDb
-                                    ? IsolationLevel.Snapshot : IsolationLevel.ReadCommitted);
+                            // A connection passed to one terminal never receives an owned transaction. A session connection does.
+                            if (transactional && existingTransaction == null && existingConnection == null)
+                                ownedTransaction = connection.BeginTransaction(OwnedIsolationLevel);
 
                             command.Transaction = existingTransaction ?? ownedTransaction;
                             T result;
@@ -202,21 +214,21 @@ namespace SqlLinqer.Connections
                 if (!string.Equals(command.Connection.Database, databaseName, StringComparison.Ordinal))
                     command.Connection.ChangeDatabase(databaseName);
                 return WriteCommand(command, observation);
-            }, commandTimeout: commandTimeout);
+            }, commandTimeout: commandTimeout, independent: true);
 
         private Task<SqlResponse<T>> ExecuteOnConnectionAsync<T>(RenderedQuery query, DbTransaction existingTransaction,
             bool transactional, Func<DbCommand, ExecutionObservation, Task<T>> action, CancellationToken cancellationToken, TimeSpan? commandTimeout = null,
-            DbConnection existingConnection = null)
+            DbConnection existingConnection = null, bool independent = false)
         {
             var timeout = ResolveCommandTimeout(commandTimeout);
             return Options.Observer == null
-                ? ExecuteConnectionCoreAsync(query, existingTransaction, transactional, action, cancellationToken, timeout, null, existingConnection)
-                : ExecuteObservedConnectionAsync(query, existingTransaction, transactional, action, cancellationToken, timeout, existingConnection);
+                ? ExecuteConnectionCoreAsync(query, existingTransaction, transactional, action, cancellationToken, timeout, null, existingConnection, independent)
+                : ExecuteObservedConnectionAsync(query, existingTransaction, transactional, action, cancellationToken, timeout, existingConnection, independent);
         }
 
         private async Task<SqlResponse<T>> ExecuteObservedConnectionAsync<T>(RenderedQuery query, DbTransaction existingTransaction,
             bool transactional, Func<DbCommand, ExecutionObservation, Task<T>> action, CancellationToken cancellationToken, TimeSpan timeout,
-            DbConnection existingConnection)
+            DbConnection existingConnection, bool independent)
         {
             // Starting an activity inside this async method isolates Activity.Current
             // from the caller even when the provider completes synchronously.
@@ -224,7 +236,7 @@ namespace SqlLinqer.Connections
             try
             {
                 var response = await ExecuteConnectionCoreAsync(query, existingTransaction, transactional, action,
-                    cancellationToken, timeout, observation, existingConnection).ConfigureAwait(false);
+                    cancellationToken, timeout, observation, existingConnection, independent).ConfigureAwait(false);
                 observation?.Complete(response);
                 return response;
             }
@@ -233,14 +245,14 @@ namespace SqlLinqer.Connections
 
         private Task<SqlResponse<T>> ExecuteConnectionCoreAsync<T>(RenderedQuery query, DbTransaction existingTransaction,
             bool transactional, Func<DbCommand, ExecutionObservation, Task<T>> action, CancellationToken cancellationToken,
-            TimeSpan timeout, ExecutionObservation observation, DbConnection existingConnection)
+            TimeSpan timeout, ExecutionObservation observation, DbConnection existingConnection, bool independent)
         {
             return ExecuteCommandAsync(query, async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                bool ownsConnection = existingTransaction == null && existingConnection == null;
-                var connection = ownsConnection ? CreateConnection()
-                    : BorrowConnection(existingTransaction, existingConnection);
+                bool ownsConnection = independent;
+                var connection = independent ? CreateConnection()
+                    : ResolveConnection(existingTransaction, existingConnection, out ownsConnection);
                 DbTransaction ownedTransaction = null;
                 T materialized = default;
                 bool hasResult = false;
@@ -254,10 +266,8 @@ namespace SqlLinqer.Connections
                         ImportFromTempQueryData(command, query);
                         PreProcessCommand(command, timeout);
                         // netstandard2.0 has no asynchronous transaction lifecycle contract.
-                        if (transactional && ownsConnection)
-                            ownedTransaction = connection.BeginTransaction(DbFlavor == DbFlavor.Sqlite
-                                ? IsolationLevel.Serializable : DbFlavor == DbFlavor.DuckDb
-                                ? IsolationLevel.Snapshot : IsolationLevel.ReadCommitted);
+                        if (transactional && existingTransaction == null && existingConnection == null)
+                            ownedTransaction = connection.BeginTransaction(OwnedIsolationLevel);
                         command.Transaction = existingTransaction ?? ownedTransaction;
                         T result;
                         if (DbFlavor == DbFlavor.DuckDb || Options.CancelCommand != null)
@@ -402,6 +412,6 @@ namespace SqlLinqer.Connections
                 if (!string.Equals(command.Connection.Database, databaseName, StringComparison.Ordinal))
                     command.Connection.ChangeDatabase(databaseName);
                 return WriteCommandAsync(command, observation, cancellationToken);
-            }, cancellationToken, commandTimeout: commandTimeout);
+            }, cancellationToken, commandTimeout: commandTimeout, independent: true);
     }
 }
