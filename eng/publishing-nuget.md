@@ -46,6 +46,25 @@ Previously published labels, including `preview` labels, remain available under 
 The project files carry the version `0.0.0-dev`. It marks a local development build and never changes between releases.
 The publish workflow replaces it with the release tag's version through `-p:Version`.
 
+## Pack a local build
+
+To validate an application against unreleased source, pack all three projects into a local folder with the workflow's options:
+
+```bash
+for project in SqlLinqer/SQLLinqer.csproj SqlLinqer.Diagnostics/SqlLinqer.Diagnostics.csproj SqlLinqer.Extensions.DependencyInjection/SqlLinqer.Extensions.DependencyInjection.csproj; do
+  dotnet pack "$project" -c Release --output artifacts/local \
+    -p:Version=4.0.0-dev.1 -p:GeneratePackageOnBuild=false
+done
+```
+
+Always pass `-p:GeneratePackageOnBuild=false`. The core project sets `GeneratePackageOnBuild`, and with that setting `dotnet pack` does not rebuild.
+It then packs the existing `SQLLinqer.dll`, which has assembly version 0.0.0.0, while the other two packages reference 4.0.0.0.
+An application that loads the dependency injection or diagnostics package then fails at startup with `FileNotFoundException` for `SQLLinqer, Version=4.0.0.0`.
+A build, or a test that uses only the core package, does not show the fault.
+
+Use a new `dev.N` number for each local build. NuGet caches a package by version and does not notice that a file changed.
+`artifacts` is ignored by Git.
+
 ## Publish a version
 
 1. Merge the workflow and the changes to release into `master`.
