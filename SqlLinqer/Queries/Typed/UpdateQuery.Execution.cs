@@ -98,5 +98,36 @@ namespace SqlLinqer.Queries.Typed
                 throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
             return await WriteExecution.ExecuteAsync(Render(connector), connector, existingTransaction, primaryKeys, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
         }
+
+        /// <inheritdoc/>
+        public SqlResponse<List<TRow>> ExecuteWithOutput<TRow>(DbTransaction transaction = null, TimeSpan? commandTimeout = null)
+        {
+            return ExecuteWithOutput<TRow>(ExecutionConnector, transaction, commandTimeout: commandTimeout);
+        }
+        /// <inheritdoc/>
+        public SqlResponse<List<TRow>> ExecuteWithOutput<TRow>(BaseConnector connector, DbTransaction transaction = null, TimeSpan? commandTimeout = null)
+        {
+            if (connector == null)
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            var rendered = this.Render(connector);
+            return connector.ExecuteReaderList<TRow>(rendered, transaction, commandTimeout: commandTimeout);
+        }
+
+        /// <inheritdoc/>
+        public async Task<SqlResponse<List<TRow>>> ExecuteWithOutputAsync<TRow>(DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return await ExecuteWithOutputAsync<TRow>(ExecutionConnector, transaction, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
+        }
+
+        /// <inheritdoc/>
+        public async Task<SqlResponse<List<TRow>>> ExecuteWithOutputAsync<TRow>(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (connector == null)
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            var rendered = this.Render(connector);
+            return await connector.ExecuteReaderListAsync<TRow>(rendered, transaction, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
+        }
     }
 }

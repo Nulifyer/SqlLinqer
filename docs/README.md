@@ -21,11 +21,12 @@ Try the [runnable minimal API](../samples/SqlLinqer.MinimalApi/README.md) for co
 ## Queries
 
 - [Select, filter, sort, and page results](queries/select.md), including related models and aggregate reports.
-- [Insert rows](queries/insert.md) and read generated IDs.
+- [Insert rows](queries/insert.md), read generated IDs, and update a row that already exists.
 - [Update rows](queries/update.md) by key or filter.
 - [Delete rows](queries/delete.md) by key or filter.
 - [Change relationships](queries/relationship-changes.md) to assign a manager or grant and remove permissions.
 - [Call stored procedures](queries/stored-procedures.md) with input and output models, totals, and return codes.
+- [Run hand-written SQL](queries/raw-sql.md) with named values, on a pooled connection or one you hold open.
 - [Inspect SQL and reuse queries](queries/sql-and-query-reuse.md) without changing an existing query definition.
 
 ## Execution and results

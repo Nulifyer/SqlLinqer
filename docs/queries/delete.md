@@ -42,6 +42,10 @@ var response = query.Execute();
 If `response.State` is `ResponseState.Valid`, `response.Result` contains the affected-row count.
 `response.TouchedPrimaryKeys` contains the deleted keys. Otherwise, inspect `response.Error`.
 
+To read values from the deleted rows, select columns with `Output` and call `ExecuteWithOutput<TRow>()`.
+`TRow` is a scalar type for one output column, or a class mapped by column name.
+Every mapped member of that class must be one of the output columns. MySQL does not return deleted rows.
+
 ## Joined deletes in DuckDB
 
 DuckDB joined deletes require a mapped primary key. Each target row is deleted once even if several source rows match it.

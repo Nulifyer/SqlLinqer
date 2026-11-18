@@ -29,6 +29,7 @@ namespace SqlLinqer.Components.Insert
         public int Count { get => Rows.Count; }
 
         internal bool HasColumns => Columns.Count > 0;
+        internal IReadOnlyCollection<ReflectedColumn> InsertColumns => Columns.Values;
 
 
         /// <summary>

@@ -63,6 +63,9 @@ Independent mapping algorithms and resource owners remain separate types. File l
 `Queries/Execution` owns behavior shared by several query types: select execution, single-command write key capture, and primary-key response conversion.
 Model and projection selects use the same count and streaming decisions. Insert batching keeps its own batch aggregation and transaction lifetime.
 
+`Queries/Raw` holds the `BeginSql` builder. `Compilation/SqlMarkers.cs` finds its `@name` markers, and the connector's internal execution overloads accept a caller-supplied connection.
+`Components/Insert/InsertConflict.cs` renders an insert's conflict action for each dialect.
+
 Callable definitions live in `Modeling`. Their internal typed queries capture each call's inputs, `Compilation/CallablePreparation.cs` prepares SQL and parameter bindings, and `BaseConnector.Callable.cs` reads rows and execution metadata.
 Callable responses follow the `SqlResponse<List<T>>` contract through `SqlCallableResponse<T>`.
 Shared many-to-many mapping lives in `Components/Joins`; both directions retain their distinct join conditions.

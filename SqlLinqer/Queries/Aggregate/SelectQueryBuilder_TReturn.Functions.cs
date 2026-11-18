@@ -167,6 +167,64 @@ namespace SqlLinqer.Queries.Typed
         }
 
 
+        /// <summary>Creates a SQL expression for the count of rows matching a filter.</summary>
+        public SelectFuncStatement Count(MemberInfo member, LambdaExpression filter)
+        {
+            var stm = Count(member, null, Expression.Constant(false));
+            stm.Filter = BuildFilter(filter);
+            return stm;
+        }
+
+        /// <summary>Creates a SQL expression for the 64-bit count of rows matching a filter.</summary>
+        public SelectFuncStatement CountBig(MemberInfo member, LambdaExpression filter)
+        {
+            var stm = CountBig(member, null, Expression.Constant(false));
+            stm.Filter = BuildFilter(filter);
+            return stm;
+        }
+
+        /// <summary>Creates a SQL expression for the count of non-null expression values over rows matching a filter.</summary>
+        public SelectFuncStatement Count(MemberInfo member, Expression expression, LambdaExpression filter)
+            => Filtered(Count(member, expression, Expression.Constant(false)), filter);
+
+        /// <summary>Creates a SQL expression for the 64-bit count of non-null expression values over rows matching a filter.</summary>
+        public SelectFuncStatement CountBig(MemberInfo member, Expression expression, LambdaExpression filter)
+            => Filtered(CountBig(member, expression, Expression.Constant(false)), filter);
+
+        /// <summary>Creates a SQL expression for the average of an expression over rows matching a filter.</summary>
+        public SelectFuncStatement Avg(MemberInfo member, Expression expression, LambdaExpression filter)
+            => Filtered(Avg(member, expression), filter);
+
+        /// <summary>Creates a SQL expression for the largest expression value over rows matching a filter.</summary>
+        public SelectFuncStatement Max(MemberInfo member, Expression expression, LambdaExpression filter)
+            => Filtered(Max(member, expression), filter);
+
+        /// <summary>Creates a SQL expression for the smallest expression value over rows matching a filter.</summary>
+        public SelectFuncStatement Min(MemberInfo member, Expression expression, LambdaExpression filter)
+            => Filtered(Min(member, expression), filter);
+
+        private SelectFuncStatement Filtered(SelectFuncStatement statement, LambdaExpression filter)
+        {
+            statement.Filter = BuildFilter(filter);
+            return statement;
+        }
+
+        /// <summary>Creates a SQL expression for the sum of an expression over rows matching a filter.</summary>
+        public SelectFuncStatement Sum(MemberInfo member, Expression expression, LambdaExpression filter)
+        {
+            var stm = Sum(member, expression);
+            stm.Filter = BuildFilter(filter);
+            return stm;
+        }
+
+        // The filter lambda runs once against a predicate collection for the projection's root table.
+        private SqlLinqer.Components.Where.WhereCollection BuildFilter(LambdaExpression filter)
+        {
+            var where = new SqlLinqer.Components.Where.TableWhereCollection<TBase>(Query.Table, SqlWhereOp.AND);
+            filter.Compile().DynamicInvoke(where);
+            return where;
+        }
+
         /// <summary>Creates a SQL expression for a 64-bit non-null expression count.</summary>
         public SelectFuncStatement CountBig(MemberInfo member) => CountBig(member, null, Expression.Constant(false));
 

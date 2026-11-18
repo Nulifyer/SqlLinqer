@@ -18,6 +18,11 @@ namespace SqlLinqer.Components.Select
         public readonly object[] Args;
         /// <summary>An argument modifier such as DISTINCT.</summary>
         public string ArgPrefix { get; protected set; }
+        /// <summary>
+        /// An optional predicate that limits which rows an aggregate reads. PostgreSQL, SQLite, and DuckDB render it as
+        /// FILTER (WHERE ...); other databases wrap the argument in CASE WHEN.
+        /// </summary>
+        public SqlLinqer.Components.Where.WhereCollection Filter { get; protected internal set; }
 
         private string _alias;
         /// <inheritdoc/>
@@ -39,9 +44,12 @@ namespace SqlLinqer.Components.Select
         /// <inheritdoc/>
         public override string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor, bool include_alias)
         {
-            string val = parameters.FindExpressionOverride(this) ?? RenderValue(query, parameters, flavor);
+            // A filtered aggregate keeps one set of predicate bindings when it is rendered again.
+            string val = parameters.FindExpressionOverride(this)
+                ?? (Filter != null ? parameters.FindExpression(this) : null)
+                ?? RenderValue(query, parameters, flavor);
 
-            if (flavor == DbFlavor.DuckDb)
+            if (flavor == DbFlavor.DuckDb || Filter != null)
                 parameters.RememberExpression(this, val);
 
             return $"{val}{(include_alias ? $" AS {Alias.DbWrap(flavor)}" : null)}";
@@ -77,6 +85,27 @@ namespace SqlLinqer.Components.Select
                 }
             }
 
+            string filter = Filter?.Render(query, parameters, flavor, include_where: false);
+            if (string.IsNullOrEmpty(filter)) filter = null;
+            bool filterClause = flavor == DbFlavor.PostgreSql || flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb;
+            if (filter != null)
+            {
+                if (Func.DoGroupBy())
+                    throw new NotSupportedException($"A filter applies only to aggregate functions, not {Func}.");
+                // CASE without ELSE yields NULL, which aggregates skip.
+                if (!filterClause)
+                    args_processed = new List<object> { $"CASE WHEN {filter} THEN {string.Join(",", args_processed)} END" };
+            }
+
+            string val = RenderFunction(args_processed, flavor);
+            if (filter == null) return val;
+            if (filterClause) val = $"{val} FILTER (WHERE {filter})";
+            // A filtered sum often has no matching rows in a group. Zero keeps non-nullable result members usable.
+            return Func == SqlFunc.SUM ? $"COALESCE({val}, 0)" : val;
+        }
+
+        private string RenderFunction(List<object> args_processed, DbFlavor flavor)
+        {
             string val;
             switch (flavor)
             {

@@ -132,6 +132,9 @@ Configure connection settings in the connection factory using the provider's sup
 
 ## Read rows from raw SQL
 
+[`BeginSql`](../queries/raw-sql.md) builds a command from SQL with named values and maps rows with `ExecuteList<T>`.
+The connector methods below execute a `RenderedQuery` that you already have. Both use the same mapping rules.
+
 Use `ExecuteReaderList<T>` or `ExecuteReaderListAsync<T>` when a command returns ordinary columns:
 
 ```csharp

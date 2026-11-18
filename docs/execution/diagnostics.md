@@ -136,7 +136,7 @@ For an incident, find the stable query name, execution ID and failure classifica
 
 The integration emits no Critical events. The host determines whether a failure prevents continued service operation.
 
-Query events 1000 through 1004 include `QueryName`, `ExecutionId`, `CommandRole`, `TraceId` and `SpanId` where available. Execution IDs exist without a tracing listener. A page and its total receive different IDs and Select/Count roles. Compiler-created regular commands also identify Insert, Update and Delete. Raw or specialized commands can retain Command. Callers can label a raw `RenderedQuery.CommandRole` explicitly without changing execution.
+Query events 1000 through 1004 include `QueryName`, `ExecutionId`, `CommandRole`, `TraceId` and `SpanId` where available. Execution IDs exist without a tracing listener. A page and its total receive different IDs and Select/Count roles. An existence check uses Exists, and a server-time read uses ServerTime. Compiler-created regular commands also identify Insert, Update and Delete. Raw or specialized commands can retain Command. Callers can label a raw `RenderedQuery.CommandRole` explicitly without changing execution.
 
 Completion records include `Outcome`, `DurationMs`, `CommandDurationMs`, `ReturnedRows`, `ErrorType`, `WrapperType`, `FailureKind` and `ProviderErrorCode`. ErrorType unwraps SqlResponseException. The wrapper remains available separately. FailureKind identifies known timeout, cancellation, database and native-value mapping failures, with Execution as the fallback. Provider codes use available SQL state or numeric error-code metadata. These fields do not include exception messages.
 

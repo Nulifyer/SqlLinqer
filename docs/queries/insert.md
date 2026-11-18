@@ -80,6 +80,73 @@ var instanceResponse = anotherUser
     .Execute();
 ```
 
+## Update a row that already exists
+
+`OnConflict` names the unique key that identifies an existing row. Follow it with the action to take.
+This example inserts a profile. If the username already exists, it updates three columns from the inserted values:
+
+```csharp
+var response = connector.BeginInsert<UserProfile>()
+    .InsertAuto(profile)
+    .OnConflict(x => x.Username)
+    .OnConflictUpdate(x => x.DisplayName)
+    .OnConflictUpdate(x => x.Email)
+    .OnConflictUpdate(x => x.UpdatedUtc)
+    .Execute(transaction);
+```
+
+Pass several members to `OnConflict` for a composite key, such as `OnConflict(x => x.DocumentId, x => x.Language)`.
+The members must form a primary key or a unique constraint in the database.
+
+| Method | Effect on a conflicting row |
+| --- | --- |
+| `OnConflictUpdate(member)` | Sets the column from the value this insert supplied. |
+| `OnConflictUpdate(member, value)` | Sets the column to a fixed value. |
+| `OnConflictUpdate(member, operation)` | Computes the column from the existing row's value. |
+| `OnConflictUpdateAuto()` | Sets every inserted column that allows automatic updates. It skips the key members and the primary key. |
+| `OnConflictDoNothing()` | Leaves the existing row unchanged and skips the new row. |
+
+An operation is an `UpdateOperation`, as in an [update](update.md#apply-a-numeric-operation).
+This example grants a lease. It starts at generation 1 and adds 1 each time the document already has a lease:
+
+```csharp
+var generation = connector.BeginInsert<DocumentLease>()
+    .InsertAuto(new DocumentLease { DocumentId = id, Generation = 1, TokenHash = token, GrantedUtc = now })
+    .OnConflict(x => x.DocumentId)
+    .OnConflictUpdate(x => x.Generation, new BasicMathOperation(BasicMathOperation.MathOp.Add, 1))
+    .OnConflictUpdate(x => x.TokenHash)
+    .OnConflictUpdate(x => x.GrantedUtc)
+    .Output(x => x.Generation)
+    .ExecuteWithOutput<int>(transaction)
+    .GetResultOrThrow()[0];
+```
+
+Import `SqlLinqer.Components.Update` for `BasicMathOperation`.
+`BasicMathOperation` and `ServerTimeOperation` work in a conflict update.
+A custom operation works when it reads only its `statement` argument. The `query` argument is not the insert.
+
+### Read returned values
+
+`Output` selects the columns to return. `ExecuteWithOutput<TRow>()` maps them to a class by column name.
+Every mapped member of that class must be one of the output columns, so declare a small row class instead of reusing the model.
+For one output column, use a scalar type such as `int`.
+Updates and deletes have the same terminal. `ExecuteWithOutput()` without a type still returns a `DataTable`.
+With a conflict update, the returned row is the row after the insert or the update.
+With `OnConflictDoNothing`, a skipped row returns nothing. Except on MySQL, it does not add to the affected-row count.
+`BeginInsert<T, TKey>` returns the keys of inserted and updated rows in `TouchedPrimaryKeys`.
+
+### Database differences
+
+| Database | SQL | Limits |
+| --- | --- | --- |
+| PostgreSQL, SQLite, DuckDB | `ON CONFLICT (...) DO UPDATE SET ... = EXCLUDED....` or `DO NOTHING` | `OnConflictDoNothing` can omit the key members. A conflict update requires them. |
+| SQL Server, Azure SQL | `MERGE ... WITH (HOLDLOCK)` | The key members are required and must be inserted columns. |
+| MySQL | `ON DUPLICATE KEY UPDATE` | MySQL applies whichever unique key collides and does not use the key members. It returns no values. Its affected-row count follows MySQL rules, such as 2 for an updated row. |
+
+A batch must not contain two rows with the same key. PostgreSQL and SQL Server reject a statement that would change one row twice.
+Insert batching applies as usual. Each batch is one statement.
+`ExecuteTvp` does not support a conflict action. Use `Execute`.
+
 ## Use a table-valued parameter
 
 On SQL Server, use `ExecuteTvp` as an alternative to `Execute` for a table-valued parameter insert:

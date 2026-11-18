@@ -47,14 +47,39 @@ namespace SqlLinqer.Compilation
             string order = query.OrderBys.Render(query, parameters, flavor);
             string with = query.IsSubQuery ? null : query.Withs?.Render(query, parameters, flavor);
             string from = query.Joins.Render(query, parameters, flavor) + groupingInputs;
+            string rowLock = null;
+            if (query.RowLock.HasValue)
+            {
+                if (query.Distinct || !string.IsNullOrEmpty(group) && query.Selects.GetAll().Any(x => !x.DoGroupBy()))
+                    throw new System.NotSupportedException("A row lock cannot be combined with DISTINCT or aggregates.");
+                rowLock = dialect.RowLock(query.RowLock.Value, query.Table.Alias.DbWrap(flavor), query.Joins.HasJoinedTables(query.Table));
+            }
             return new PreparedSelect(with, select, from, where, group, order, query.Distinct,
-                query.PagingControls.Top, query.PagingControls.Limit, query.PagingControls.Offset);
+                query.PagingControls.Top, query.PagingControls.Limit, query.PagingControls.Offset, rowLock);
+        }
+
+        // Answers whether any row matches the query's filters. Selection, ordering, paging, and row locks do not apply.
+        internal static string Exists(SelectQuery query, RenderContext context)
+        {
+            var parameters = context.Parameters;
+            var flavor = context.Dialect.Flavor;
+            query.PagingControls.Reset();
+            query.OrderBys.Clear();
+            query.Selects.Clear();
+            query.RowLock = null;
+            query.Joins.AddRootTable(query.Table);
+            string where = query.RootWhere.Render(query, parameters, flavor);
+            string from = query.Joins.Render(query, parameters, flavor);
+            string with = query.Withs?.Render(query, parameters, flavor);
+            return string.Join(" ", new[] { with, "SELECT CASE WHEN EXISTS (SELECT 1", from, where }.Where(x => !string.IsNullOrEmpty(x)))
+                + ") THEN 1 ELSE 0 END";
         }
 
         internal static string Count(SelectQuery query, RenderContext context)
         {
             query.PagingControls.Reset();
             query.OrderBys.Clear();
+            query.RowLock = null;
             bool wasSubQuery = query.IsSubQuery;
             if (context.Dialect.Capabilities.HoistCountWiths)
                 query.IsSubQuery = true;

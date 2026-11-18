@@ -41,6 +41,24 @@ var total = page.TotalResults;
 
 These helpers are optional. Existing state-based handling still works. Requested async cancellation can throw before a response is returned; the helpers do not intercept it.
 
+## Where errors appear
+
+A failure reaches your code in one of three ways:
+
+| Failure | How it reaches you |
+| --- | --- |
+| The database rejects a command, or result mapping fails. | An error response. `Error` is a `SqlResponseException`. |
+| SqlLinqer cannot open its own connection or begin its own transaction. | An error response. `Error` is a `SqlResponseException`. |
+| The query is invalid before execution, such as an unsupported feature or an unmatched SQL marker. | An exception thrown by the call. No response is returned. |
+
+`SqlResponseException.InnerException` is the provider's exception. `SqlResponseException.Query` holds the SQL and its parameters.
+
+Calls that you make on the provider yourself throw the provider's exception directly.
+These include `connection.Open()`, `connection.BeginTransaction()`, `transaction.Commit()`, and `transaction.Rollback()`.
+Catch the provider exception around those calls.
+
+One path differs. `ExecuteTvp` returns the provider's exception unwrapped when it cannot open a connection or prepare its table type.
+
 ## Read selected rows
 
 A select returns a list in `Result`. An empty list means no rows matched:

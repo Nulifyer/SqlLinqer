@@ -45,6 +45,25 @@ namespace SqlLinqer.Queries.Typed
                 }, table => table?.Dispose(), commandTimeout: commandTimeout);
         }
 
+        /// <inheritdoc/>
+        public SqlResponse<List<TRow>> ExecuteWithOutput<TRow>(DbTransaction transaction = null, TimeSpan? commandTimeout = null)
+        {
+            return ExecuteWithOutput<TRow>(ExecutionConnector, transaction, commandTimeout: commandTimeout);
+        }
+
+        /// <inheritdoc/>
+        public SqlResponse<List<TRow>> ExecuteWithOutput<TRow>(BaseConnector connector, DbTransaction transaction = null, TimeSpan? commandTimeout = null)
+        {
+            if (connector == null)
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            commandTimeout = connector.ResolveCommandTimeout(commandTimeout);
+            if (this.Inserts.Count == 0)
+                return new SqlResponse<List<TRow>>(new List<TRow>());
+            return ExecuteBatches<List<TRow>>(connector, transaction,
+                (query, tx) => connector.ExecuteReaderList<TRow>(query, tx, commandTimeout: commandTimeout),
+                (all, batch) => { all.AddRange(batch); return all; }, commandTimeout: commandTimeout);
+        }
+
         internal SqlResponse<int> ExecuteAndCapturePrimaryKeys(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null, TimeSpan? commandTimeout = null)
         {
             if (connector == null)
@@ -110,12 +129,17 @@ namespace SqlLinqer.Queries.Typed
             var combined = new SqlResponse<TResult>();
             try
             {
-                connection = existingTransaction == null ? connector.CreateConnection()
-                    : existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
-                if (connection.State != ConnectionState.Open) connection.Open();
-                transaction = existingTransaction ?? connection.BeginTransaction(connector.DbFlavor == DbFlavor.Sqlite
-                    ? IsolationLevel.Serializable : connector.DbFlavor == DbFlavor.DuckDb
-                    ? IsolationLevel.Snapshot : IsolationLevel.ReadCommitted);
+                // Report connection and transaction start failures like a single-command insert does.
+                try
+                {
+                    connection = existingTransaction == null ? connector.CreateConnection()
+                        : existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
+                    if (connection.State != ConnectionState.Open) connection.Open();
+                    transaction = existingTransaction ?? connection.BeginTransaction(connector.DbFlavor == DbFlavor.Sqlite
+                        ? IsolationLevel.Serializable : connector.DbFlavor == DbFlavor.DuckDb
+                        ? IsolationLevel.Snapshot : IsolationLevel.ReadCommitted);
+                }
+                catch (Exception error) { throw new SqlLinqer.Exceptions.SqlResponseException(first, error); }
                 for (int offset = 0; offset < Inserts.Count; offset += batchSize)
                 {
                     var query = offset == 0 ? first : RenderBatch(connector, offset, Math.Min(batchSize, Inserts.Count - offset));
@@ -217,6 +241,26 @@ namespace SqlLinqer.Queries.Typed
         }
 
         /// <inheritdoc/>
+        public Task<SqlResponse<List<TRow>>> ExecuteWithOutputAsync<TRow>(DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+        {
+            return ExecuteWithOutputAsync<TRow>(ExecutionConnector, transaction, cancellationToken: cancellationToken, commandTimeout: commandTimeout);
+        }
+
+        /// <inheritdoc/>
+        public async Task<SqlResponse<List<TRow>>> ExecuteWithOutputAsync<TRow>(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (connector == null)
+                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            commandTimeout = connector.ResolveCommandTimeout(commandTimeout);
+            if (this.Inserts.Count == 0)
+                return new SqlResponse<List<TRow>>(new List<TRow>());
+            return await ExecuteBatchesAsync<List<TRow>>(connector, transaction,
+                async (query, tx) => await connector.ExecuteReaderListAsync<TRow>(query, tx, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false),
+                (all, batch) => { all.AddRange(batch); return all; }, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
+        }
+
+        /// <inheritdoc/>
         internal async Task<SqlResponse<int>> ExecuteAndCapturePrimaryKeysAsync(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -285,12 +329,17 @@ namespace SqlLinqer.Queries.Typed
             var combined = new SqlResponse<TResult>();
             try
             {
-                connection = existingTransaction == null ? connector.CreateConnection()
-                    : existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
-                if (connection.State != ConnectionState.Open) await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-                transaction = existingTransaction ?? connection.BeginTransaction(connector.DbFlavor == DbFlavor.Sqlite
-                    ? IsolationLevel.Serializable : connector.DbFlavor == DbFlavor.DuckDb
-                    ? IsolationLevel.Snapshot : IsolationLevel.ReadCommitted);
+                // Report connection and transaction start failures like a single-command insert does.
+                try
+                {
+                    connection = existingTransaction == null ? connector.CreateConnection()
+                        : existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
+                    if (connection.State != ConnectionState.Open) await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                    transaction = existingTransaction ?? connection.BeginTransaction(connector.DbFlavor == DbFlavor.Sqlite
+                        ? IsolationLevel.Serializable : connector.DbFlavor == DbFlavor.DuckDb
+                        ? IsolationLevel.Snapshot : IsolationLevel.ReadCommitted);
+                }
+                catch (Exception error) when (!cancellationToken.IsCancellationRequested) { throw new SqlLinqer.Exceptions.SqlResponseException(first, error); }
                 for (int offset = 0; offset < Inserts.Count; offset += batchSize)
                 {
                     var query = offset == 0 ? first : RenderBatch(connector, offset, Math.Min(batchSize, Inserts.Count - offset));

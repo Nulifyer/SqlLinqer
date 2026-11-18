@@ -65,6 +65,13 @@ DuckDB command deadline checks live in `ConnectionChecks`. Each provider keeps i
 The suite entry points own provider setup, cleanup, result reporting, and check order.
 Check groups receive the connector and any shared fixture values explicitly. Keep stateful checks in their existing execution order.
 
+## Shared provider checks
+
+`Regression/SqlModelContractChecks.cs` runs one set of checks on every live provider: both SQLite configurations, DuckDB, PostgreSQL, MySQL, and SQL Server.
+It includes `RawSqlProviderChecks`, `UpsertProviderChecks`, `SelectTerminalProviderChecks`, `FilteredAggregateProviderChecks`, and `ServerTimeProviderChecks`.
+Each check creates and drops its own table. The matching `*RegressionTests` files check rendered SQL for every dialect without a database.
+The SQL Server live checks run only with `--live` or `--require-live`.
+
 ## Relationship stress checks
 
 `Regression/RelationshipStressChecks.cs` runs through the shared SQL JSON contract checks on every live provider.

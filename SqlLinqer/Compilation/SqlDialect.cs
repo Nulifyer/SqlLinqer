@@ -42,9 +42,18 @@ namespace SqlLinqer.Compilation
             return string.Join(" ", new[] {
                 select.With, $"SELECT{(select.Distinct ? " DISTINCT" : null)}{Top(select)}",
                 select.Select, select.From, select.Where, select.GroupBy, select.OrderBy,
-                Paging(select.Top, select.Limit, select.Offset)
+                Paging(select.Top, select.Limit, select.Offset), select.Lock
             });
         }
+
+        // The clause that locks the root table's selected rows, or null when the dialect
+        // expresses the lock elsewhere. SQL Server uses table hints rendered with the FROM clause.
+        internal virtual string RowLock(SqlRowLock mode, string rootAlias, bool joined)
+            => throw new NotSupportedException($"{Flavor} does not support row locks on a SELECT.");
+
+        private static string LockingRead(SqlRowLock mode, string rootAlias, bool joined)
+            => "FOR UPDATE" + (joined ? " OF " + rootAlias : null)
+                + (mode == SqlRowLock.SKIPLOCKED ? " SKIP LOCKED" : mode == SqlRowLock.NOWAIT ? " NOWAIT" : null);
         internal virtual string RenderCount(PreparedSelect inner, string with)
             => $"SELECT COUNT(*) FROM ({Render(inner)}) AS {"SqlLinqerCount".DbWrap(Flavor)}";
 
@@ -66,6 +75,7 @@ namespace SqlLinqer.Compilation
             internal override string UnorderedWindow => "ORDER BY (SELECT NULL)";
             internal override string PreserveDerivedOrder(PreparedSelect select, string sql)
                 => select.Top == 0 && select.Limit <= 0 && !string.IsNullOrEmpty(select.OrderBy) ? sql + " OFFSET 0 ROWS" : sql;
+            internal override string RowLock(SqlRowLock mode, string rootAlias, bool joined) => null;
             internal override string Correlate(string sql, string alias, string barrierAlias)
                 => $"CROSS APPLY (SELECT TOP (9223372036854775807) * FROM ({sql}) AS {barrierAlias.DbWrap(Flavor)}) AS {alias.DbWrap(Flavor)}";
         }
@@ -73,11 +83,13 @@ namespace SqlLinqer.Compilation
         private sealed class PostgresDialect : SqlDialect
         {
             internal PostgresDialect() : base(DbFlavor.PostgreSql) { }
+            internal override string RowLock(SqlRowLock mode, string rootAlias, bool joined) => LockingRead(mode, rootAlias, joined);
         }
 
         private sealed class MySqlDialect : SqlDialect
         {
             internal MySqlDialect() : base(DbFlavor.MySql) { }
+            internal override string RowLock(SqlRowLock mode, string rootAlias, bool joined) => LockingRead(mode, rootAlias, joined);
             internal override string Correlate(string sql, string alias, string barrierAlias)
                 => $"JOIN LATERAL (SELECT * FROM ({sql}) AS {barrierAlias.DbWrap(Flavor)} LIMIT 18446744073709551615) AS {alias.DbWrap(Flavor)} ON TRUE";
         }

@@ -23,6 +23,11 @@ internal static class SqlModelContractChecks
     {
         NativeResultProviderChecks.Run(connector, test);
         RelatedAggregateProviderChecks.Run(connector, test);
+        RawSqlProviderChecks.Run(connector, test);
+        UpsertProviderChecks.Run(connector, test);
+        SelectTerminalProviderChecks.Run(connector, test);
+        FilteredAggregateProviderChecks.Run(connector, test);
+        ServerTimeProviderChecks.Run(connector, test);
         ValueConversionProviderChecks.Run(connector, test);
         ComplexRelationshipChecks.Run(connector, test);
         RelationshipStressChecks.Run(connector, test);

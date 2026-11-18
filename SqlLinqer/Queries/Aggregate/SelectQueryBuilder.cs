@@ -118,6 +118,15 @@ namespace SqlLinqer.Queries.Typed
         public abstract int Avg<TProperty>(Expression<Func<TBase, TProperty>> expression);
 
         /// <summary>
+        /// Averages a column over the rows in each group that match a filter. A group without matching rows returns NULL. Cast the call to a nullable type to receive it.
+        /// </summary>
+        /// <typeparam name="TProperty">The property type</typeparam>
+        /// <param name="expression">An expression to the property</param>
+        /// <param name="filter">Adds the predicates that an aggregated row must satisfy.</param>
+        /// <returns>The return is fake and is only used to return the correct type for the anonymous object.</returns>
+        public abstract int Avg<TProperty>(Expression<Func<TBase, TProperty>> expression, Action<SqlLinqer.Components.Where.TableWhereCollection<TBase>> filter);
+
+        /// <summary>
         /// Projects a row count.
         /// Selecting non-aggregate members also groups by those expressions.
         /// </summary>
@@ -137,6 +146,15 @@ namespace SqlLinqer.Queries.Typed
         /// <param name="expression">The mapped expression whose non-null results are counted.</param>
         /// <returns>A SQL count marker for the projection.</returns>
         public abstract int Count<TProperty>(Expression<Func<TBase, TProperty>> expression);
+
+        /// <summary>
+        /// Counts the non-null column values among the rows in each group that match a filter. A group without matching rows returns zero.
+        /// </summary>
+        /// <typeparam name="TProperty">The property type</typeparam>
+        /// <param name="expression">An expression to the property</param>
+        /// <param name="filter">Adds the predicates that an aggregated row must satisfy.</param>
+        /// <returns>The return is fake and is only used to return the correct type for the anonymous object.</returns>
+        public abstract int Count<TProperty>(Expression<Func<TBase, TProperty>> expression, Action<SqlLinqer.Components.Where.TableWhereCollection<TBase>> filter);
         /// <summary>
         /// Projects a count of non-null expression values, optionally distinct.
         /// Selecting non-aggregate members also groups by those expressions.
@@ -146,6 +164,20 @@ namespace SqlLinqer.Queries.Typed
         /// <param name="distinct">True to count distinct non-null expression values.</param>
         /// <returns>A SQL count marker for the projection.</returns>
         public abstract int Count<TProperty>(Expression<Func<TBase, TProperty>> expression, bool distinct);
+
+        /// <summary>
+        /// Counts the rows in each group that match a filter. A group without matching rows returns zero.
+        /// </summary>
+        /// <param name="filter">Adds the predicates that a counted row must satisfy.</param>
+        /// <returns>The return is fake and is only used to return the correct type for the anonymous object.</returns>
+        public abstract int Count(Action<SqlLinqer.Components.Where.TableWhereCollection<TBase>> filter);
+
+        /// <summary>
+        /// Counts the rows in each group that match a filter as a 64-bit value. A group without matching rows returns zero.
+        /// </summary>
+        /// <param name="filter">Adds the predicates that a counted row must satisfy.</param>
+        /// <returns>The return is fake and is only used to return the correct type for the anonymous object.</returns>
+        public abstract long CountBig(Action<SqlLinqer.Components.Where.TableWhereCollection<TBase>> filter);
 
         /// <summary>
         /// Projects a 64-bit row count.
@@ -161,6 +193,15 @@ namespace SqlLinqer.Queries.Typed
         /// <param name="expression">The mapped expression whose non-null results are counted.</param>
         /// <returns>A SQL count marker for the projection.</returns>
         public abstract long CountBig<TProperty>(Expression<Func<TBase, TProperty>> expression);
+
+        /// <summary>
+        /// Counts the non-null column values among the rows in each group that match a filter as a 64-bit value. A group without matching rows returns zero.
+        /// </summary>
+        /// <typeparam name="TProperty">The property type</typeparam>
+        /// <param name="expression">An expression to the property</param>
+        /// <param name="filter">Adds the predicates that an aggregated row must satisfy.</param>
+        /// <returns>The return is fake and is only used to return the correct type for the anonymous object.</returns>
+        public abstract long CountBig<TProperty>(Expression<Func<TBase, TProperty>> expression, Action<SqlLinqer.Components.Where.TableWhereCollection<TBase>> filter);
         /// <summary>
         /// Projects a 64-bit count of non-null expression values, optionally distinct.
         /// Selecting non-aggregate members also groups by those expressions.
@@ -177,8 +218,26 @@ namespace SqlLinqer.Queries.Typed
         /// <summary>Projects the maximum.</summary>
         public abstract TProperty Max<TProperty>(Expression<Func<TBase, TProperty>> expression);
 
+        /// <summary>
+        /// Returns the largest column value among the rows in each group that match a filter. A group without matching rows returns NULL. Cast the call to a nullable type to receive it.
+        /// </summary>
+        /// <typeparam name="TProperty">The property type</typeparam>
+        /// <param name="expression">An expression to the property</param>
+        /// <param name="filter">Adds the predicates that an aggregated row must satisfy.</param>
+        /// <returns>The return is fake and is only used to return the correct type for the anonymous object.</returns>
+        public abstract TProperty Max<TProperty>(Expression<Func<TBase, TProperty>> expression, Action<SqlLinqer.Components.Where.TableWhereCollection<TBase>> filter);
+
         /// <summary>Projects the minimum.</summary>
         public abstract TProperty Min<TProperty>(Expression<Func<TBase, TProperty>> expression);
+
+        /// <summary>
+        /// Returns the smallest column value among the rows in each group that match a filter. A group without matching rows returns NULL. Cast the call to a nullable type to receive it.
+        /// </summary>
+        /// <typeparam name="TProperty">The property type</typeparam>
+        /// <param name="expression">An expression to the property</param>
+        /// <param name="filter">Adds the predicates that an aggregated row must satisfy.</param>
+        /// <returns>The return is fake and is only used to return the correct type for the anonymous object.</returns>
+        public abstract TProperty Min<TProperty>(Expression<Func<TBase, TProperty>> expression, Action<SqlLinqer.Components.Where.TableWhereCollection<TBase>> filter);
 
         /// <summary>Projects strings aggregated across rows.</summary>
         public abstract string StringAgg(params Expression<Func<TBase, object>>[] expressions);
@@ -191,5 +250,14 @@ namespace SqlLinqer.Queries.Typed
         /// <param name="expression">The numeric mapped member or relationship member to aggregate.</param>
         /// <returns>A marker for the aggregate result inside the projection.</returns>
         public abstract int Sum<TProperty>(Expression<Func<TBase, TProperty>> expression);
+
+        /// <summary>
+        /// Sums a column over the rows in each group that match a filter. A group without matching rows returns zero.
+        /// </summary>
+        /// <typeparam name="TProperty">The property type</typeparam>
+        /// <param name="expression">An expression to the property</param>
+        /// <param name="filter">Adds the predicates that a summed row must satisfy.</param>
+        /// <returns>The return is fake and is only used to return the correct type for the anonymous object.</returns>
+        public abstract int Sum<TProperty>(Expression<Func<TBase, TProperty>> expression, Action<SqlLinqer.Components.Where.TableWhereCollection<TBase>> filter);
     }
 }

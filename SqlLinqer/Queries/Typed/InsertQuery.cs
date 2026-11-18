@@ -7,6 +7,8 @@ using SqlLinqer.Components.Modeling;
 using SqlLinqer.Queries.Interfaces;
 using SqlLinqer.Extensions.MemberExpressionExtensions;
 using System.Data;
+using SqlLinqer.Components.Insert;
+using SqlLinqer.Components.Update;
 
 namespace SqlLinqer.Queries.Typed
 {
@@ -20,12 +22,15 @@ namespace SqlLinqer.Queries.Typed
         , IQueryTyped
         , IQueryTypedInsert<InsertQuery<T>, T>
         , IQueryTypedOutput<InsertQuery<T>, T>
+        , IQueryTypedInsertConflict<InsertQuery<T>, T>
         , IQueryExecutable<int>
         , IAsyncQueryExecutable<int>
         , IQueryExecutableTvp<int>
         , IAsyncQueryExecutableTvp<int>
         , IQueryExecutableWithOutput
         , IAsyncQueryExecutableWithOutput
+        , IQueryExecutableWithTypedOutput
+        , IAsyncQueryExecutableWithTypedOutput
         where T : class
     {
         /// <summary>
@@ -68,6 +73,62 @@ namespace SqlLinqer.Queries.Typed
         {
             var cols = SetupInsertAutoColumns();
             Inserts.AddRows(objs);
+            return this;
+        }
+
+        private Column FindRootColumn(Expression expression)
+        {
+            var path = expression.GetMemberPath();
+            var column = Table.FindColumnFromPath(path);
+            if (column == null)
+                throw new SqlLinqer.Exceptions.SqlPathNotFoundException(Table, path);
+            if (column.Table.UUID != Table.UUID)
+                throw new FormatException($"Expression '{expression}' does not target a root column. An insert conflict can only reference its own table.");
+            return column;
+        }
+
+        private InsertConflict ConflictAction => Conflict ?? (Conflict = new InsertConflict());
+
+        /// <inheritdoc/>
+        public InsertQuery<T> OnConflict(params Expression<Func<T, object>>[] members)
+        {
+            if (members == null) throw new ArgumentNullException(nameof(members));
+            ConflictAction.SetTarget(members.Select(FindRootColumn).ToList());
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public InsertQuery<T> OnConflictUpdate<TProperty>(Expression<Func<T, TProperty>> expression)
+        {
+            ConflictAction.UpdateFromInserted(FindRootColumn(expression));
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public InsertQuery<T> OnConflictUpdate<TProperty>(Expression<Func<T, TProperty>> expression, TProperty value)
+        {
+            ConflictAction.UpdateValue(FindRootColumn(expression), value);
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public InsertQuery<T> OnConflictUpdate<TProperty>(Expression<Func<T, TProperty>> expression, UpdateOperation operation)
+        {
+            ConflictAction.UpdateOperation(FindRootColumn(expression), operation);
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public InsertQuery<T> OnConflictUpdateAuto()
+        {
+            ConflictAction.UpdateAuto = true;
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public InsertQuery<T> OnConflictDoNothing()
+        {
+            ConflictAction.DoNothing = true;
             return this;
         }
 

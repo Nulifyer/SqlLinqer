@@ -81,6 +81,35 @@ var counterQuery = UsageCounter.BeginUpdate(connector)
     .Where(x => x.Id, 1, SqlOp.EQ);
 ```
 
+## Set a column to the server time
+
+Use `ServerTimeOperation` when the database clock, not the application clock, must supply a timestamp:
+
+```csharp
+var touchQuery = User.BeginUpdate(connector)
+    .Update(x => x.UpdatedUtc, new SqlLinqer.Components.Update.ServerTimeOperation())
+    .Where(x => x.Id, currentUser.Id, SqlOp.EQ);
+```
+
+| Database | Assigned expression | Result |
+| --- | --- | --- |
+| SQL Server, Azure SQL | `SYSUTCDATETIME()` | The current UTC time. |
+| MySQL | `UTC_TIMESTAMP(6)` | The current UTC time. Use a `DATETIME` column. |
+| SQLite | `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')` | The current UTC time as ISO 8601 text. |
+| PostgreSQL | `CURRENT_TIMESTAMP` | The exact instant in a `timestamptz` column. A plain `timestamp` column stores the session time zone's local time. |
+| DuckDB | `now()` | The same as PostgreSQL. |
+
+The operation also works in an [insert conflict update](insert.md#update-a-row-that-already-exists).
+
+To read the server time, call `GetServerTime` or `GetServerTimeAsync` on the connector:
+
+```csharp
+var asOfUtc = (await connector.GetServerTimeAsync(transaction, cancellationToken)).GetResultOrThrow();
+```
+
+The result is a `DateTimeOffset` with a zero offset on every database. The read opens no transaction of its own.
+Inside a PostgreSQL transaction, the value is the time the transaction started.
+
 ## Define a custom operation
 
 Inherit from `UpdateOperation` to define an assignment. This SQL Server example replaces an email domain:
@@ -132,6 +161,20 @@ var response = query.Execute();
 ```
 
 If `response.State` is `ResponseState.Valid`, `response.Result` contains the affected-row count. Otherwise, inspect `response.Error`.
+
+To read the changed rows, select columns with `Output` and call `ExecuteWithOutput<TRow>()`:
+
+```csharp
+var changed = User.BeginUpdate(connector)
+    .Update(x => x.Email, "noreply@company.com")
+    .Where(x => x.Email, "%@company.com", SqlOp.LIKE)
+    .Output(x => x.Id)
+    .ExecuteWithOutput<string>()
+    .GetResultOrThrow();
+```
+
+`TRow` is a scalar type for one output column, or a class mapped by column name.
+Every mapped member of that class must be one of the output columns. MySQL does not return changed rows.
 
 ## Joined updates in DuckDB
 

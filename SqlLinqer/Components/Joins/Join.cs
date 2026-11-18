@@ -64,6 +64,13 @@ namespace SqlLinqer.Components.Joins
                 builder.Append($"LEFT JOIN ");
             }
             builder.Append($"{Child.RenderFullName(flavor)} AS {Child.Alias.DbWrap(flavor)} ");
+            // SQL Server expresses a locking read as hints on the root table.
+            if (Child.UUID == query.Table.UUID && query is SqlLinqer.Queries.Core.SelectQuery select && select.RowLock.HasValue
+                && (flavor == DbFlavor.SqlServer || flavor == DbFlavor.AzureSql))
+            {
+                string wait = select.RowLock == SqlRowLock.SKIPLOCKED ? ", READPAST" : select.RowLock == SqlRowLock.NOWAIT ? ", NOWAIT" : null;
+                builder.Append($"WITH (UPDLOCK, ROWLOCK{wait}) ");
+            }
             // if has condition and is not the root table
             if (Condition.Count > 0 && Child.UUID != query.Table.UUID)
             {

@@ -22,8 +22,13 @@ namespace SqlLinqer.Connections
         /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The buffered table and execution state. Dispose a successful Result table after use.</returns>
         public SqlResponse<DataTable> ExecuteReaderDataTable(RenderedQuery query, DbTransaction existingTransaction = null, TimeSpan? commandTimeout = null)
+            => ExecuteReaderDataTable(query, existingTransaction, null, query.Transactional, commandTimeout);
+
+        internal SqlResponse<DataTable> ExecuteReaderDataTable(RenderedQuery query, DbTransaction existingTransaction, DbConnection existingConnection,
+            bool transactional, TimeSpan? commandTimeout)
         {
-            return ExecuteOnConnection(query, existingTransaction, query.Transactional, ReadDataTable, commandTimeout: commandTimeout);
+            return ExecuteOnConnection(query, existingTransaction, transactional, ReadDataTable,
+                commandTimeout: commandTimeout, existingConnection: existingConnection);
         }
 
         private DataTable ReadDataTable(DbCommand command, ExecutionObservation observation)
@@ -110,9 +115,14 @@ namespace SqlLinqer.Connections
         /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         public Task<SqlResponse<DataTable>> ExecuteReaderDataTableAsync(RenderedQuery query,
             DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+            => ExecuteReaderDataTableAsync(query, existingTransaction, null, query.Transactional, cancellationToken, commandTimeout);
+
+        internal Task<SqlResponse<DataTable>> ExecuteReaderDataTableAsync(RenderedQuery query, DbTransaction existingTransaction, DbConnection existingConnection,
+            bool transactional, CancellationToken cancellationToken, TimeSpan? commandTimeout)
         {
-            return ExecuteOnConnectionAsync(query, existingTransaction, query.Transactional,
-                (command, observation) => ReadDataTableAsync(command, observation, cancellationToken), cancellationToken, commandTimeout: commandTimeout);
+            return ExecuteOnConnectionAsync(query, existingTransaction, transactional,
+                (command, observation) => ReadDataTableAsync(command, observation, cancellationToken), cancellationToken,
+                commandTimeout: commandTimeout, existingConnection: existingConnection);
         }
 
         private async Task<DataTable> ReadDataTableAsync(DbCommand command, ExecutionObservation observation, CancellationToken cancellationToken)
@@ -176,8 +186,12 @@ namespace SqlLinqer.Connections
         /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The mapped rows and execution state. Execution or mapping failures produce an error response without partial rows.</returns>
         public SqlResponse<List<T>> ExecuteReaderList<T>(RenderedQuery query, DbTransaction existingTransaction = null, TimeSpan? commandTimeout = null)
+            => ExecuteReaderList<T>(query, existingTransaction, null, query.Transactional, commandTimeout);
+
+        internal SqlResponse<List<T>> ExecuteReaderList<T>(RenderedQuery query, DbTransaction existingTransaction, DbConnection existingConnection,
+            bool transactional, TimeSpan? commandTimeout)
         {
-            return ExecuteOnConnection(query, existingTransaction, query.Transactional, (command, observation) =>
+            return ExecuteOnConnection(query, existingTransaction, transactional, (command, observation) =>
             {
                 using (var reader = ReadCommand(command, observation))
                 {
@@ -203,7 +217,7 @@ namespace SqlLinqer.Connections
                     }
                     return rows;
                 }
-            }, commandTimeout: commandTimeout);
+            }, commandTimeout: commandTimeout, existingConnection: existingConnection);
         }
 
         /// <summary>
@@ -219,8 +233,12 @@ namespace SqlLinqer.Connections
         /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         public Task<SqlResponse<List<T>>> ExecuteReaderListAsync<T>(RenderedQuery query,
             DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+            => ExecuteReaderListAsync<T>(query, existingTransaction, null, query.Transactional, cancellationToken, commandTimeout);
+
+        internal Task<SqlResponse<List<T>>> ExecuteReaderListAsync<T>(RenderedQuery query, DbTransaction existingTransaction, DbConnection existingConnection,
+            bool transactional, CancellationToken cancellationToken, TimeSpan? commandTimeout)
         {
-            return ExecuteOnConnectionAsync(query, existingTransaction, query.Transactional, async (command, observation) =>
+            return ExecuteOnConnectionAsync(query, existingTransaction, transactional, async (command, observation) =>
             {
                 using (var reader = await ReadCommandAsync(command, observation, cancellationToken).ConfigureAwait(false))
                 {
@@ -254,7 +272,7 @@ namespace SqlLinqer.Connections
                     cancellationToken.ThrowIfCancellationRequested();
                     return rows;
                 }
-            }, cancellationToken, commandTimeout: commandTimeout);
+            }, cancellationToken, commandTimeout: commandTimeout, existingConnection: existingConnection);
         }
     }
 }

@@ -26,7 +26,7 @@ Get a `List<User>` with each user's selected permissions already populated. Filt
 - **Return nested results.** Select related objects and collections directly through mapped C# members.
 - **Build flexible queries.** Add optional filters, sorting, paging, and aggregate projections as your endpoint grows.
 - **Stream complete rows.** Process each model with its selected nested data and stop when you have what you need.
-- **Keep control.** Inspect parameterized SQL, share your transactions, and issue explicit inserts, updates, and deletes.
+- **Keep control.** Inspect parameterized SQL, share your transactions, and issue explicit inserts, upserts, updates, and deletes. Run hand-written SQL with named values when a builder does not fit.
 - **Fit your application.** Use ordinary model classes, optional dependency injection, and optional logs and tracing.
 
 Supports SQL Server, Azure SQL, PostgreSQL, MySQL, SQLite, and DuckDB. The .NET Standard 2.1 core has no package dependencies; the .NET Standard 2.0 asset retains async-interface compatibility. Install your database's ADO.NET provider separately.

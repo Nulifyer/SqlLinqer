@@ -18,6 +18,7 @@ namespace SqlLinqer.Queries.Typed
         : Core.SelectQuery
         , IQueryTyped
         , IQueryTypedPaged<SelectQuery<T>>
+        , IQueryTypedRowLock<SelectQuery<T>>
         , IQueryTypedSelect<SelectQuery<T>>
         , IQueryTypedSelect<SelectQuery<T>, T>
         , IQueryTypedOrder<SelectQuery<T>>
@@ -68,6 +69,13 @@ namespace SqlLinqer.Queries.Typed
         public SelectQuery<T> Limit(int limit, int offset)
         {
             PagingControls.SetLimit(limit, offset);
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public SelectQuery<T> ForUpdate(SqlRowLock wait = SqlRowLock.WAIT)
+        {
+            RowLock = wait;
             return this;
         }
 

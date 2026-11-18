@@ -95,6 +95,16 @@ namespace SqlLinqer.Components.Render
             return id;
         }
 
+        // Hand-written SQL keeps the caller's value names, so logs and provider errors remain readable.
+        internal string AddNamedParameter(string name, object value, System.Data.DbType? dbType)
+        {
+            string id = (_flavor == DbFlavor.DuckDb ? "$" : "@") + name;
+            if (HasKey(id))
+                throw new InvalidOperationException($"The parameter {id} is already bound in this collection.");
+            base.AddParameter(id, value, dbType);
+            return id;
+        }
+
         internal string AddCallableParameter(object value, System.Data.DbType? dbType,
             System.Data.ParameterDirection direction, SqlLinqer.Modeling.SqlParameterAttribute metadata, string defaultSchema = null)
         {

@@ -54,6 +54,22 @@ namespace SqlLinqer.Compilation
             return SnapshotGraph.Capture(select).CompileSelect(flavor, count: true);
         }
 
+        /// <summary>
+        /// Renders a command that returns 1 when any row matches the SELECT's filters and 0 otherwise.
+        /// Selected fields, ordering, paging, and row locks do not apply.
+        /// </summary>
+        /// <param name="flavor">The SQL dialect used to render the command.</param>
+        /// <returns>Independent SQL and bindings for the existence check.</returns>
+        /// <exception cref="InvalidOperationException">The captured definition is not a SELECT.</exception>
+        public RenderedQuery RenderForExists(DbFlavor flavor)
+        {
+            if (!(definition is SelectQuery select)) throw new InvalidOperationException("Only SELECT snapshots have an existence check.");
+            var working = SnapshotGraph.Capture(select);
+            var result = new RenderedQuery { Parameters = new ParameterCollection(flavor), QueryName = working.QueryName, CommandRole = "Exists", IsReadOnlySelect = true };
+            result.Text = SelectPreparation.Exists(working, new RenderContext(result.Parameters, SqlDialect.For(flavor)));
+            return result;
+        }
+
         internal static RenderedQuery RenderQuery(BaseQuery source, DbFlavor flavor)
         {
             if (source is SelectQuery nativeSelect) return SnapshotGraph.Capture(nativeSelect).CompileSelect(flavor, count: false);

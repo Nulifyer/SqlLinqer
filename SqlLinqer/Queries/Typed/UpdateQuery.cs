@@ -25,6 +25,8 @@ namespace SqlLinqer.Queries.Typed
         , IAsyncQueryExecutable<int>
         , IQueryExecutableWithOutput
         , IAsyncQueryExecutableWithOutput
+        , IQueryExecutableWithTypedOutput
+        , IAsyncQueryExecutableWithTypedOutput
         where T : class
     {
         /// <summary>

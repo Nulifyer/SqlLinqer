@@ -67,6 +67,24 @@ namespace SqlLinqer.Queries.Execution
             return response;
         }
 
+        internal static SqlResponse<bool> ExecuteExists(Core.SelectQuery query, BaseConnector connector, DbTransaction transaction, TimeSpan? commandTimeout = null)
+        {
+            if (connector == null) throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            return ToExists(connector.ExecuteScalar<int>(query.Capture().RenderForExists(connector.DbFlavor), transaction, commandTimeout: commandTimeout));
+        }
+
+        internal static async Task<SqlResponse<bool>> ExecuteExistsAsync(Core.SelectQuery query, BaseConnector connector,
+            DbTransaction transaction, CancellationToken cancellationToken, TimeSpan? commandTimeout = null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (connector == null) throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            return ToExists(await connector.ExecuteScalarAsync<int>(query.Capture().RenderForExists(connector.DbFlavor), transaction,
+                cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false));
+        }
+
+        private static SqlResponse<bool> ToExists(SqlResponse<int> response)
+            => response.State == ResponseState.Valid ? new SqlResponse<bool>(response.Result != 0) : new SqlResponse<bool>(response.Error);
+
         private static bool NeedsCount(Core.SelectQuery query)
             => query.PagingControls.Top > 0 || query.PagingControls.Limit > 0 || query.PagingControls.Offset > 0;
 

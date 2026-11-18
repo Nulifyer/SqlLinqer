@@ -142,6 +142,38 @@ aggregateQuery.Limit(10, 0);
 var aggregatePage = aggregateQuery.ExecuteWithTotalCount();
 ```
 
+## Count or sum only some rows in each group
+
+Pass a filter to `Count`, `CountBig`, or `Sum` to aggregate only the rows that match it.
+This report counts all views for each document and, separately, the views that came from a QR code:
+
+```csharp
+var report = connector.BeginSelectBuilder<ReaderEvent>()
+    .BuildQuery(q => new
+    {
+        DocumentId = q.Select(e => e.DocumentId),
+        Views = q.Count(),
+        QrViews = q.Count(filter => filter.Where(e => e.Source, "qr", SqlOp.EQ)),
+        QrBytes = q.Sum(e => e.Bytes, filter => filter.Where(e => e.Source, "qr", SqlOp.EQ))
+    })
+    .Where(e => e.Kind, "view", SqlOp.EQ)
+    .OrderBy(row => row.DocumentId, SqlDir.ASC);
+```
+
+The filter uses the same `Where` methods as a query. Chain several calls to require all of them.
+The query's own `Where` selects the rows in the report. An aggregate's filter narrows only that aggregate.
+
+`Count`, `CountBig`, `Sum`, `Avg`, `Min`, and `Max` accept a filter as their last argument.
+A group without matching rows returns `0` for a filtered count and for a filtered sum.
+A filtered `Avg`, `Min`, or `Max` returns NULL for that group. Cast the call to a nullable type to receive it:
+
+```csharp
+LargestQr = (int?)q.Max(e => e.Bytes, filter => filter.Where(e => e.Source, "qr", SqlOp.EQ))
+```
+
+PostgreSQL, SQLite, and DuckDB render `FILTER (WHERE ...)`. SQL Server, Azure SQL, and MySQL render `CASE WHEN` inside the aggregate.
+The results are the same.
+
 ## Aggregate independent collections
 
 `CountRelated` and `SumRelated` are available starting with `SqlLinqer` `2.3.0-rc.2`. For an application's mapped `WorkOrder.Tasks` and `WorkOrder.Notes` collections:
@@ -263,3 +295,80 @@ public bool UserExists(string userId)
 ```
 
 A successful `false` result means the ID was not found. A failed query has `State` set to `ResponseState.Error`.
+
+## Check whether any row matches a filter
+
+Use `ExecuteExists` on a filtered select to ask whether at least one row matches:
+
+```csharp
+var leaseIsCurrent = (await connector.BeginSelect<DocumentLease>()
+    .Where(x => x.DocumentId, id, SqlOp.EQ)
+    .Where(x => x.Generation, generation, SqlOp.EQ)
+    .Where(x => x.TokenHash, token, SqlOp.EQ)
+    .ExecuteExistsAsync(transaction, cancellationToken))
+    .GetResultOrThrow();
+```
+
+The check uses the query's filters, including filters through relationships.
+Selected fields, ordering, paging, and row locks do not affect the answer.
+The check loads no rows and opens no transaction of its own. Pass a transaction to see that transaction's uncommitted changes.
+`query.Capture().RenderForExists(connector.DbFlavor)` returns the SQL for inspection.
+
+## Lock rows for update
+
+Call `ForUpdate` to lock the selected rows until your transaction ends.
+Pass the transaction when you execute. Without one, the database releases the lock as soon as the read completes.
+
+```csharp
+var next = connector.BeginSelect<TranslationBatch>()
+    .SelectRootColumns()
+    .Where(x => x.State, "queued", SqlOp.EQ)
+    .OrderBy(x => x.CreatedUtc, SqlDir.ASC)
+    .Top(1)
+    .ForUpdate(SqlRowLock.SKIPLOCKED)
+    .Execute(transaction)
+    .GetResultOrThrow();
+```
+
+| `SqlRowLock` | Behavior when another transaction holds a selected row |
+| --- | --- |
+| `WAIT` (default) | Waits for the other transaction to finish. |
+| `SKIPLOCKED` | Leaves the locked row out of the result. |
+| `NOWAIT` | Returns an error response immediately. |
+
+| Database | SQL |
+| --- | --- |
+| PostgreSQL, MySQL | `FOR UPDATE`, `FOR UPDATE SKIP LOCKED`, `FOR UPDATE NOWAIT` |
+| SQL Server, Azure SQL | `WITH (UPDLOCK, ROWLOCK)` table hints, with `READPAST` or `NOWAIT` |
+| SQLite, DuckDB | Not supported. Rendering throws `NotSupportedException`. |
+
+The lock applies to rows of the root table. When the query joins other tables, PostgreSQL and MySQL render `FOR UPDATE OF` the root table.
+A locking select cannot select relationships or use `Distinct`. Load related rows with a separate query.
+
+### Claim the next queued row
+
+On PostgreSQL, SQL Server, and Azure SQL, one update can claim the next row and return its key.
+Build the locking select as a subquery and filter the update with it:
+
+```csharp
+var next = new SelectQuery<TranslationBatch>()
+    .Select(x => x.Id)
+    .Where(x => x.State, "queued", SqlOp.EQ)
+    .OrderBy(x => x.CreatedUtc, SqlDir.ASC)
+    .Top(1)
+    .ForUpdate(SqlRowLock.SKIPLOCKED);
+
+var claimed = connector.BeginUpdate<TranslationBatch, Guid>()
+    .Update(x => x.State, "running")
+    .Update(x => x.ClaimToken, claimToken)
+    .Where(x => x.Id, next, SqlArrayOp.IN)
+    .Execute(transaction);
+
+var claimedId = claimed.TouchedPrimaryKeys.SingleOrDefault();
+```
+
+Two workers that run this at the same time claim different rows. A worker that finds no free row updates nothing.
+Import `SqlLinqer.Queries.Typed` for `SelectQuery<T>`.
+
+MySQL cannot update a table that the same statement selects from in a subquery.
+On MySQL, run the locking select and then update the returned key, both in one transaction.

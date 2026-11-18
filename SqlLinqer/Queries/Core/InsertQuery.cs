@@ -16,6 +16,8 @@ namespace SqlLinqer.Queries.Core
         protected internal InsertRowCollection Inserts;
         /// <summary>The modified-row output projection.</summary>
         protected internal OutputsCollection Outputs;
+        // Set by the typed builder's OnConflict methods. Null renders a plain INSERT.
+        internal InsertConflict Conflict;
         internal string ExistingTvpName;
         internal string ExistingTvpSchema;
 
@@ -58,6 +60,8 @@ namespace SqlLinqer.Queries.Core
 
             try
             {
+                if (Conflict != null && !Inserts.HasColumns)
+                    throw new System.InvalidOperationException("An insert with a conflict action must insert at least one column.");
                 if ((flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb) && !Inserts.HasColumns)
                 {
                     if (Inserts.Count == 0)
@@ -66,6 +70,8 @@ namespace SqlLinqer.Queries.Core
                         throw new System.NotSupportedException("DEFAULT VALUES rendering supports one row per command. Use execution batching for multiple rows.");
                     return $"INSERT INTO {Table.RenderFullName(flavor)} DEFAULT VALUES {Outputs.Render(flavor)}";
                 }
+                if (Conflict != null)
+                    return RenderUpsert(parameters, flavor);
                 string inserts = this.Inserts.RenderAsRows(parameters, flavor);
                 string columns = this.Inserts.RenderColumns(flavor);
                 string outputs = this.Outputs.Render(flavor);
@@ -86,6 +92,31 @@ namespace SqlLinqer.Queries.Core
                     item?.Unstash();
             }
         }
+        private string RenderUpsert(ParameterCollection parameters, DbFlavor flavor)
+        {
+            var inserted = Inserts.InsertColumns;
+            string outputs = this.Outputs.Render(flavor);
+            string rows = this.Inserts.RenderAsRows(parameters, flavor);
+            if (flavor == DbFlavor.SqlServer || flavor == DbFlavor.AzureSql)
+            {
+                Table.Alias = InsertConflict.TargetAlias;
+                return Conflict.RenderMerge(this, inserted, rows, outputs, parameters, flavor);
+            }
+            // The existing row is referenced by its table name in a conflict update.
+            Table.Alias = Table.Name;
+            return string.Join(" ", new[]
+            {
+                $"INSERT INTO {Table.RenderFullName(flavor)}",
+                $"({this.Inserts.RenderColumns(flavor)})",
+                "VALUES",
+                rows,
+                flavor == DbFlavor.MySql
+                    ? Conflict.RenderOnDuplicateKey(this, inserted, parameters, flavor)
+                    : Conflict.RenderOnConflict(this, inserted, parameters, flavor),
+                outputs,
+            });
+        }
+
         /// <summary>
         /// Render the create and drop queries of the temp type
         /// </summary>
@@ -102,6 +133,8 @@ namespace SqlLinqer.Queries.Core
         {
             if (flavor != DbFlavor.SqlServer && flavor != DbFlavor.AzureSql)
                 throw new System.NotSupportedException("Table-valued parameters are supported only for SQL Server.");
+            if (Conflict != null)
+                throw new System.NotSupportedException("An insert with a conflict action does not support table-valued parameter execution. Use Execute.");
 
             string tempTypeId = existingTypeName ??
                 (schema != null ? $"{schema.DbWrap(flavor)}." : null)

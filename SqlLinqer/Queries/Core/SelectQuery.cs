@@ -40,6 +40,8 @@ namespace SqlLinqer.Queries.Core
         /// The paging controls (ex. TOP, LIMIT, OFFSET, etc)
         /// </summary>
         protected internal PagingControls PagingControls;
+        /// <summary>The row lock taken on the root table's selected rows, or null for an ordinary read.</summary>
+        protected internal SqlRowLock? RowLock;
 
         /// <summary>
         /// A SELECT query. Based around a root <see cref="Table"/>.

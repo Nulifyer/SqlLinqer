@@ -62,7 +62,7 @@ namespace SqlLinqer.Compilation
         {
             try
             {
-                if (count) { working.PagingControls.Reset(); working.OrderBys.Clear(); }
+                if (count) { working.PagingControls.Reset(); working.OrderBys.Clear(); working.RowLock = null; }
                 var result = new RenderedQuery { Parameters = bindings ?? new ParameterCollection(flavor), QueryName = working.QueryName, CommandRole = count ? "Count" : "Select", IsReadOnlySelect = true };
                 if (!count) result.ResultShape = SqlResultShape.Capture(working);
                 var compiler = new NativeSelectCompiler(flavor, result.Parameters);
@@ -83,6 +83,8 @@ namespace SqlLinqer.Compilation
                     result.Text = compiler.dialect.Render(prepared);
                     return result;
                 }
+                if (working.RowLock.HasValue)
+                    throw new Unsupported("A row lock applies to the root table. Select columns without relationships, then load related rows separately.");
                 compiler.AddNode(working, null, null);
                 compiler.Prepare(!count);
                 if (count)

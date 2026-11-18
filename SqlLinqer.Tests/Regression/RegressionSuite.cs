@@ -38,6 +38,10 @@ internal static class RegressionSuite
         ConnectionFactoryRegressionTests.Run(Test);
         CommandTimeoutRegressionTests.Run(Test);
         RelatedAggregateRegressionTests.Run(Test);
+        RawSqlRegressionTests.Run(Test);
+        UpsertRegressionTests.Run(Test);
+        SelectTerminalRegressionTests.Run(Test);
+        FilteredAggregateRegressionTests.Run(Test);
         CommandInterruptionRegressionTests.Run(Test);
         AdoptionRegressionTests.Run(Test);
 

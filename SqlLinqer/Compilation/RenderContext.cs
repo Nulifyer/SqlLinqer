@@ -16,12 +16,15 @@ namespace SqlLinqer.Compilation
         internal readonly string With, Select, From, Where, GroupBy, OrderBy;
         internal readonly bool Distinct;
         internal readonly int Top, Limit, Offset;
+        // A trailing row-lock clause for dialects that place it after paging.
+        internal readonly string Lock;
         internal PreparedSelect(string with, string select, string from, string where, string groupBy, string orderBy,
-            bool distinct, int top, int limit, int offset)
+            bool distinct, int top, int limit, int offset, string rowLock = null)
         {
             With = with; Select = select; From = from; Where = where; GroupBy = groupBy; OrderBy = orderBy;
             Distinct = distinct;
             Top = top; Limit = limit; Offset = offset;
+            Lock = rowLock;
         }
     }
 }

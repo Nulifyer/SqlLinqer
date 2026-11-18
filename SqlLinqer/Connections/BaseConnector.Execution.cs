@@ -17,8 +17,19 @@ namespace SqlLinqer.Connections
             return type == typeof(byte[]) || type == typeof(object) || type == typeof(string)
                 || type == typeof(DateTime) || type == typeof(DateTimeOffset);
         }
+        // A caller-supplied connection stays open and never receives an owned transaction.
+        private static DbConnection BorrowConnection(DbTransaction existingTransaction, DbConnection existingConnection)
+        {
+            if (existingConnection == null)
+                return existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
+            if (existingConnection.State != ConnectionState.Open)
+                throw new InvalidOperationException("The supplied connection must be open.");
+            return existingConnection;
+        }
+
         private SqlResponse<T> ExecuteOnConnection<T>(RenderedQuery query, DbTransaction existingTransaction,
-            bool transactional, Func<DbCommand, ExecutionObservation, T> action, TimeSpan? commandTimeout = null)
+            bool transactional, Func<DbCommand, ExecutionObservation, T> action, TimeSpan? commandTimeout = null,
+            DbConnection existingConnection = null)
         {
             var timeout = ResolveCommandTimeout(commandTimeout);
             var observation = ExecutionObservation.Start(Options.Observer, query, DbFlavor, false);
@@ -26,10 +37,10 @@ namespace SqlLinqer.Connections
             {
                 var response = ExecuteCommand(query, () =>
                 {
-                    bool ownsConnection = existingTransaction == null;
+                    bool ownsConnection = existingTransaction == null && existingConnection == null;
                     var connection = ownsConnection
                         ? CreateConnection()
-                        : existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
+                        : BorrowConnection(existingTransaction, existingConnection);
                     DbTransaction ownedTransaction = null;
                     T materialized = default;
                     bool hasResult = false;
@@ -136,8 +147,12 @@ namespace SqlLinqer.Connections
         /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The converted scalar and execution state, with null/default for SQL NULL when T permits null.</returns>
         public SqlResponse<T> ExecuteScalar<T>(RenderedQuery query, DbTransaction existingTransaction = null, TimeSpan? commandTimeout = null)
+            => ExecuteScalar<T>(query, existingTransaction, null, !query.IsReadOnlySelect, commandTimeout);
+
+        internal SqlResponse<T> ExecuteScalar<T>(RenderedQuery query, DbTransaction existingTransaction, DbConnection existingConnection,
+            bool transactional, TimeSpan? commandTimeout)
         {
-            return ExecuteOnConnection(query, existingTransaction, !query.IsReadOnlySelect, (command, observation) =>
+            return ExecuteOnConnection(query, existingTransaction, transactional, (command, observation) =>
             {
                 if (DbFlavor == DbFlavor.DuckDb && RequiresScalarReader(typeof(T)))
                 {
@@ -158,7 +173,7 @@ namespace SqlLinqer.Connections
                 }
                 object scalarValue = ScalarCommand(command, observation);
                 return DbValueConversion.ConvertTo<T>(scalarValue);
-            }, commandTimeout: commandTimeout);
+            }, commandTimeout: commandTimeout, existingConnection: existingConnection);
         }
 
         /// <summary>
@@ -170,8 +185,13 @@ namespace SqlLinqer.Connections
         /// <param name="commandTimeout">Overrides the connector command timeout for this execution. Null uses the connector default; zero disables the timeout.</param>
         /// <returns>The provider's affected-row count and execution state.</returns>
         public SqlResponse<int> ExecuteNonQuery(RenderedQuery query, DbTransaction existingTransaction = null, TimeSpan? commandTimeout = null)
+            => ExecuteNonQuery(query, existingTransaction, null, true, commandTimeout);
+
+        internal SqlResponse<int> ExecuteNonQuery(RenderedQuery query, DbTransaction existingTransaction, DbConnection existingConnection,
+            bool transactional, TimeSpan? commandTimeout)
         {
-            return ExecuteOnConnection(query, existingTransaction, true, (command, observation) => WriteCommand(command, observation), commandTimeout: commandTimeout);
+            return ExecuteOnConnection(query, existingTransaction, transactional, (command, observation) => WriteCommand(command, observation),
+                commandTimeout: commandTimeout, existingConnection: existingConnection);
         }
 
         // SQL Server's table-type metadata cannot be created inside the transaction
@@ -185,16 +205,18 @@ namespace SqlLinqer.Connections
             }, commandTimeout: commandTimeout);
 
         private Task<SqlResponse<T>> ExecuteOnConnectionAsync<T>(RenderedQuery query, DbTransaction existingTransaction,
-            bool transactional, Func<DbCommand, ExecutionObservation, Task<T>> action, CancellationToken cancellationToken, TimeSpan? commandTimeout = null)
+            bool transactional, Func<DbCommand, ExecutionObservation, Task<T>> action, CancellationToken cancellationToken, TimeSpan? commandTimeout = null,
+            DbConnection existingConnection = null)
         {
             var timeout = ResolveCommandTimeout(commandTimeout);
             return Options.Observer == null
-                ? ExecuteConnectionCoreAsync(query, existingTransaction, transactional, action, cancellationToken, timeout, null)
-                : ExecuteObservedConnectionAsync(query, existingTransaction, transactional, action, cancellationToken, timeout);
+                ? ExecuteConnectionCoreAsync(query, existingTransaction, transactional, action, cancellationToken, timeout, null, existingConnection)
+                : ExecuteObservedConnectionAsync(query, existingTransaction, transactional, action, cancellationToken, timeout, existingConnection);
         }
 
         private async Task<SqlResponse<T>> ExecuteObservedConnectionAsync<T>(RenderedQuery query, DbTransaction existingTransaction,
-            bool transactional, Func<DbCommand, ExecutionObservation, Task<T>> action, CancellationToken cancellationToken, TimeSpan timeout)
+            bool transactional, Func<DbCommand, ExecutionObservation, Task<T>> action, CancellationToken cancellationToken, TimeSpan timeout,
+            DbConnection existingConnection)
         {
             // Starting an activity inside this async method isolates Activity.Current
             // from the caller even when the provider completes synchronously.
@@ -202,7 +224,7 @@ namespace SqlLinqer.Connections
             try
             {
                 var response = await ExecuteConnectionCoreAsync(query, existingTransaction, transactional, action,
-                    cancellationToken, timeout, observation).ConfigureAwait(false);
+                    cancellationToken, timeout, observation, existingConnection).ConfigureAwait(false);
                 observation?.Complete(response);
                 return response;
             }
@@ -211,14 +233,14 @@ namespace SqlLinqer.Connections
 
         private Task<SqlResponse<T>> ExecuteConnectionCoreAsync<T>(RenderedQuery query, DbTransaction existingTransaction,
             bool transactional, Func<DbCommand, ExecutionObservation, Task<T>> action, CancellationToken cancellationToken,
-            TimeSpan timeout, ExecutionObservation observation)
+            TimeSpan timeout, ExecutionObservation observation, DbConnection existingConnection)
         {
             return ExecuteCommandAsync(query, async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                bool ownsConnection = existingTransaction == null;
+                bool ownsConnection = existingTransaction == null && existingConnection == null;
                 var connection = ownsConnection ? CreateConnection()
-                    : existingTransaction.Connection ?? throw new InvalidOperationException("The supplied transaction has no active connection.");
+                    : BorrowConnection(existingTransaction, existingConnection);
                 DbTransaction ownedTransaction = null;
                 T materialized = default;
                 bool hasResult = false;
@@ -326,8 +348,12 @@ namespace SqlLinqer.Connections
         /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         public Task<SqlResponse<T>> ExecuteScalarAsync<T>(RenderedQuery query,
             DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
+            => ExecuteScalarAsync<T>(query, existingTransaction, null, !query.IsReadOnlySelect, cancellationToken, commandTimeout);
+
+        internal Task<SqlResponse<T>> ExecuteScalarAsync<T>(RenderedQuery query, DbTransaction existingTransaction, DbConnection existingConnection,
+            bool transactional, CancellationToken cancellationToken, TimeSpan? commandTimeout)
         {
-            return ExecuteOnConnectionAsync(query, existingTransaction, !query.IsReadOnlySelect, async (command, observation) =>
+            return ExecuteOnConnectionAsync(query, existingTransaction, transactional, async (command, observation) =>
             {
                 if (DbFlavor == DbFlavor.DuckDb && RequiresScalarReader(typeof(T)))
                 {
@@ -347,7 +373,7 @@ namespace SqlLinqer.Connections
                 }
                 object scalar = await ScalarCommandAsync(command, observation, cancellationToken).ConfigureAwait(false);
                 return DbValueConversion.ConvertTo<T>(scalar);
-            }, cancellationToken, commandTimeout: commandTimeout);
+            }, cancellationToken, commandTimeout: commandTimeout, existingConnection: existingConnection);
         }
 
         /// <summary>
@@ -362,8 +388,13 @@ namespace SqlLinqer.Connections
         /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
         public Task<SqlResponse<int>> ExecuteNonQueryAsync(RenderedQuery query,
             DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
-            => ExecuteOnConnectionAsync(query, existingTransaction, true,
-                (command, observation) => WriteCommandAsync(command, observation, cancellationToken), cancellationToken, commandTimeout: commandTimeout);
+            => ExecuteNonQueryAsync(query, existingTransaction, null, true, cancellationToken, commandTimeout);
+
+        internal Task<SqlResponse<int>> ExecuteNonQueryAsync(RenderedQuery query, DbTransaction existingTransaction, DbConnection existingConnection,
+            bool transactional, CancellationToken cancellationToken, TimeSpan? commandTimeout)
+            => ExecuteOnConnectionAsync(query, existingTransaction, transactional,
+                (command, observation) => WriteCommandAsync(command, observation, cancellationToken), cancellationToken,
+                commandTimeout: commandTimeout, existingConnection: existingConnection);
 
         internal Task<SqlResponse<int>> ExecuteTypeDdlAsync(RenderedQuery query, string databaseName, CancellationToken cancellationToken, TimeSpan? commandTimeout = null)
             => ExecuteOnConnectionAsync(query, null, false, (command, observation) =>

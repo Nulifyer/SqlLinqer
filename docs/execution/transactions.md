@@ -65,4 +65,10 @@ Generated SELECT commands and page totals do not open an owned write transaction
 
 Raw `ExecuteScalar` commands retain their owned transaction behavior because a scalar command can also perform writes. For a compiled count, pass the object returned by `query.Capture().RenderForCount(connector.DbFlavor)` directly to scalar execution. Copying only its SQL text into a raw command discards that execution metadata.
 
+[Hand-written SQL](../queries/raw-sql.md#control-the-owned-transaction) from `BeginSql` follows the same rules.
+Its `WithoutTransaction()` method runs a command without the owned transaction.
+It can also run on one open connection that you supply, where SqlLinqer opens no transaction.
+
+A [row lock](../queries/select.md#lock-rows-for-update) lasts until its transaction ends. Pass your transaction to a select that calls `ForUpdate`.
+
 See [response handling](responses-and-errors.md) for the difference between a successful result and an error.

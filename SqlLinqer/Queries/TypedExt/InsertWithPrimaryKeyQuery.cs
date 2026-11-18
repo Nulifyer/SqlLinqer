@@ -19,6 +19,7 @@ namespace SqlLinqer.Queries.TypedExt
         , IQueryTyped
         , IQueryTypedInsert<InsertWithPrimaryKeyQuery<T, TPk>, T>
         , IQueryTypedOutput<InsertWithPrimaryKeyQuery<T, TPk>, T>
+        , IQueryTypedInsertConflict<InsertWithPrimaryKeyQuery<T, TPk>, T>
         , IQueryExecutableWithPrimaryKeys<int, TPk>
         , IAsyncQueryExecutableWithPrimaryKeys<int, TPk>
         , IQueryExecutableTvpWithPrimaryKeys<int, TPk>
@@ -58,6 +59,43 @@ namespace SqlLinqer.Queries.TypedExt
         public new InsertWithPrimaryKeyQuery<T, TPk> InsertAuto(IEnumerable<T> objs)
         {
             base.InsertAuto(objs);
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public new InsertWithPrimaryKeyQuery<T, TPk> OnConflict(params Expression<Func<T, object>>[] members)
+        {
+            base.OnConflict(members);
+            return this;
+        }
+        /// <inheritdoc/>
+        public new InsertWithPrimaryKeyQuery<T, TPk> OnConflictUpdate<TProperty>(Expression<Func<T, TProperty>> expression)
+        {
+            base.OnConflictUpdate(expression);
+            return this;
+        }
+        /// <inheritdoc/>
+        public new InsertWithPrimaryKeyQuery<T, TPk> OnConflictUpdate<TProperty>(Expression<Func<T, TProperty>> expression, TProperty value)
+        {
+            base.OnConflictUpdate(expression, value);
+            return this;
+        }
+        /// <inheritdoc/>
+        public new InsertWithPrimaryKeyQuery<T, TPk> OnConflictUpdate<TProperty>(Expression<Func<T, TProperty>> expression, SqlLinqer.Components.Update.UpdateOperation operation)
+        {
+            base.OnConflictUpdate(expression, operation);
+            return this;
+        }
+        /// <inheritdoc/>
+        public new InsertWithPrimaryKeyQuery<T, TPk> OnConflictUpdateAuto()
+        {
+            base.OnConflictUpdateAuto();
+            return this;
+        }
+        /// <inheritdoc/>
+        public new InsertWithPrimaryKeyQuery<T, TPk> OnConflictDoNothing()
+        {
+            base.OnConflictDoNothing();
             return this;
         }
 

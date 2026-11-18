@@ -80,6 +80,20 @@ namespace SqlLinqer
         public static TruncateQuery<T> BeginTruncate<T>(this Connections.BaseConnector connector) where T : class
             => new TruncateQuery<T>(Schema(connector)) { BoundConnector = connector };
 
+        /// <summary>
+        /// Creates a bound command from hand-written SQL. Name each value with an @name marker and supply it through
+        /// the values object or the builder's Value method. No connection is opened.
+        /// </summary>
+        /// <param name="connector">The connector retained by the query.</param>
+        /// <param name="sql">SQL text that names its values with @name markers.</param>
+        /// <param name="values">An optional object whose public properties supply the values, such as new { id, state }.</param>
+        /// <returns>A raw command builder.</returns>
+        public static Queries.Raw.RawQuery BeginSql(this Connections.BaseConnector connector, string sql, object values = null)
+        {
+            if (connector == null) throw new ArgumentNullException(nameof(connector));
+            return new Queries.Raw.RawQuery(sql, values) { BoundConnector = connector };
+        }
+
         private static string Schema(Connections.BaseConnector connector)
             => (connector ?? throw new ArgumentNullException(nameof(connector))).Options.DefaultSchema;
     }
