@@ -232,6 +232,17 @@ public List<User> SearchUsers(
 }
 ```
 
+`SqlOp.LIKE` and `SqlOp.NOTLIKE` ignore case on every database:
+
+| Database | SQL | Case handling |
+| --- | --- | --- |
+| PostgreSQL, DuckDB | `ILIKE`, `NOT ILIKE` | Always ignores case. |
+| SQL Server, Azure SQL, MySQL | `LIKE`, `NOT LIKE` | Ignores case under the default collation. A column with a case-sensitive collation still matches case-sensitively. |
+| SQLite | `LIKE`, `NOT LIKE` | Ignores case for ASCII letters only. |
+
+The whole-word operators, such as `SqlOp.LIKEWORD`, follow the same case handling.
+For a case-sensitive pattern match, use [hand-written SQL](raw-sql.md).
+
 ## Group conditions
 
 Use `NewWhere` to group name and email matches with OR. The manager filter applies to the entire group.

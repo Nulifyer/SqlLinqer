@@ -39,12 +39,13 @@ namespace SqlLinqer
         [Description("!=")]
         NOT,
         /// <summary>
-        /// Like
+        /// Like. The match ignores case: PostgreSQL and DuckDB render ILIKE, and the other databases
+        /// ignore case under their default collations.
         /// </summary>
         [Description("LIKE")]
         LIKE,
         /// <summary>
-        /// Not Like
+        /// Not Like. The match ignores case, as LIKE does.
         /// </summary>
         [Description("NOT LIKE")]
         NOTLIKE,
@@ -76,21 +77,17 @@ namespace SqlLinqer
 
     internal static class SqlOpExtensions
     {
+        // LIKE ignores case on every database. PostgreSQL and DuckDB compare case-sensitively,
+        // so they use ILIKE. The other databases ignore case under their default collations.
         public static string GetOpString(this SqlOp op, DbFlavor flavor)
         {
-            switch (flavor)
+            string text = op.GetDescription();
+            if (flavor == DbFlavor.PostgreSql || flavor == DbFlavor.DuckDb)
             {
-                case DbFlavor.PostgreSql:
-                    switch (op)
-                    {
-                        case SqlOp.LIKE:
-                            return "ILIKE";
-                        case SqlOp.NOTLIKE:
-                            return "NOT ILIKE";
-                    }
-                    break;
+                if (text == "LIKE") return "ILIKE";
+                if (text == "NOT LIKE") return "NOT ILIKE";
             }
-            return op.GetDescription();
+            return text;
         }
         public static SqlOp GetInvert(this SqlOp op)
         {

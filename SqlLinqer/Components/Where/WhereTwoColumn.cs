@@ -101,7 +101,7 @@ namespace SqlLinqer.Components.Where
             query?.Joins.AddTable(Left.Table);
             query?.Joins.AddTable(Right.Table);
 
-            builder.Append($"{Left.Render(flavor)} {Operator.GetDescription()} {Right.Render(flavor)}");
+            builder.Append($"{Left.Render(flavor)} {Operator.GetOpString(flavor)} {Right.Render(flavor)}");
         }
 
         /// <inheritdoc/>

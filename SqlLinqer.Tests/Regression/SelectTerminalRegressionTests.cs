@@ -66,6 +66,19 @@ internal static class SelectTerminalRegressionTests
                 Check(!Clean(Next(SqlRowLock.WAIT).Render(flavor).Text).Contains("FOR UPDATE"), "SQL Server rendered FOR UPDATE");
             }
         });
+        foreach (var flavor in Enum.GetValues<DbFlavor>())
+            test($"LIKE ignores case for {flavor}", () =>
+            {
+                bool ilike = flavor is DbFlavor.PostgreSql or DbFlavor.DuckDb;
+                string like = Clean(new SelectQuery<Job>().Select(x => x.Id).Where(x => x.Owner, "a%", SqlOp.LIKE).Render(flavor).Text);
+                string notLike = Clean(new SelectQuery<Job>().Select(x => x.Id).Where(x => x.Owner, "a%", SqlOp.NOTLIKE).Render(flavor).Text);
+                string columns = Clean(new SelectQuery<Job>().Select(x => x.Id).Where(x => x.Owner, x => x.State, SqlOp.LIKE).Render(flavor).Text);
+                string equal = Clean(new SelectQuery<Job>().Select(x => x.Id).Where(x => x.Owner, "a", SqlOp.EQ).Render(flavor).Text);
+                Check(Regex.IsMatch(like, ilike ? " ILIKE " : " LIKE ") && like.Contains(" ILIKE ") == ilike, like);
+                Check(Regex.IsMatch(notLike, ilike ? " NOT ILIKE " : " NOT LIKE ") && notLike.Contains(" ILIKE ") == ilike, notLike);
+                Check(columns.Contains(" ILIKE ") == ilike && columns.Contains("LIKE"), columns);
+                Check(!equal.Contains("LIKE"), "Another operator changed");
+            });
         test("row locks are rejected where they cannot apply", () =>
         {
             Throws<NotSupportedException>(() => Next(SqlRowLock.WAIT).Render(DbFlavor.Sqlite));

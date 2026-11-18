@@ -241,14 +241,14 @@ internal static class QueryChecks
             string first = query.Render(DbFlavor.DuckDb).Text;
             Expect(query.Render(DbFlavor.SqlServer).Text.Contains("LIKE"), "Other dialect render failed");
             Expect(query.Render(DbFlavor.DuckDb).Text == first, "Word render mutated query");
-            Expect(Result(query.Execute(connector)).Select(x => x.Id).Order().SequenceEqual(new[] { 1, 2, 9 }), "ASCII boundaries or case changed");
-            Expect(Result(new SelectQuery<Word>().SelectRootColumns().Where(x => x.Name, "cat", SqlOp.NOTLIKEWORD).Execute(connector)).Select(x => x.Id).Order().SequenceEqual(new[] { 3, 4, 6, 7, 8 }), "Negative word NULL semantics changed");
-            Expect(Result(new SelectQuery<Word>().SelectRootColumns().Where(x => x.Name, "cat", SqlOp.NOTLIKEWORDORNULL).Execute(connector)).Count == 6, "Word OR NULL failed");
+            Expect(Result(query.Execute(connector)).Select(x => x.Id).Order().SequenceEqual(new[] { 1, 2, 8, 9 }), "ASCII boundaries changed, or the word match stopped ignoring case");
+            Expect(Result(new SelectQuery<Word>().SelectRootColumns().Where(x => x.Name, "cat", SqlOp.NOTLIKEWORD).Execute(connector)).Select(x => x.Id).Order().SequenceEqual(new[] { 3, 4, 6, 7 }), "Negative word NULL semantics changed");
+            Expect(Result(new SelectQuery<Word>().SelectRootColumns().Where(x => x.Name, "cat", SqlOp.NOTLIKEWORDORNULL).Execute(connector)).Count == 5, "Word OR NULL failed");
             Expect(Result(new SelectQuery<Word>().SelectRootColumns().Where(x => x.Name, "a%c".EscapeForSqlLike(DbFlavor.DuckDb), SqlOp.LIKEWORD).Execute(connector)).Single().Id == 7, "Word literal wildcard failed");
             Expect(Result(new SelectQuery<Word>().SelectRootColumns().Where(x => x.Name, "a.c", SqlOp.LIKEWORD).Execute(connector)).Single().Id == 6, "Regex punctuation was not literal");
             Expect(Result(new SelectQuery<Word>().SelectRootColumns().Where(x => x.Name, "a_c", SqlOp.LIKEWORD).Execute(connector)).Count == 2, "Word LIKE wildcard failed");
             var group = new SelectQuery<Word>().SelectRootColumns(); group.Where(group.NewWhere(SqlWhereOp.OR).Where(x => x.Name, "cat", SqlOp.LIKEWORD).Where(x => x.Name, "a.c", SqlOp.LIKEWORD));
-            Expect(Result(group.Execute(connector)).Count == 4, "Grouped word filter failed");
+            Expect(Result(group.Execute(connector)).Count == 5, "Grouped word filter failed");
             Expect(Result(new SelectQuery<Person>().SelectRootColumns().Where(x => x.Children.First().Name, "a", SqlOp.LIKEWORD).Execute(connector)).Single().Id == 100, "Related CTE word filter failed");
             Expect(Result(new SelectQuery<Person>().SelectRootColumns().Where(x => x.Children.First().Name, "a", SqlOp.NOTLIKEWORD).Execute(connector)).Count == 3, "Related negative word filter failed");
         });

@@ -197,7 +197,7 @@ namespace SqlLinqer.Components.Where
 
 
 
-                builder.Append($"{Column.Render(flavor)} {Operator.GetDescription()} {SubQueryOp.GetDescription()} ({rendered})");
+                builder.Append($"{Column.Render(flavor)} {Operator.GetOpString(flavor)} {SubQueryOp.GetDescription()} ({rendered})");
                 return;
             }
             else if (typeof(IEnumerable).IsAssignableFrom(hanldedValue.GetType()) && hanldedValue.GetType() != typeof(string) && !(hanldedValue is byte[]))
@@ -251,7 +251,7 @@ namespace SqlLinqer.Components.Where
             if (flavor == DbFlavor.DuckDb && (Operator == SqlOp.LIKEWORD || Operator == SqlOp.NOTLIKEWORD || Operator == SqlOp.NOTLIKEWORDORNULL))
             {
                 string pattern = parameters.AddParameter(hanldedValue == null ? null : WordPattern(Convert.ToString(hanldedValue)));
-                string match = $"regexp_matches({columnTarget}, {pattern}, 's')";
+                string match = $"regexp_matches({columnTarget}, {pattern}, 'si')";
                 builder.Append(Operator == SqlOp.LIKEWORD ? match : Operator == SqlOp.NOTLIKEWORD
                     ? $"NOT {match}" : $"({columnTarget} IS NULL OR NOT {match})");
                 return;
@@ -288,7 +288,7 @@ namespace SqlLinqer.Components.Where
                     return;
                 default:
                     string placeholder = parameters.AddParameter(hanldedValue);
-                    builder.Append($"{Column.Render(flavor)} {Operator.GetDescription()} {placeholder}");
+                    builder.Append($"{Column.Render(flavor)} {Operator.GetOpString(flavor)} {placeholder}");
                     if ((flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb) && (Operator == SqlOp.LIKE || Operator == SqlOp.NOTLIKE))
                         builder.Append(" ESCAPE '\\'");
                     return;

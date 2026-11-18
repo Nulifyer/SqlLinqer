@@ -14,6 +14,7 @@ internal static class SelectTerminalProviderChecks
         foreach (bool asynchronous in new[] { false, true })
             test($"select: exists follows the filter and the caller transaction, async={asynchronous}", () => Exists(db, asynchronous).GetAwaiter().GetResult());
         test("select: row locks skip, fail fast, and claim queued rows", () => RowLocks(db));
+        test("select: LIKE and NOT LIKE ignore case", () => LikeIgnoresCase(db));
     }
 
     private static string TableName(BaseConnector db)
@@ -51,6 +52,21 @@ internal static class SelectTerminalProviderChecks
             Check(await Any(db.BeginSelect<Job>().Where(x => x.Owner, "bob", SqlOp.EQ), transaction), "The check did not run inside the caller transaction");
             transaction.Rollback();
             Check(!await Any(db.BeginSelect<Job>().Where(x => x.Owner, "bob", SqlOp.EQ)), "The caller transaction was committed");
+        }
+        finally { Drop(db); }
+    }
+
+    private static void LikeIgnoresCase(BaseConnector db)
+    {
+        try
+        {
+            Create(db);
+            List<int> Ids(SelectQuery<Job> query) => query.Select(x => x.Id).OrderBy(x => x.Id, SqlDir.ASC).Execute().GetResultOrThrow().Select(x => x.Id).ToList();
+            Check(Ids(db.BeginSelect<Job>().Where(x => x.State, "QUEUED", SqlOp.LIKE)).SequenceEqual(new[] { 1, 2 }), "LIKE did not ignore case for an exact pattern");
+            Check(Ids(db.BeginSelect<Job>().Where(x => x.State, "%UeU%", SqlOp.LIKE)).SequenceEqual(new[] { 1, 2 }), "LIKE did not ignore case with wildcards");
+            Check(Ids(db.BeginSelect<Job>().Where(x => x.State, "Q%", SqlOp.NOTLIKE)).SequenceEqual(new[] { 3 }), "NOT LIKE did not ignore case");
+            Check(Ids(db.BeginSelect<Job>().Where(x => x.State, "DONE", SqlOp.LIKEWORD)).SequenceEqual(new[] { 3 }), "Whole-word LIKE did not ignore case");
+            Check(Ids(db.BeginSelect<Job>().Where(x => x.State, "QUEUED", SqlOp.EQ)).Count is 0 or 2, "Equality failed");
         }
         finally { Drop(db); }
     }
