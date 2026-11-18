@@ -138,22 +138,22 @@ internal static class SelectTerminalProviderChecks
             using var second = secondConnection.BeginTransaction();
             bool sqlServer = db.DbFlavor is DbFlavor.SqlServer or DbFlavor.AzureSql;
             Check(Row(1).ForShare().Execute(first).GetResultOrThrow().Single().Id == 1, "A shared lock did not return its row");
-            Check(Row(1).ForShare(SqlRowLock.NOWAIT).Execute(second).GetResultOrThrow().Single().Id == 1, "A second shared lock on the same row was refused");
+            Check(Row(1).ForShare(SqlLockWait.NOWAIT).Execute(second).GetResultOrThrow().Single().Id == 1, "A second shared lock on the same row was refused");
             // A shared row cannot be changed by another transaction. SQL Server grants a lock for update beside shared
             // locks and refuses the write itself, so its check writes with NOWAIT.
             var write = sqlServer
                 ? db.BeginSql($"UPDATE {TableName(db)} WITH (NOWAIT) SET [owner] = 'writer' WHERE [id] = 1").Execute(second)
-                : (ISqlResponse)Row(1).ForUpdate(SqlRowLock.NOWAIT).Execute(second);
+                : (ISqlResponse)Row(1).ForUpdate(SqlLockWait.NOWAIT).Execute(second);
             Check(write.State == ResponseState.Error, "Another transaction could change, or lock for update, a shared row");
             second.Rollback();
             using var third = secondConnection.BeginTransaction();
             if (!sqlServer)
-                Check(Row(1).ForUpdate(SqlRowLock.SKIPLOCKED).Execute(third).GetResultOrThrow().Count == 0, "A shared row was not skipped by a lock for update");
-            Check(Row(2).ForUpdate(SqlRowLock.NOWAIT).Execute(third).GetResultOrThrow().Count == 1, "A shared lock covered rows it did not select");
+                Check(Row(1).ForUpdate(SqlLockWait.SKIPLOCKED).Execute(third).GetResultOrThrow().Count == 0, "A shared row was not skipped by a lock for update");
+            Check(Row(2).ForUpdate(SqlLockWait.NOWAIT).Execute(third).GetResultOrThrow().Count == 1, "A shared lock covered rows it did not select");
             // A row that another transaction has changed is skipped, or refused, by a shared lock.
             db.BeginUpdate<Job>().Update(x => x.Owner, "writer").Where(x => x.Id, 2, SqlOp.EQ).Execute(third).EnsureSuccess();
-            Check(Row(2).ForShare(SqlRowLock.SKIPLOCKED).Execute(first).GetResultOrThrow().Count == 0, "A shared lock did not skip a row another transaction changed");
-            Check(Row(2).ForShare(SqlRowLock.NOWAIT).Execute(first).State == ResponseState.Error, "A shared lock did not fail fast on a row another transaction changed");
+            Check(Row(2).ForShare(SqlLockWait.SKIPLOCKED).Execute(first).GetResultOrThrow().Count == 0, "A shared lock did not skip a row another transaction changed");
+            Check(Row(2).ForShare(SqlLockWait.NOWAIT).Execute(first).State == ResponseState.Error, "A shared lock did not fail fast on a row another transaction changed");
             third.Rollback();
             first.Rollback();
         }
@@ -162,11 +162,11 @@ internal static class SelectTerminalProviderChecks
 
     private static void RowLocks(BaseConnector db)
     {
-        SelectQuery<Job> Next(SqlRowLock wait) => db.BeginSelect<Job>().SelectRootColumns()
+        SelectQuery<Job> Next(SqlLockWait wait) => db.BeginSelect<Job>().SelectRootColumns()
             .Where(x => x.State, "queued", SqlOp.EQ).OrderBy(x => x.Id, SqlDir.ASC).Top(1).ForUpdate(wait);
         if (db.DbFlavor is DbFlavor.Sqlite or DbFlavor.DuckDb)
         {
-            try { Next(SqlRowLock.WAIT).Execute(); }
+            try { Next(SqlLockWait.WAIT).Execute(); }
             catch (NotSupportedException) { return; }
             throw new Exception("An unsupported row lock was not rejected");
         }
@@ -181,9 +181,9 @@ internal static class SelectTerminalProviderChecks
             using (var first = firstConnection.BeginTransaction())
             using (var second = secondConnection.BeginTransaction())
             {
-                Check(Next(SqlRowLock.WAIT).Execute(first).GetResultOrThrow().Single().Id == 1, "The first transaction did not lock the first queued row");
-                Check(Next(SqlRowLock.SKIPLOCKED).Execute(second).GetResultOrThrow().Single().Id == 2, "A locked row was not skipped");
-                var blocked = db.BeginSelect<Job>().SelectRootColumns().Where(x => x.Id, 1, SqlOp.EQ).ForUpdate(SqlRowLock.NOWAIT).Execute(second);
+                Check(Next(SqlLockWait.WAIT).Execute(first).GetResultOrThrow().Single().Id == 1, "The first transaction did not lock the first queued row");
+                Check(Next(SqlLockWait.SKIPLOCKED).Execute(second).GetResultOrThrow().Single().Id == 2, "A locked row was not skipped");
+                var blocked = db.BeginSelect<Job>().SelectRootColumns().Where(x => x.Id, 1, SqlOp.EQ).ForUpdate(SqlLockWait.NOWAIT).Execute(second);
                 Check(blocked.State == ResponseState.Error, "NOWAIT did not fail on a locked row");
                 second.Rollback();
                 first.Rollback();
@@ -193,12 +193,12 @@ internal static class SelectTerminalProviderChecks
             using (var first = firstConnection.BeginTransaction())
             using (var second = secondConnection.BeginTransaction())
             {
-                SelectQuery<Job> Child(SqlRowLock wait) => db.BeginSelect<Job>().SelectRootColumns()
+                SelectQuery<Job> Child(SqlLockWait wait) => db.BeginSelect<Job>().SelectRootColumns()
                     .Where(x => x.Parent.State, "done", SqlOp.EQ).OrderBy(x => x.Id, SqlDir.ASC).ForUpdate(wait);
-                Check(Child(SqlRowLock.WAIT).Execute(first).GetResultOrThrow().Single().Id == 2, "A joined locking select did not return the child row");
-                Check(Child(SqlRowLock.SKIPLOCKED).Execute(second).GetResultOrThrow().Count == 0, "A joined locking select did not lock the root row");
+                Check(Child(SqlLockWait.WAIT).Execute(first).GetResultOrThrow().Single().Id == 2, "A joined locking select did not return the child row");
+                Check(Child(SqlLockWait.SKIPLOCKED).Execute(second).GetResultOrThrow().Count == 0, "A joined locking select did not lock the root row");
                 if (db.DbFlavor == DbFlavor.PostgreSql)
-                    Check(db.BeginSelect<Job>().SelectRootColumns().Where(x => x.Id, 3, SqlOp.EQ).ForUpdate(SqlRowLock.NOWAIT)
+                    Check(db.BeginSelect<Job>().SelectRootColumns().Where(x => x.Id, 3, SqlOp.EQ).ForUpdate(SqlLockWait.NOWAIT)
                         .Execute(second).GetResultOrThrow().Count == 1, "A joined locking select locked the joined table's row");
                 second.Rollback();
                 first.Rollback();
@@ -210,7 +210,7 @@ internal static class SelectTerminalProviderChecks
             using var claim = claimConnection.BeginTransaction();
             if (db.DbFlavor == DbFlavor.MySql)
             {
-                int id = Next(SqlRowLock.SKIPLOCKED).Execute(claim).GetResultOrThrow().Single().Id;
+                int id = Next(SqlLockWait.SKIPLOCKED).Execute(claim).GetResultOrThrow().Single().Id;
                 Check(db.BeginUpdate<Job>().Update(x => x.State, "running").Update(x => x.Owner, "worker")
                     .Where(x => x.Id, id, SqlOp.EQ).Execute(claim).GetResultOrThrow() == 1, "The locked row was not updated");
             }
@@ -230,7 +230,7 @@ internal static class SelectTerminalProviderChecks
                 // The subselect orders by a column it does not select, as a queue ordered by creation time does.
                 // Built from the connector, as the guide shows, so it resolves the same schema as the update.
                 var next = db.BeginSelect<Job>().Select(x => x.Id).Where(x => x.State, "queued", SqlOp.EQ)
-                    .OrderBy(x => x.State, SqlDir.ASC).ThenBy(x => x.Id, SqlDir.ASC).Top(1).ForUpdate(SqlRowLock.SKIPLOCKED);
+                    .OrderBy(x => x.State, SqlDir.ASC).ThenBy(x => x.Id, SqlDir.ASC).Top(1).ForUpdate(SqlLockWait.SKIPLOCKED);
                 var claimed = update.Where(x => x.Id, next, SqlArrayOp.IN).Execute(claim).EnsureSuccess();
                 Check(claimed.Result == 1 && claimed.TouchedPrimaryKeys.Single() == 1,
                     $"The claim update did not claim exactly the first queued row: {claimed.Result} rows, keys {string.Join(",", claimed.TouchedPrimaryKeys)}");

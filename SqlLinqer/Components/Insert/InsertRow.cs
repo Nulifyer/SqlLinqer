@@ -44,8 +44,7 @@ namespace SqlLinqer.Components.Insert
             var placeholders = Values
                 .Select(v =>
                 {
-                    string placeholder = existingCollection.AddParameter(v.Value, v.DbType);
-                    return placeholder;
+                    return SqlLinqer.Compilation.SqlDialect.For(flavor).Value(v.Value, v.Source, existingCollection, v.DbType);
                 });
             return $"({string.Join(",", placeholders)})";
         }

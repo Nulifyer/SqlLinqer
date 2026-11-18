@@ -111,8 +111,7 @@ namespace SqlLinqer.Queries.Typed
                 throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
             WriteExecution.ValidateTypedOutput<TRow>(Outputs);
             var rendered = this.Render(connector);
-            // An owned transaction lets a row that cannot be mapped roll the write back.
-            return connector.ExecuteReaderList<TRow>(rendered, transaction, null, true, commandTimeout);
+            return connector.ExecuteReaderList<TRow>(rendered, transaction, commandTimeout: commandTimeout);
         }
 
         /// <inheritdoc/>
@@ -130,7 +129,7 @@ namespace SqlLinqer.Queries.Typed
                 throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
             WriteExecution.ValidateTypedOutput<TRow>(Outputs);
             var rendered = this.Render(connector);
-            return await connector.ExecuteReaderListAsync<TRow>(rendered, transaction, null, true, cancellationToken, commandTimeout).ConfigureAwait(false);
+            return await connector.ExecuteReaderListAsync<TRow>(rendered, transaction, cancellationToken, commandTimeout).ConfigureAwait(false);
         }
     }
 }

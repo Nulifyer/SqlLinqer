@@ -21,12 +21,10 @@ namespace SqlLinqer.Components.Update
         }
 
         /// <inheritdoc/>
-        public override string Render(UpdateQuery query, UpdateStatement statement, ParameterCollection parameters, DbFlavor flavor)
+        public override string RenderValue(UpdateStatement statement, ParameterCollection parameters, DbFlavor flavor)
         {
             string placeholder = parameters.AddParameter(this.Value);
-            string columnStr = statement.UpdateColumn.Render(flavor);
-            string opStr = Operator.GetDescription();
-            return $"{statement.RenderTarget(flavor)} = {columnStr} {opStr} {placeholder}";
+            return $"{statement.UpdateColumn.Render(flavor)} {Operator.GetDescription()} {placeholder}";
         }
 
         /// <summary>

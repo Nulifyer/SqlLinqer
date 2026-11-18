@@ -46,17 +46,7 @@ namespace SqlLinqer.Queries.Typed
             if (connector == null)
                 throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
 
-            var renderedQuery = new SqlLinqer.Components.Render.RenderedQuery();
-            renderedQuery.Text = this.RenderRows(renderedQuery.Parameters, connector.DbFlavor);
-            var response = await connector.ExecuteScalarAsync<int>(renderedQuery, transaction, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
-
-            var bool_response = new SqlResponse<bool>();
-            if (response.State == ResponseState.Error)
-                bool_response.SetError(response.Error);
-            else
-                bool_response.SetResult(response.Result > 0);
-
-            return bool_response;
+            return await SqlLinqer.Queries.Execution.SelectExecution.ExecuteExistsAsync(this, connector, transaction, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
         }
     }
 }

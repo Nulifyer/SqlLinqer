@@ -10,7 +10,7 @@ internal static class SelectTerminalRegressionTests
     internal static void Run(Action<string, Action> test)
     {
         string Clean(string sql) => Regex.Replace(sql, @"\s+", " ").Trim();
-        SelectQuery<Job> Next(SqlRowLock wait) => new SelectQuery<Job>().Select(x => x.Id)
+        SelectQuery<Job> Next(SqlLockWait wait) => new SelectQuery<Job>().Select(x => x.Id)
             .Where(x => x.State, "queued", SqlOp.EQ).OrderBy(x => x.Id, SqlDir.ASC).Top(1).ForUpdate(wait);
 
         foreach (var flavor in Enum.GetValues<DbFlavor>())
@@ -42,16 +42,16 @@ internal static class SelectTerminalRegressionTests
         {
             foreach (var flavor in new[] { DbFlavor.PostgreSql, DbFlavor.MySql })
             {
-                Check(Clean(Next(SqlRowLock.WAIT).Render(flavor).Text).EndsWith("LIMIT 1 OFFSET 0 FOR UPDATE"), Clean(Next(SqlRowLock.WAIT).Render(flavor).Text));
-                Check(Clean(Next(SqlRowLock.SKIPLOCKED).Render(flavor).Text).EndsWith("FOR UPDATE SKIP LOCKED"), "Skip locked changed");
-                Check(Clean(Next(SqlRowLock.NOWAIT).Render(flavor).Text).EndsWith("FOR UPDATE NOWAIT"), "No wait changed");
-                Check(!Clean(Next(SqlRowLock.WAIT).RenderForCount(new SqlLinqer.Components.Render.ParameterCollection(flavor), flavor)).Contains("FOR UPDATE"),
+                Check(Clean(Next(SqlLockWait.WAIT).Render(flavor).Text).EndsWith("LIMIT 1 OFFSET 0 FOR UPDATE"), Clean(Next(SqlLockWait.WAIT).Render(flavor).Text));
+                Check(Clean(Next(SqlLockWait.SKIPLOCKED).Render(flavor).Text).EndsWith("FOR UPDATE SKIP LOCKED"), "Skip locked changed");
+                Check(Clean(Next(SqlLockWait.NOWAIT).Render(flavor).Text).EndsWith("FOR UPDATE NOWAIT"), "No wait changed");
+                Check(!Clean(Next(SqlLockWait.WAIT).RenderForCount(new SqlLinqer.Components.Render.ParameterCollection(flavor), flavor)).Contains("FOR UPDATE"),
                     "A count kept the row lock");
             }
         });
         test("row locks name the root table when the query joins another", () =>
         {
-            SelectQuery<Job> Child() => new SelectQuery<Job>().Select(x => x.Id).Where(x => x.Parent.State, "done", SqlOp.EQ).ForUpdate(SqlRowLock.SKIPLOCKED);
+            SelectQuery<Job> Child() => new SelectQuery<Job>().Select(x => x.Id).Where(x => x.Parent.State, "done", SqlOp.EQ).ForUpdate(SqlLockWait.SKIPLOCKED);
             Check(Regex.IsMatch(Clean(Child().Render(DbFlavor.PostgreSql).Text), "LEFT JOIN .* FOR UPDATE OF \"[^\"]+\" SKIP LOCKED$"), Clean(Child().Render(DbFlavor.PostgreSql).Text));
             Check(Regex.IsMatch(Clean(Child().Render(DbFlavor.MySql).Text), "LEFT JOIN .* FOR UPDATE OF `[^`]+` SKIP LOCKED$"), Clean(Child().Render(DbFlavor.MySql).Text));
             Check(Regex.Matches(Clean(Child().Render(DbFlavor.SqlServer).Text), "UPDLOCK").Count == 1, "A joined table received lock hints");
@@ -60,10 +60,10 @@ internal static class SelectTerminalRegressionTests
         {
             foreach (var flavor in new[] { DbFlavor.SqlServer, DbFlavor.AzureSql })
             {
-                Check(Clean(Next(SqlRowLock.WAIT).Render(flavor).Text).Contains("] WITH (UPDLOCK, ROWLOCK) WHERE"), Clean(Next(SqlRowLock.WAIT).Render(flavor).Text));
-                Check(Clean(Next(SqlRowLock.SKIPLOCKED).Render(flavor).Text).Contains("WITH (UPDLOCK, ROWLOCK, READPAST)"), "Skip locked changed");
-                Check(Clean(Next(SqlRowLock.NOWAIT).Render(flavor).Text).Contains("WITH (UPDLOCK, ROWLOCK, NOWAIT)"), "No wait changed");
-                Check(!Clean(Next(SqlRowLock.WAIT).Render(flavor).Text).Contains("FOR UPDATE"), "SQL Server rendered FOR UPDATE");
+                Check(Clean(Next(SqlLockWait.WAIT).Render(flavor).Text).Contains("] WITH (UPDLOCK, ROWLOCK) WHERE"), Clean(Next(SqlLockWait.WAIT).Render(flavor).Text));
+                Check(Clean(Next(SqlLockWait.SKIPLOCKED).Render(flavor).Text).Contains("WITH (UPDLOCK, ROWLOCK, READPAST)"), "Skip locked changed");
+                Check(Clean(Next(SqlLockWait.NOWAIT).Render(flavor).Text).Contains("WITH (UPDLOCK, ROWLOCK, NOWAIT)"), "No wait changed");
+                Check(!Clean(Next(SqlLockWait.WAIT).Render(flavor).Text).Contains("FOR UPDATE"), "SQL Server rendered FOR UPDATE");
             }
         });
         foreach (var flavor in Enum.GetValues<DbFlavor>())
@@ -82,7 +82,7 @@ internal static class SelectTerminalRegressionTests
         test("a locking subselect is evaluated once on PostgreSQL", () =>
         {
             string Claim(DbFlavor flavor, SqlArrayOp op) => Clean(new UpdateQuery<Job>().Update(x => x.State, "running")
-                .Where(x => x.Id, Next(SqlRowLock.SKIPLOCKED), op).Render(flavor).Text);
+                .Where(x => x.Id, Next(SqlLockWait.SKIPLOCKED), op).Render(flavor).Text);
             // ARRAY(...) is an InitPlan, so PostgreSQL cannot re-run the locking read for each outer row.
             Check(Regex.IsMatch(Claim(DbFlavor.PostgreSql, SqlArrayOp.IN), @" = ANY \(ARRAY\(\s*SELECT .* FOR UPDATE SKIP LOCKED\s*\)\)"), Claim(DbFlavor.PostgreSql, SqlArrayOp.IN));
             Check(Regex.IsMatch(Claim(DbFlavor.PostgreSql, SqlArrayOp.NOTIN), @" != ALL \(ARRAY\(\s*SELECT .* FOR UPDATE SKIP LOCKED\s*\)\)"), Claim(DbFlavor.PostgreSql, SqlArrayOp.NOTIN));
@@ -111,7 +111,7 @@ internal static class SelectTerminalRegressionTests
             var connector = new FakeConnector(new FakeDatabase());
             connector.Options.DefaultSchema = "tenant";
             string Claim(SelectQuery<Job> next) => Clean(connector.BeginUpdate<Job>().Update(x => x.State, "running")
-                .Where(x => x.Id, next.Select(x => x.Id).Top(1).ForUpdate(SqlRowLock.SKIPLOCKED), SqlArrayOp.IN).Render(connector).Text);
+                .Where(x => x.Id, next.Select(x => x.Id).Top(1).ForUpdate(SqlLockWait.SKIPLOCKED), SqlArrayOp.IN).Render(connector).Text);
             string bound = Claim(connector.BeginSelect<Job>());
             Check(Regex.Matches(bound, "\"tenant\"\\.\"select_jobs\"").Count == 2, "The connector-built subselect lost the schema: " + bound);
             // A query resolves its schema at construction, so a detached subselect needs it passed in.
@@ -120,8 +120,8 @@ internal static class SelectTerminalRegressionTests
         });
         test("MySQL rejects a write filtered by a locking subselect on its own table", () =>
         {
-            Throws<NotSupportedException>(() => new UpdateQuery<Job>().Update(x => x.State, "running").Where(x => x.Id, Next(SqlRowLock.SKIPLOCKED), SqlArrayOp.IN).Render(DbFlavor.MySql));
-            Throws<NotSupportedException>(() => new DeleteQuery<Job>().Where(x => x.Id, Next(SqlRowLock.SKIPLOCKED), SqlArrayOp.IN).Render(DbFlavor.MySql));
+            Throws<NotSupportedException>(() => new UpdateQuery<Job>().Update(x => x.State, "running").Where(x => x.Id, Next(SqlLockWait.SKIPLOCKED), SqlArrayOp.IN).Render(DbFlavor.MySql));
+            Throws<NotSupportedException>(() => new DeleteQuery<Job>().Where(x => x.Id, Next(SqlLockWait.SKIPLOCKED), SqlArrayOp.IN).Render(DbFlavor.MySql));
             // A select may filter by a locking subselect, and a write may filter by a subselect without a lock.
             new SelectQuery<Job>().Select(x => x.Id).Where(x => x.Id, new SelectQuery<Job>().Select(x => x.Id).ForUpdate(), SqlArrayOp.IN).Render(DbFlavor.MySql);
             new UpdateQuery<Job>().Update(x => x.State, "running").Where(x => x.Id, new SelectQuery<Job>().Select(x => x.ParentId), SqlArrayOp.IN).Render(DbFlavor.MySql);
@@ -136,9 +136,9 @@ internal static class SelectTerminalRegressionTests
         });
         test("row locks are rejected where they cannot apply", () =>
         {
-            Throws<NotSupportedException>(() => Next(SqlRowLock.WAIT).Render(DbFlavor.Sqlite));
-            Throws<NotSupportedException>(() => Next(SqlRowLock.WAIT).Render(DbFlavor.DuckDb));
-            Throws<NotSupportedException>(() => Next(SqlRowLock.WAIT).Distinct().Render(DbFlavor.PostgreSql));
+            Throws<NotSupportedException>(() => Next(SqlLockWait.WAIT).Render(DbFlavor.Sqlite));
+            Throws<NotSupportedException>(() => Next(SqlLockWait.WAIT).Render(DbFlavor.DuckDb));
+            Throws<NotSupportedException>(() => Next(SqlLockWait.WAIT).Distinct().Render(DbFlavor.PostgreSql));
         });
     }
 

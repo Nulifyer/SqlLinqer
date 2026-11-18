@@ -9,189 +9,138 @@ using SqlLinqer.Extensions.StringExtensions;
 
 namespace SqlLinqer.Components.Insert
 {
-    // What an insert does with a row whose unique key already exists: update chosen columns, or skip the row.
-    internal sealed class InsertConflict
+    /// <summary>
+    /// What an insert does with a row whose unique key already exists: update chosen columns, or skip the row.
+    /// The assignments are the same statements an UPDATE uses, and the condition is an ordinary predicate group.
+    /// </summary>
+    public sealed class InsertConflict
     {
         internal const string TargetAlias = "target", SourceAlias = "source";
 
-        internal readonly List<Column> Target = new List<Column>();
-        private readonly List<Assignment> _assignments = new List<Assignment>();
-        internal bool UpdateAuto;
-        internal bool DoNothing;
-        // A unique constraint named as the conflict target instead of key columns. PostgreSQL only.
-        internal string Constraint;
-        // Predicates on the existing row that a conflict update must satisfy. Null updates every conflicting row.
-        private WhereCollection _condition;
-        // Comparisons of the existing row's value with the value this insert supplied for the same column.
-        private readonly List<Comparison> _comparisons = new List<Comparison>();
+        private readonly List<Column> _target = new List<Column>();
 
-        private sealed class Assignment
-        {
-            internal Column Column;
-            internal bool FromInserted;
-            internal object Value;
-            internal UpdateOperation Operation;
-        }
+        /// <summary>The key columns that identify a conflicting row. Empty when a constraint is named or no target is set.</summary>
+        public IReadOnlyList<Column> Target => _target;
+        /// <summary>A unique constraint named as the conflict target instead of key columns. PostgreSQL only.</summary>
+        public string Constraint { get; private set; }
+        /// <summary>The assignments applied to a conflicting row.</summary>
+        public UpdatesCollection Updates { get; } = new UpdatesCollection();
+        /// <summary>The predicates a conflicting row must satisfy to be updated. An empty group updates every conflicting row.</summary>
+        public WhereCollection Condition { get; } = new WhereCollection(SqlWhereOp.AND);
+        /// <summary>True to also assign every inserted column that permits automatic updates from its inserted value.</summary>
+        public bool UpdateAuto { get; set; }
+        /// <summary>True to leave a conflicting row unchanged and skip the new row.</summary>
+        public bool DoNothing { get; set; }
 
-        private sealed class Comparison
+        /// <summary>Names the key columns that identify a conflicting row. This clears a named constraint.</summary>
+        /// <param name="columns">Root columns that together form a primary or unique key.</param>
+        public void SetTarget(IEnumerable<Column> columns)
         {
-            internal Column Column;
-            internal SqlOp Operator;
-        }
-
-        internal void SetTarget(IEnumerable<Column> columns)
-        {
-            Target.Clear();
-            Target.AddRange(columns);
+            _target.Clear();
+            _target.AddRange(columns);
             Constraint = null;
         }
 
-        internal void SetConstraint(string name)
+        /// <summary>Names a unique constraint as the conflict target. This clears the key columns.</summary>
+        /// <param name="name">The constraint name as the database stores it.</param>
+        public void SetConstraint(string name)
         {
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("A constraint name is required.", nameof(name));
-            Target.Clear();
+            _target.Clear();
             Constraint = name;
         }
 
-        internal void Where(WhereCollection filter)
+        private static IEnumerable<WhereColumnInserted> InsertedComparisons(WhereCollection group)
         {
-            if (_condition == null) _condition = new WhereCollection(SqlWhereOp.AND);
-            _condition.AddComponent(filter);
-        }
-
-        internal void WhereInserted(Column column, SqlOp op) => _comparisons.Add(new Comparison { Column = column, Operator = op });
-
-        private bool Conditional => _condition != null || _comparisons.Count > 0;
-
-        internal void UpdateFromInserted(Column column) => Set(new Assignment { Column = column, FromInserted = true });
-        internal void UpdateValue(Column column, object value) => Set(new Assignment { Column = column, Value = value });
-        internal void UpdateOperation(Column column, UpdateOperation operation)
-            => Set(new Assignment { Column = column, Operation = operation ?? throw new ArgumentNullException(nameof(operation)) });
-
-        private void Set(Assignment assignment)
-        {
-            _assignments.RemoveAll(existing => existing.Column.UUID == assignment.Column.UUID);
-            _assignments.Add(assignment);
+            foreach (var component in group.GetAll())
+            {
+                if (component is WhereColumnInserted comparison) yield return comparison;
+                else if (component is WhereCollection nested)
+                    foreach (var inner in InsertedComparisons(nested)) yield return inner;
+            }
         }
 
         // Automatic assignments are resolved here so InsertAuto and OnConflictUpdateAuto can be called in either order.
-        private List<Assignment> Resolve(IReadOnlyCollection<ReflectedColumn> inserted)
+        private List<UpdateStatement> Resolve(IReadOnlyCollection<ReflectedColumn> inserted)
         {
+            var resolved = Updates.GetAll().ToList();
             if (DoNothing)
             {
-                if (_assignments.Count > 0 || UpdateAuto)
+                if (resolved.Count > 0 || UpdateAuto)
                     throw new InvalidOperationException("An insert cannot both update and skip a conflicting row. Use OnConflictUpdate or OnConflictDoNothing, not both.");
-                if (Conditional)
+                if (Condition.Count > 0)
                     throw new InvalidOperationException("OnConflictWhere limits a conflict update. It does not apply to OnConflictDoNothing.");
-                return _assignments;
+                return resolved;
             }
-            var resolved = new List<Assignment>(_assignments);
             if (UpdateAuto)
                 foreach (var column in inserted)
                     if (column.AutoOptions.Update && !column.PrimaryKey
-                        && Target.All(target => target.UUID != column.UUID)
-                        && resolved.All(existing => existing.Column.UUID != column.UUID))
-                        resolved.Add(new Assignment { Column = column, FromInserted = true });
+                        && _target.All(target => target.UUID != column.UUID)
+                        && resolved.All(existing => existing.UpdateColumn.UUID != column.UUID))
+                        resolved.Add(new ColumnInsertedUpdate(column));
             if (resolved.Count == 0)
                 throw new InvalidOperationException("OnConflict needs an action. Add OnConflictUpdate, OnConflictUpdateAuto, or OnConflictDoNothing.");
-            foreach (var assignment in resolved)
-                if (assignment.FromInserted && inserted.All(column => column.UUID != assignment.Column.UUID))
-                    throw new InvalidOperationException($"Column '{assignment.Column.ColumnName}' is not inserted, so a conflict cannot update it from the inserted value. Assign a value or operation instead.");
+            foreach (var statement in resolved)
+                if (statement is ColumnInsertedUpdate && inserted.All(column => column.UUID != statement.UpdateColumn.UUID))
+                    throw new InvalidOperationException($"Column '{statement.UpdateColumn.ColumnName}' is not inserted, so a conflict cannot update it from the inserted value. Assign a value or operation instead.");
+            foreach (var comparison in InsertedComparisons(Condition))
+                if (inserted.All(column => column.UUID != comparison.Column.UUID))
+                    throw new InvalidOperationException($"Column '{comparison.Column.ColumnName}' is not inserted, so a conflict cannot compare it with the inserted value.");
             return resolved;
         }
 
-        private static string InsertedValue(Column column, DbFlavor flavor)
-        {
-            string name = column.ColumnName.DbWrap(flavor);
-            if (flavor == DbFlavor.SqlServer || flavor == DbFlavor.AzureSql) return $"{SourceAlias.DbWrap(flavor)}.{name}";
-            return flavor == DbFlavor.MySql ? $"VALUES({name})" : $"EXCLUDED.{name}";
-        }
-
         // The condition a conflicting row must satisfy to be updated, or null. Existing values render through the table alias.
-        private string RenderCondition(SqlLinqer.Queries.Core.UpdateQuery owner, IReadOnlyCollection<ReflectedColumn> inserted, ParameterCollection parameters, DbFlavor flavor)
+        private string RenderCondition(ParameterCollection parameters, DbFlavor flavor)
         {
-            var parts = new List<string>();
-            string filter = _condition?.Render(owner, parameters, flavor, include_where: false);
-            if (!string.IsNullOrEmpty(filter)) parts.Add($"({filter})");
-            foreach (var comparison in _comparisons)
-            {
-                if (inserted.All(column => column.UUID != comparison.Column.UUID))
-                    throw new InvalidOperationException($"Column '{comparison.Column.ColumnName}' is not inserted, so a conflict cannot compare it with the inserted value.");
-                parts.Add($"{comparison.Column.Render(flavor)} {comparison.Operator.GetOpString(flavor)} {InsertedValue(comparison.Column, flavor)}");
-            }
-            return parts.Count == 0 ? null : string.Join(" AND ", parts);
+            string condition = Condition.Count == 0 ? null : Condition.Render(null, parameters, flavor, include_where: false);
+            return string.IsNullOrEmpty(condition) ? null : condition;
         }
 
-        private string RenderAssignments(SqlLinqer.Queries.Core.InsertQuery query, IReadOnlyCollection<ReflectedColumn> inserted, ParameterCollection parameters, DbFlavor flavor,
-            out string condition)
+        private string RenderAssignments(IReadOnlyCollection<ReflectedColumn> inserted, ParameterCollection parameters, DbFlavor flavor, out string condition)
         {
-            bool merge = flavor == DbFlavor.SqlServer || flavor == DbFlavor.AzureSql;
-            // Operations and conditions render the existing row through the table alias, as they do in an UPDATE.
-            var owner = new SqlLinqer.Queries.Core.UpdateQuery(query.Table);
             var resolved = Resolve(inserted);
             condition = null;
+            if (DoNothing) return null;
             // MySQL has no conditional conflict update, so each assignment keeps the existing value unless the condition holds.
-            bool perAssignment = flavor == DbFlavor.MySql && Conditional && !DoNothing;
-            if (perAssignment) resolved = OrderForMySql(resolved);
-            var rendered = new List<string>();
-            foreach (var assignment in resolved)
-            {
-                string name = assignment.Column.ColumnName.DbWrap(flavor);
-                string target = merge ? $"{TargetAlias.DbWrap(flavor)}.{name}" : name;
-                string value;
-                if (assignment.Operation != null)
-                {
-                    var statement = new ColumnOperationUpdate(assignment.Column, assignment.Operation);
-                    string operation = assignment.Operation.Render(owner, statement, parameters, flavor);
-                    if (!perAssignment) { rendered.Add(operation); continue; }
-                    target = statement.RenderTarget(flavor);
-                    if (!operation.StartsWith(target + " = ", StringComparison.Ordinal))
-                        throw new NotSupportedException($"The operation on '{assignment.Column.ColumnName}' cannot be made conditional on MySQL, because it does not render as an assignment to the column.");
-                    value = operation.Substring(target.Length + 3);
-                }
-                else if (!assignment.FromInserted) value = parameters.AddParameter(assignment.Value);
-                else value = InsertedValue(assignment.Column, flavor);
-                rendered.Add(perAssignment
-                    ? $"{target} = IF({RenderCondition(owner, inserted, parameters, flavor)}, {value}, {assignment.Column.Render(flavor)})"
-                    : $"{target} = {value}");
-            }
-            if (!perAssignment && !DoNothing) condition = RenderCondition(owner, inserted, parameters, flavor);
-            return string.Join(",", rendered);
+            if (flavor == DbFlavor.MySql && Condition.Count > 0)
+                return string.Join(",", OrderForMySql(resolved).Select(statement =>
+                    $"{statement.RenderTarget(flavor)} = IF({RenderCondition(parameters, flavor)}, {statement.RenderValue(null, parameters, flavor)}, {statement.UpdateColumn.Render(flavor)})"));
+            string assignments = string.Join(",", resolved.Select(statement => statement.Render(null, parameters, flavor)));
+            condition = RenderCondition(parameters, flavor);
+            return assignments;
         }
 
         // MySQL assigns left to right, and a later assignment reads the values earlier ones wrote. A column that the
         // condition reads must therefore be assigned last, which is possible for one such column only.
-        private List<Assignment> OrderForMySql(List<Assignment> assignments)
+        private List<UpdateStatement> OrderForMySql(List<UpdateStatement> assignments)
         {
-            var read = new HashSet<string>(_comparisons.Select(comparison => comparison.Column.UUID));
-            if (_condition != null)
-                foreach (var column in _condition.GetColumnReferences()) read.Add(column.UUID);
-            var last = assignments.Where(assignment => read.Contains(assignment.Column.UUID)).ToList();
+            var read = new HashSet<string>(Condition.GetColumnReferences().Select(column => column.UUID));
+            var last = assignments.Where(statement => read.Contains(statement.UpdateColumn.UUID)).ToList();
             if (last.Count > 1)
                 throw new NotSupportedException("On MySQL, a conditional conflict update can assign at most one of the columns its condition reads: "
-                    + string.Join(", ", last.Select(assignment => assignment.Column.ColumnName)) + ". Assign one of them, or use hand-written SQL.");
-            return assignments.Where(assignment => !read.Contains(assignment.Column.UUID)).Concat(last).ToList();
+                    + string.Join(", ", last.Select(statement => statement.UpdateColumn.ColumnName)) + ". Assign one of them, or use hand-written SQL.");
+            return assignments.Where(statement => !read.Contains(statement.UpdateColumn.UUID)).Concat(last).ToList();
         }
 
         // The conflict action binds its values once per statement, so each batch must leave room for them.
-        internal int CountParameters(SqlLinqer.Queries.Core.InsertQuery query, IReadOnlyCollection<ReflectedColumn> inserted, DbFlavor flavor)
+        internal int CountParameters(IReadOnlyCollection<ReflectedColumn> inserted, DbFlavor flavor)
         {
             var parameters = new ParameterCollection(flavor);
-            RenderAssignments(query, inserted, parameters, flavor, out _);
+            RenderAssignments(inserted, parameters, flavor, out _);
             return parameters.Count;
         }
 
         private string RenderTarget(DbFlavor flavor)
-            => string.Join(",", Target.Select(column => column.ColumnName.DbWrap(flavor)));
+            => string.Join(",", _target.Select(column => column.ColumnName.DbWrap(flavor)));
 
         // PostgreSQL, SQLite, and DuckDB: the clause that follows VALUES.
-        internal string RenderOnConflict(SqlLinqer.Queries.Core.InsertQuery query, IReadOnlyCollection<ReflectedColumn> inserted, ParameterCollection parameters, DbFlavor flavor)
+        internal string RenderOnConflict(IReadOnlyCollection<ReflectedColumn> inserted, ParameterCollection parameters, DbFlavor flavor)
         {
-            string assignments = RenderAssignments(query, inserted, parameters, flavor, out string condition);
+            string assignments = RenderAssignments(inserted, parameters, flavor, out string condition);
             if (Constraint != null && flavor != DbFlavor.PostgreSql)
                 throw new NotSupportedException($"{flavor} cannot name a constraint as a conflict target. Pass the unique key members to OnConflict.");
             string target = Constraint != null ? $" ON CONSTRAINT {Constraint.DbWrap(flavor)}"
-                : Target.Count == 0 ? null : $" ({RenderTarget(flavor)})";
+                : _target.Count == 0 ? null : $" ({RenderTarget(flavor)})";
             if (DoNothing) return $"ON CONFLICT{target} DO NOTHING";
             if (target == null)
                 throw new InvalidOperationException("Updating a conflicting row requires a conflict target. Pass the unique key members to OnConflict.");
@@ -199,12 +148,12 @@ namespace SqlLinqer.Components.Insert
         }
 
         // MySQL applies whichever unique key collides, so the target is not rendered.
-        internal string RenderOnDuplicateKey(SqlLinqer.Queries.Core.InsertQuery query, IReadOnlyCollection<ReflectedColumn> inserted, ParameterCollection parameters, DbFlavor flavor)
+        internal string RenderOnDuplicateKey(IReadOnlyCollection<ReflectedColumn> inserted, ParameterCollection parameters, DbFlavor flavor)
         {
-            string assignments = RenderAssignments(query, inserted, parameters, flavor, out _);
+            string assignments = RenderAssignments(inserted, parameters, flavor, out _);
             if (!DoNothing) return $"ON DUPLICATE KEY UPDATE {assignments}";
             // A self-assignment skips the row without hiding unrelated errors the way INSERT IGNORE does.
-            string name = (Target.Count > 0 ? Target[0] : inserted.First()).ColumnName.DbWrap(flavor);
+            string name = (_target.Count > 0 ? _target[0] : inserted.First()).ColumnName.DbWrap(flavor);
             return $"ON DUPLICATE KEY UPDATE {name} = {name}";
         }
 
@@ -214,16 +163,16 @@ namespace SqlLinqer.Components.Insert
         {
             if (Constraint != null)
                 throw new NotSupportedException($"{flavor} cannot name a constraint as a conflict target. Pass the unique key members to OnConflict.");
-            if (Target.Count == 0)
+            if (_target.Count == 0)
                 throw new InvalidOperationException("SQL Server upserts require a conflict target. Pass the unique key members to OnConflict.");
-            foreach (var column in Target)
+            foreach (var column in _target)
                 if (inserted.All(candidate => candidate.UUID != column.UUID))
                     throw new InvalidOperationException($"Conflict target column '{column.ColumnName}' must be one of the inserted columns.");
-            string assignments = RenderAssignments(query, inserted, parameters, flavor, out string condition);
+            string assignments = RenderAssignments(inserted, parameters, flavor, out string condition);
             string target = TargetAlias.DbWrap(flavor), source = SourceAlias.DbWrap(flavor);
             string columns = string.Join(",", inserted.Select(column => column.ColumnName.DbWrap(flavor)));
             string sourceColumns = string.Join(",", inserted.Select(column => $"{source}.{column.ColumnName.DbWrap(flavor)}"));
-            string match = string.Join(" AND ", Target.Select(column => $"{target}.{column.ColumnName.DbWrap(flavor)} = {source}.{column.ColumnName.DbWrap(flavor)}"));
+            string match = string.Join(" AND ", _target.Select(column => $"{target}.{column.ColumnName.DbWrap(flavor)} = {source}.{column.ColumnName.DbWrap(flavor)}"));
             return string.Join(" ", new[]
             {
                 $"MERGE INTO {query.Table.RenderFullName(flavor)} WITH (HOLDLOCK) AS {target}",

@@ -36,10 +36,10 @@ namespace SqlLinqer.Components.Render
             if (error != null) ExceptionDispatchInfo.Capture(error).Throw();
         }
 
-        internal bool Transactional;
-        // Set only by the SELECT compiler. Raw scalar commands retain their
-        // existing transaction behavior because they can perform writes.
-        internal bool IsReadOnlySelect;
+        // Whether execution opens an owned transaction when the caller supplies none. The compiler sets true for a
+        // write and false for a read. Null, the value of a command the caller rendered by hand, leaves the choice to
+        // the terminal: writes and scalars own a transaction, because they can change data, and row readers do not.
+        internal bool? Transactional;
         internal SqlLinqer.Components.Native.NativeResultPlan NativePlan;
         /// <summary>An optional diagnostic name. It does not modify the SQL text or parameter bindings.</summary>
         public string QueryName { get; set; }

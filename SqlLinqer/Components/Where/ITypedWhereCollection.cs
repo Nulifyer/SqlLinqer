@@ -59,20 +59,20 @@ namespace SqlLinqer.Components.Where
         /// </summary>
         /// <typeparam name="TProperty">The compared member type, a date and time.</typeparam>
         /// <param name="expression">The mapped member to compare. Use First() to traverse a collection relationship.</param>
-        /// <param name="value">Use SqlServerTime.NOW to compare with the server's clock, as ServerTimeOperation assigns it.</param>
+        /// <param name="value">Use SqlTime.NOW to compare with the server's clock, as ServerTimeOperation assigns it.</param>
         /// <param name="op">The comparison operator, such as LT for a time that has passed.</param>
         /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
-        TReturn Where<TProperty>(Expression<Func<TObj, TProperty>> expression, SqlServerTime value, SqlOp op);
+        TReturn Where<TProperty>(Expression<Func<TObj, TProperty>> expression, SqlTime value, SqlOp op);
         /// <summary>
         /// Compares the mapped member with the database server's current time. No application time is sent.
         /// </summary>
         /// <typeparam name="TProperty">The compared member type, a date and time.</typeparam>
         /// <param name="expression">The mapped member to compare. Use First() to traverse a collection relationship.</param>
-        /// <param name="value">Use SqlServerTime.NOW to compare with the server's clock, as ServerTimeOperation assigns it.</param>
+        /// <param name="value">Use SqlTime.NOW to compare with the server's clock, as ServerTimeOperation assigns it.</param>
         /// <param name="op">The comparison operator, such as LT for a time that has passed.</param>
         /// <param name="subOp">ANY or ALL semantics when the comparison requires a relationship subquery.</param>
         /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
-        TReturn Where<TProperty>(Expression<Func<TObj, TProperty>> expression, SqlServerTime value, SqlOp op, SqlSubQueryOp subOp);
+        TReturn Where<TProperty>(Expression<Func<TObj, TProperty>> expression, SqlTime value, SqlOp op, SqlSubQueryOp subOp);
         /// <summary>
         /// Adds a parameterized comparison against a mapped member, including members reached through relationships.
         /// Relationship subqueries use ANY by default. EscapeForSqlLike escapes wildcards for literal search text.

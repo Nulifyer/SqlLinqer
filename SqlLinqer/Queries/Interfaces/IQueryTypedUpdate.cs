@@ -34,6 +34,16 @@ namespace SqlLinqer.Queries.Interfaces
         /// <exception cref="System.FormatException">The target expression refers to a related table rather than the root table.</exception>
         TQuery Update<TProperty>(Expression<Func<TObj, TProperty>> expression, TProperty value);
         /// <summary>
+        /// Assigns a server value to a mapped root-table column. No application value is sent.
+        /// Without a WHERE filter, execution updates every root-table row.
+        /// </summary>
+        /// <typeparam name="TProperty">The target member type.</typeparam>
+        /// <param name="expression">The column to assign. It must belong to the root model.</param>
+        /// <param name="value">Use SqlTime.NOW to assign the database server's current time.</param>
+        /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
+        /// <exception cref="System.FormatException">The target expression refers to a related table rather than the root table.</exception>
+        TQuery Update<TProperty>(Expression<Func<TObj, TProperty>> expression, SqlTime value);
+        /// <summary>
         /// Assigns the result of an update operation to a mapped root-table column.
         /// Without a WHERE filter, execution updates every root-table row.
         /// </summary>

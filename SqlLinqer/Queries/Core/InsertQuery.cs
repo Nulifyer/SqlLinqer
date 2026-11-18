@@ -16,8 +16,8 @@ namespace SqlLinqer.Queries.Core
         protected internal InsertRowCollection Inserts;
         /// <summary>The modified-row output projection.</summary>
         protected internal OutputsCollection Outputs;
-        // Set by the typed builder's OnConflict methods. Null renders a plain INSERT.
-        internal InsertConflict Conflict;
+        /// <summary>What the insert does with a row whose unique key already exists. Null renders a plain INSERT.</summary>
+        protected internal InsertConflict Conflict;
         internal string ExistingTvpName;
         internal string ExistingTvpSchema;
 
@@ -111,8 +111,8 @@ namespace SqlLinqer.Queries.Core
                 "VALUES",
                 rows,
                 flavor == DbFlavor.MySql
-                    ? Conflict.RenderOnDuplicateKey(this, inserted, parameters, flavor)
-                    : Conflict.RenderOnConflict(this, inserted, parameters, flavor),
+                    ? Conflict.RenderOnDuplicateKey(inserted, parameters, flavor)
+                    : Conflict.RenderOnConflict(inserted, parameters, flavor),
                 outputs,
             });
         }
@@ -135,8 +135,8 @@ namespace SqlLinqer.Queries.Core
                 throw new System.NotSupportedException("Table-valued parameters are supported only for SQL Server.");
             if (Conflict != null)
                 throw new System.NotSupportedException("An insert with a conflict action does not support table-valued parameter execution. Use Execute.");
-            if (Inserts.HasServerTimeColumns)
-                throw new System.NotSupportedException("An insert that assigns the server time does not support table-valued parameter execution. Use Execute.");
+            if (Inserts.HasServerValues)
+                throw new System.NotSupportedException("An insert that assigns a server value such as SqlTime.NOW does not support table-valued parameter execution. Use Execute.");
 
             string tempTypeId = existingTypeName ??
                 (schema != null ? $"{schema.DbWrap(flavor)}." : null)

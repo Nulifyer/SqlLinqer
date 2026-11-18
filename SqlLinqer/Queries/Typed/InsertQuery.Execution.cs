@@ -62,7 +62,7 @@ namespace SqlLinqer.Queries.Typed
             if (this.Inserts.Count == 0)
                 return new SqlResponse<List<TRow>>(new List<TRow>());
             return ExecuteBatches<List<TRow>>(connector, transaction,
-                (query, tx) => connector.ExecuteReaderList<TRow>(query, tx, null, true, commandTimeout),
+                (query, tx) => connector.ExecuteReaderList<TRow>(query, tx, commandTimeout: commandTimeout),
                 (all, batch) => { all.AddRange(batch); return all; }, commandTimeout: commandTimeout);
         }
 
@@ -135,7 +135,7 @@ namespace SqlLinqer.Queries.Typed
                 // Report connection and transaction start failures like a single-command insert does.
                 try
                 {
-                    connection = connector.ResolveConnection(existingTransaction, null, out ownsConnection);
+                    connection = connector.ResolveConnection(existingTransaction, out ownsConnection);
                     if (connection.State != ConnectionState.Open) connection.Open();
                     transaction = existingTransaction ?? connection.BeginTransaction(connector.OwnedIsolationLevel);
                 }
@@ -195,7 +195,7 @@ namespace SqlLinqer.Queries.Typed
         {
             if (parameterLimit <= 0 || Conflict == null)
                 return parameterLimit;
-            int budget = parameterLimit - Conflict.CountParameters(this, Inserts.InsertColumns, connector.DbFlavor);
+            int budget = parameterLimit - Conflict.CountParameters(Inserts.InsertColumns, connector.DbFlavor);
             if (budget <= 0)
                 throw new InvalidOperationException("The insert's conflict action alone exceeds the configured parameter limit.");
             return budget;
@@ -268,7 +268,7 @@ namespace SqlLinqer.Queries.Typed
             if (this.Inserts.Count == 0)
                 return new SqlResponse<List<TRow>>(new List<TRow>());
             return await ExecuteBatchesAsync<List<TRow>>(connector, transaction,
-                async (query, tx) => await connector.ExecuteReaderListAsync<TRow>(query, tx, null, true, cancellationToken, commandTimeout).ConfigureAwait(false),
+                async (query, tx) => await connector.ExecuteReaderListAsync<TRow>(query, tx, cancellationToken, commandTimeout).ConfigureAwait(false),
                 (all, batch) => { all.AddRange(batch); return all; }, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
         }
 
@@ -345,7 +345,7 @@ namespace SqlLinqer.Queries.Typed
                 // Report connection and transaction start failures like a single-command insert does.
                 try
                 {
-                    connection = connector.ResolveConnection(existingTransaction, null, out ownsConnection);
+                    connection = connector.ResolveConnection(existingTransaction, out ownsConnection);
                     if (connection.State != ConnectionState.Open) await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                     transaction = existingTransaction ?? connection.BeginTransaction(connector.OwnedIsolationLevel);
                 }

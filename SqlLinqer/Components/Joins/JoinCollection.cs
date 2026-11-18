@@ -17,6 +17,9 @@ namespace SqlLinqer.Components.Joins
         /// <summary>The root table from which relationship joins are discovered.</summary>
         protected Table Root;
 
+        // Table hints that follow the root table in the FROM clause. The SELECT compiler sets them for each render.
+        internal string RootHint;
+
         /// <summary>Creates an empty join collection.</summary>
         public JoinCollection() : base()
         {

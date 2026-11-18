@@ -49,13 +49,14 @@ namespace SqlLinqer.Compilation
             group = group ?? query.Selects.RenderGroupBy(query, parameters, flavor);
             string order = query.OrderBys.Render(query, parameters, flavor);
             string with = query.IsSubQuery ? null : query.Withs?.Render(query, parameters, flavor);
+            query.Joins.RootHint = query.RowLock == null ? null : dialect.RowLockHint(query.RowLock);
             string from = query.Joins.Render(query, parameters, flavor) + groupingInputs;
             string rowLock = null;
-            if (query.RowLock.HasValue)
+            if (query.RowLock != null)
             {
                 if (query.Distinct || !string.IsNullOrEmpty(group) && query.Selects.GetAll().Any(x => !x.DoGroupBy()))
                     throw new System.NotSupportedException("A row lock cannot be combined with DISTINCT or aggregates.");
-                rowLock = dialect.RowLock(query.RowLock.Value, query.RowLockShared, query.Table.Alias.DbWrap(flavor), query.Joins.HasJoinedTables(query.Table));
+                rowLock = dialect.RowLockClause(query.RowLock, query.Table.Alias.DbWrap(flavor), query.Joins.HasJoinedTables(query.Table));
             }
             return new PreparedSelect(with, select, from, where, group, order, query.Distinct,
                 query.PagingControls.Top, query.PagingControls.Limit, query.PagingControls.Offset, rowLock);

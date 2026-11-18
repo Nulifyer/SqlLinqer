@@ -74,13 +74,13 @@ namespace SqlLinqer.Queries.Typed
             return this;
         }
         /// <inheritdoc/>
-        public DeleteQuery<T> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlServerTime value, SqlOp op)
+        public DeleteQuery<T> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlTime value, SqlOp op)
         {
             RootWhere.Where<TProperty>(expression, value, op, SqlSubQueryOp.ANY);
             return this;
         }
         /// <inheritdoc/>
-        public DeleteQuery<T> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlServerTime value, SqlOp op, SqlSubQueryOp sub_op)
+        public DeleteQuery<T> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlTime value, SqlOp op, SqlSubQueryOp sub_op)
         {
             RootWhere.Where<TProperty>(expression, value, op, sub_op);
             return this;

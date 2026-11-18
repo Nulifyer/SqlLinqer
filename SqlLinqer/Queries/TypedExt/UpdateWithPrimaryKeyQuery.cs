@@ -51,6 +51,12 @@ namespace SqlLinqer.Queries.TypedExt
             return this;
         }
         /// <inheritdoc/>
+        public new UpdateWithPrimaryKeyQuery<T, TPk> Update<TProperty>(Expression<Func<T, TProperty>> expression, SqlTime value)
+        {
+            base.Update<TProperty>(expression, value);
+            return this;
+        }
+        /// <inheritdoc/>
         public new UpdateWithPrimaryKeyQuery<T, TPk> Update<TProperty>(Expression<Func<T, TProperty>> expression, UpdateOperation operation)
         {
             base.Update<TProperty>(expression, operation);
@@ -111,13 +117,13 @@ namespace SqlLinqer.Queries.TypedExt
             return this;
         }
         /// <inheritdoc/>
-        public new UpdateWithPrimaryKeyQuery<T, TPk> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlServerTime value, SqlOp op)
+        public new UpdateWithPrimaryKeyQuery<T, TPk> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlTime value, SqlOp op)
         {
             RootWhere.Where<TProperty>(expression, value, op, SqlSubQueryOp.ANY);
             return this;
         }
         /// <inheritdoc/>
-        public new UpdateWithPrimaryKeyQuery<T, TPk> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlServerTime value, SqlOp op, SqlSubQueryOp sub_op)
+        public new UpdateWithPrimaryKeyQuery<T, TPk> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlTime value, SqlOp op, SqlSubQueryOp sub_op)
         {
             RootWhere.Where<TProperty>(expression, value, op, sub_op);
             return this;

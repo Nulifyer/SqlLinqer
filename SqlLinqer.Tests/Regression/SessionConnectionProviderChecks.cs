@@ -24,8 +24,8 @@ internal static class SessionConnectionProviderChecks
         // The queries are built without a default schema, because a temporary table has none.
         using var connection = db.OpenConnection();
         var session = db.OnConnection(connection);
-        Check(ReferenceEquals(session.Options, db.Options) && session.DbFlavor == db.DbFlavor && session.GetType() == db.GetType(),
-            "The session connector is not a copy of its source connector");
+        Check(ReferenceEquals(session.Source, db) && ReferenceEquals(session.Connection, connection) && ReferenceEquals(session.Options, db.Options)
+            && session.DbFlavor == db.DbFlavor, "The session connector does not follow its source connector");
         session.BeginSql($"CREATE {(sqlServer ? "" : "TEMPORARY ")}TABLE {Q("#session_rows")} ({Q("id")} INTEGER PRIMARY KEY, {Q("label")} VARCHAR(40) NULL)")
             .WithoutTransaction().Execute().EnsureSuccess();
 

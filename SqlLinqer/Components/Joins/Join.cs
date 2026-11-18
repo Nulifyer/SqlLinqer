@@ -64,14 +64,9 @@ namespace SqlLinqer.Components.Joins
                 builder.Append($"LEFT JOIN ");
             }
             builder.Append($"{Child.RenderFullName(flavor)} AS {Child.Alias.DbWrap(flavor)} ");
-            // SQL Server expresses a locking read as hints on the root table.
-            if (Child.UUID == query.Table.UUID && query is SqlLinqer.Queries.Core.SelectQuery select && select.RowLock.HasValue
-                && (flavor == DbFlavor.SqlServer || flavor == DbFlavor.AzureSql))
-            {
-                string wait = select.RowLock == SqlRowLock.SKIPLOCKED ? ", READPAST" : select.RowLock == SqlRowLock.NOWAIT ? ", NOWAIT" : null;
-                // REPEATABLEREAD holds shared locks until the transaction ends, without the key-range locks of HOLDLOCK.
-                builder.Append($"WITH ({(select.RowLockShared ? "REPEATABLEREAD" : "UPDLOCK")}, ROWLOCK{wait}) ");
-            }
+            // Table hints chosen by the dialect, such as a SQL Server row lock, follow the root table.
+            if (Child.UUID == query.Table.UUID && query.Joins.RootHint != null)
+                builder.Append(query.Joins.RootHint).Append(' ');
             // if has condition and is not the root table
             if (Condition.Count > 0 && Child.UUID != query.Table.UUID)
             {

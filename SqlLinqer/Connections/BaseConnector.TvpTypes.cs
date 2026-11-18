@@ -13,7 +13,7 @@ namespace SqlLinqer.Connections
 {
     public abstract partial class BaseConnector
     {
-        private readonly ConcurrentDictionary<string, TvpContractEntry> _tvpContracts = new ConcurrentDictionary<string, TvpContractEntry>(StringComparer.Ordinal);
+        private readonly ConcurrentDictionary<string, TvpContractEntry> _tvpContracts;
 
         internal void InvalidateTvpTypes() => _tvpContracts.Clear();
 

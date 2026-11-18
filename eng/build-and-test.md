@@ -63,9 +63,12 @@ Independent mapping algorithms and resource owners remain separate types. File l
 `Queries/Execution` owns behavior shared by several query types: select execution, single-command write key capture, and primary-key response conversion.
 Model and projection selects use the same count and streaming decisions. Insert batching keeps its own batch aggregation and transaction lifetime.
 
-`Queries/Raw` holds the `BeginSql` builder. `Compilation/SqlMarkers.cs` finds its `@name` markers, and the connector's internal execution overloads accept a caller-supplied connection.
-`BaseConnector.ResolveConnection` chooses the connection for every execution: a supplied transaction's connection, a supplied connection, the connection of a connector from `OnConnection`, or a new one.
+`Queries/Raw` holds the `BeginSql` builder. `Compilation/SqlMarkers.cs` finds its `@name` markers.
+`BaseConnector.ResolveConnection` chooses the connection for every execution: a supplied transaction's connection, the connection of a `SessionConnector`, or a new one.
 Table type and lease management pass `independent` to stay on their own connections.
+`RenderedQuery.Transactional` decides whether execution opens an owned transaction. The compiler sets it for a write and clears it for a read. A hand-rendered command leaves it null, and the terminal decides.
+`SqlDialect.Value` is the single place a value becomes SQL: a server value such as `SqlTime.NOW` renders an expression, and any other value binds a parameter. Filters, updates, inserted rows, and conflict updates all call it.
+An insert's conflict action (`Components/Insert/InsertConflict.cs`) holds ordinary `UpdateStatement` assignments and a `WhereCollection` condition.
 `Components/Insert/InsertConflict.cs` renders an insert's conflict action for each dialect.
 
 Callable definitions live in `Modeling`. Their internal typed queries capture each call's inputs, `Compilation/CallablePreparation.cs` prepares SQL and parameter bindings, and `BaseConnector.Callable.cs` reads rows and execution metadata.

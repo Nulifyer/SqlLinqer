@@ -200,7 +200,7 @@ namespace SqlLinqer.Components.Where
                 }
                 // MySQL cannot change a table that the same statement reads in a subselect, and it reports that as a
                 // generic error. Name the two-statement form before any SQL is sent.
-                if (flavor == DbFlavor.MySql && subquery.RowLock.HasValue && query != null && !(query is Queries.Core.SelectQuery)
+                if (flavor == DbFlavor.MySql && subquery.RowLock != null && query != null && !(query is Queries.Core.SelectQuery)
                     && subquery.Table.Name == query.Table.Name && subquery.Table.Schema == query.Table.Schema)
                     throw new NotSupportedException("MySQL cannot update or delete rows of a table that the same statement locks in a subselect. "
                         + "Run the locking select first, then filter the write by its keys, in one transaction.");
@@ -211,7 +211,7 @@ namespace SqlLinqer.Components.Where
                 // PostgreSQL can re-run a quantified subselect for every outer row. A locking read then skips the rows
                 // this statement already changed and returns the next ones, exceeding its limit. ARRAY(...) is
                 // evaluated once per statement.
-                if (flavor == DbFlavor.PostgreSql && subquery.RowLock.HasValue)
+                if (flavor == DbFlavor.PostgreSql && subquery.RowLock != null)
                     rendered = $"ARRAY({rendered})";
 
                 builder.Append($"{Column.Render(flavor)} {Operator.GetOpString(flavor)} {SubQueryOp.GetDescription()} ({rendered})");
@@ -309,10 +309,8 @@ namespace SqlLinqer.Components.Where
                     builder.Append($"({group.Render(parameters, flavor)})");
                     return;
                 default:
-                    // The server's clock renders as an expression, so no application time is bound.
-                    string placeholder = hanldedValue is SqlServerTime
-                        ? SqlLinqer.Components.Update.ServerTimeOperation.Expression(flavor, Column)
-                        : parameters.AddParameter(hanldedValue);
+                    // A server value such as SqlTime.NOW renders as an expression, so no application value is bound.
+                    string placeholder = SqlLinqer.Compilation.SqlDialect.For(flavor).Value(hanldedValue, Column, parameters);
                     builder.Append($"{Column.Render(flavor)} {Operator.GetOpString(flavor)} {placeholder}");
                     if ((flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb) && (Operator == SqlOp.LIKE || Operator == SqlOp.NOTLIKE))
                         builder.Append(" ESCAPE '\\'");

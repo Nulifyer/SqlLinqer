@@ -89,20 +89,22 @@ internal static class RawSqlRegressionTests
         });
         foreach (bool asynchronous in new[] { false, true })
         {
-            test($"raw sql: a supplied connection runs without a transaction and stays open, async={asynchronous}", () =>
+            test($"raw sql: WithoutTransaction on a session connector runs on the held connection without a transaction, async={asynchronous}", () =>
             {
                 var database = new FakeDatabase();
                 var connector = new FakeConnector(database);
                 using var connection = new FakeConnection(database);
                 connection.Open();
-                var query = connector.BeginSql("SELECT pg_advisory_lock(@key)", new { key = 5L });
-                var affected = asynchronous ? query.ExecuteAsync(connection).GetAwaiter().GetResult() : query.Execute(connection);
-                var scalar = asynchronous ? query.ExecuteScalarAsync<long>(connection).GetAwaiter().GetResult() : query.ExecuteScalar<long>(connection);
+                var query = connector.OnConnection(connection).BeginSql("SELECT pg_advisory_lock(@key)", new { key = 5L }).WithoutTransaction();
+                var affected = asynchronous ? query.ExecuteAsync().GetAwaiter().GetResult() : query.Execute();
+                var scalar = asynchronous ? query.ExecuteScalarAsync<long>().GetAwaiter().GetResult() : query.ExecuteScalar<long>();
                 Check(affected.State == ResponseState.Valid && scalar.State == ResponseState.Valid, (affected.Error ?? scalar.Error)?.ToString());
                 Check(connector.Created == 0, "A pooled connection was created");
-                Check(connection.Transactions.Count == 0 && database.Executed.All(c => c.UsedTransaction == null), "A transaction was opened on the supplied connection");
-                Check(connection.State == ConnectionState.Open && !connection.IsDisposed, "The supplied connection was closed");
-                Check(database.Executed.Count == 2 && database.Executed[0].Parameters[0].ParameterName == "@key", "The command did not run on the supplied connection");
+                Check(connection.Transactions.Count == 0 && database.Executed.All(c => c.UsedTransaction == null), "A transaction was opened on the held connection");
+                Check(connection.State == ConnectionState.Open && !connection.IsDisposed, "The held connection was closed");
+                Check(database.Executed.Count == 2 && database.Executed[0].Parameters[0].ParameterName == "@key", "The command did not run on the held connection");
+                // The opt-out can be turned off again.
+                Check(query.WithoutTransaction(false).Execute().State == ResponseState.Valid && connection.Transactions.Count == 1, "Restoring the owned transaction had no effect");
             });
             test($"raw sql: owned transactions follow the terminal and WithoutTransaction, async={asynchronous}", () =>
             {
@@ -166,7 +168,10 @@ internal static class RawSqlRegressionTests
                 using var connection = new FakeConnection(database);
                 connection.Open();
                 var session = connector.OnConnection(connection);
-                Check(session is FakeConnector && ReferenceEquals(session.Options, connector.Options), "The session connector lost its type or options");
+                Check(ReferenceEquals(session.Source, connector) && ReferenceEquals(session.Connection, connection) && ReferenceEquals(session.Options, connector.Options)
+                    && session.DbFlavor == connector.DbFlavor, "The session connector does not follow its source");
+                // A session created from a session still follows the original source.
+                Check(ReferenceEquals(session.OnConnection(connection).Source, connector), "A nested session lost its source");
 
                 var write = session.BeginSql("UPDATE raw_rows SET Name = @name", new { name = "x" });
                 Check((asynchronous ? write.ExecuteAsync().GetAwaiter().GetResult() : write.Execute()).State == ResponseState.Valid, "A session write failed");
@@ -182,13 +187,7 @@ internal static class RawSqlRegressionTests
                     Check(connection.Transactions.Count == 2 && connection.Transactions[1].Commits == 0, "A caller transaction was replaced or committed");
                 }
 
-                // A connection passed to one terminal still runs without a transaction.
-                using var other = new FakeConnection(database);
-                other.Open();
-                Check((asynchronous ? write.ExecuteAsync(other).GetAwaiter().GetResult() : write.Execute(other)).State == ResponseState.Valid && other.Transactions.Count == 0,
-                    "A connection passed to a terminal received a transaction");
-
-                Check(database.Connections.Count == 2 && ((FakeConnector)session).Created == 0 && connector.Created == 0, "A pooled connection was created");
+                Check(database.Connections.Count == 1 && connector.Created == 0, "A pooled connection was created");
                 Check(connection.State == ConnectionState.Open && !connection.IsDisposed, "The session connection was closed");
                 Check(connector.BeginSql("SELECT 1").ExecuteScalar<long>().State == ResponseState.Valid && connector.Created == 1,
                     "The source connector stopped using pooled connections");
@@ -228,24 +227,57 @@ internal static class RawSqlRegressionTests
             Check(query.Execute(connector).State == ResponseState.Valid && query.ExecuteScalar<long>(connector).State == ResponseState.Valid,
                 "The transaction form ignored the supplied connector");
             Check(query.ExecuteAsync(connector).GetAwaiter().GetResult().State == ResponseState.Valid, "The async form ignored the supplied connector");
+            Check(connector.Created == 3, "A supplied connector was not used for every command");
+            // Each terminal family is declared on an interface, as for the typed builders.
+            SqlLinqer.Queries.Interfaces.IQueryExecutable<int> executable = query;
+            SqlLinqer.Queries.Interfaces.IQueryExecutableScalar scalar = query;
+            SqlLinqer.Queries.Interfaces.IAsyncQueryExecutableRows rows = query;
+            SqlLinqer.Queries.Interfaces.IAsyncQueryExecutableRowStream stream = query;
+            Check(executable.Execute(connector).State == ResponseState.Valid && scalar.ExecuteScalar<long>(connector).State == ResponseState.Valid
+                && rows != null && stream != null, "A terminal contract changed");
+            // An asynchronous terminal reports a cancelled token before it validates or renders.
+            var cancelled = new CancellationToken(true);
+            try { new RawQuery("SELECT @missing").ExecuteListAsync<int>(connector, cancellationToken: cancelled).GetAwaiter().GetResult(); throw new Exception("A cancelled token was ignored"); }
+            catch (OperationCanceledException) { }
+        });
+        test("writes: every write owns a transaction, whichever terminal runs it", () =>
+        {
+            foreach (DbFlavor flavor in new[] { DbFlavor.PostgreSql, DbFlavor.SqlServer, DbFlavor.Sqlite })
+            {
+                var database = new FakeDatabase
+                {
+                    ReaderFactory = _ => { var rows = new DataTable(); rows.Columns.Add("Id", typeof(int)); rows.Rows.Add(1); return rows.CreateDataReader(); },
+                };
+                var connector = new FakeConnector(database, flavor);
+                var update = new UpdateQuery<RawRow>().Update(x => x.Name, "n").Where(x => x.Id, 1, SqlOp.EQ).Output(x => x.Id);
+                using (var table = update.ExecuteWithOutput(connector).GetResultOrThrow()) Check(table.Rows.Count == 1, "The output table changed");
+                Check(update.ExecuteWithOutput<int>(connector).GetResultOrThrow().Single() == 1, "The typed output changed");
+                Check(update.Execute(connector).State == ResponseState.Valid, "The plain write failed");
+                var transactions = database.Connections.SelectMany(c => c.Transactions).ToList();
+                Check(transactions.Count == 3 && transactions.All(t => t.Commits == 1), $"A write ran without an owned transaction on {flavor}");
+                // A read never owns one.
+                Check(new SelectQuery<RawRow>().SelectRootColumns().Execute(connector).State == ResponseState.Valid
+                    && database.Connections.SelectMany(c => c.Transactions).Count() == 3, $"A read opened a transaction on {flavor}");
+            }
+        });
+        test("session connector: commands run through the source connector's hooks", () =>
+        {
+            var database = new FakeDatabase();
+            var connector = new HookedConnector(database);
             using var connection = new FakeConnection(database);
             connection.Open();
-            Check(query.Execute(connector, connection).State == ResponseState.Valid
-                && query.ExecuteScalarAsync<long>(connector, connection).GetAwaiter().GetResult().State == ResponseState.Valid,
-                "The connection form ignored the supplied connector");
-            Check(connector.Created == 3 && connection.Transactions.Count == 0, "A supplied connection was replaced or received a transaction");
-            SqlLinqer.Queries.Interfaces.IQueryExecutable<int> executable = query;
-            Check(executable.Execute(connector).State == ResponseState.Valid, "The standard executable contract changed");
+            Check(connector.OnConnection(connection).BeginSql("SELECT 1").ExecuteScalar<long>().State == ResponseState.Valid && connector.Commands == 1,
+                "A session command bypassed the source connector's command hook");
         });
-        test("raw sql: a closed supplied connection and a failed open return SqlResponseException", () =>
+        test("raw sql: a closed session connection and a failed open return SqlResponseException", () =>
         {
             var database = new FakeDatabase();
             var connector = new FakeConnector(database);
             using var closed = new FakeConnection(database);
-            var response = connector.BeginSql("SELECT 1").Execute(closed);
+            var response = connector.OnConnection(closed).BeginSql("SELECT 1").Execute();
             Check(response.State == ResponseState.Error && response.Error is SqlResponseException { InnerException: InvalidOperationException },
-                "A closed supplied connection was not reported through the response");
-            Check(closed.State == ConnectionState.Closed && database.Executed.Count == 0, "A closed supplied connection was opened");
+                "A closed session connection was not reported through the response");
+            Check(closed.State == ConnectionState.Closed && database.Executed.Count == 0, "A closed session connection was opened");
             database.FailAt = "open";
             var failed = connector.BeginSql("SELECT 1").ExecuteList<int>();
             Check(failed.State == ResponseState.Error && failed.Error is SqlResponseException, "An open failure escaped the response");
@@ -269,6 +301,17 @@ internal static class RawSqlRegressionTests
         try { run(); }
         catch (T error) when (error.Message.Contains(expected)) { return; }
         throw new Exception($"Expected {typeof(T).Name} mentioning '{expected}'");
+    }
+
+    private sealed class HookedConnector(FakeDatabase database) : SqlLinqer.Connections.BaseConnector(DbFlavor.PostgreSql, new SqlLinqer.Connections.ConnectorOptions())
+    {
+        public int Commands;
+        public override System.Data.Common.DbConnection CreateConnection() => new FakeConnection(database);
+        protected override SqlResponse<T> ExecuteCommand<T>(SqlLinqer.Components.Render.RenderedQuery query, Func<SqlResponse<T>> action)
+        {
+            Commands++;
+            return base.ExecuteCommand(query, action);
+        }
     }
 
     [SqlLinqer.Modeling.SqlTable("raw_rows")]

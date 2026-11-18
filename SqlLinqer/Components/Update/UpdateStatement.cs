@@ -18,8 +18,6 @@ namespace SqlLinqer.Components.Update
         /// <summary>
         /// Renders the left side of the assignment for the target database. PostgreSQL, SQLite, and DuckDB require a bare
         /// column name there; SQL Server, Azure SQL, and MySQL accept the alias-qualified column.
-        /// Use it for the assignment target in a custom <see cref="UpdateOperation"/>, and <see cref="UpdateColumn"/>'s
-        /// Render for the column's existing value on the right side.
         /// </summary>
         /// <param name="flavor">The type of Sql database being used</param>
         /// <returns>The assignment target, ready to be followed by an equals sign.</returns>
@@ -29,11 +27,22 @@ namespace SqlLinqer.Components.Update
         }
 
         /// <summary>
-        /// Renders the object into a string.
+        /// Renders the value that the column receives, without the assignment target.
         /// </summary>
-        /// <param name="query">The current query</param>
+        /// <param name="query">The update being rendered. It is null when the statement belongs to an insert's conflict action.</param>
         /// <param name="parameters">The parameter collection to use</param>
         /// <param name="flavor">The type of Sql database being used</param>
-        public abstract string Render(UpdateQuery query, ParameterCollection parameters, DbFlavor flavor);
+        /// <returns>The SQL expression on the right side of the assignment.</returns>
+        public abstract string RenderValue(UpdateQuery query, ParameterCollection parameters, DbFlavor flavor);
+
+        /// <summary>
+        /// Renders the whole assignment: the target, an equals sign, and the value.
+        /// </summary>
+        /// <param name="query">The update being rendered. It is null when the statement belongs to an insert's conflict action.</param>
+        /// <param name="parameters">The parameter collection to use</param>
+        /// <param name="flavor">The type of Sql database being used</param>
+        /// <returns>The rendered assignment.</returns>
+        public string Render(UpdateQuery query, ParameterCollection parameters, DbFlavor flavor)
+            => $"{RenderTarget(flavor)} = {RenderValue(query, parameters, flavor)}";
     }
 }

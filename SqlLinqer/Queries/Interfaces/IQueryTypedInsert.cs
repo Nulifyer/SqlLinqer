@@ -22,12 +22,13 @@ namespace SqlLinqer.Queries.Interfaces
         /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
         TQuery InsertAuto(IEnumerable<TObj> objs);
         /// <summary>
-        /// Inserts the database server's current time into the named columns of every row, instead of the rows' own values.
-        /// The columns are inserted whether or not automatic insertion includes them. Add the rows with InsertAuto.
-        /// The time follows ServerTimeOperation: UTC on SQL Server, Azure SQL, MySQL, and SQLite, and the current timestamp with its zone on PostgreSQL and DuckDB.
+        /// Inserts a server value into one column of every row, instead of the rows' own values for that column.
+        /// The column is inserted whether or not automatic insertion includes it. Add the rows with InsertAuto.
         /// </summary>
-        /// <param name="members">One or several root members that receive the server time.</param>
+        /// <typeparam name="TProperty">The target member type.</typeparam>
+        /// <param name="expression">The root member that receives the value.</param>
+        /// <param name="value">Use SqlTime.NOW to insert the database server's current time.</param>
         /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
-        TQuery InsertServerTime(params System.Linq.Expressions.Expression<System.Func<TObj, object>>[] members);
+        TQuery Insert<TProperty>(System.Linq.Expressions.Expression<System.Func<TObj, TProperty>> expression, SqlTime value);
     }
 }

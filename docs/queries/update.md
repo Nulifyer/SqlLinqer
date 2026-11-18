@@ -84,11 +84,11 @@ var counterQuery = UsageCounter.BeginUpdate(connector)
 
 ## Set a column to the server time
 
-Use `ServerTimeOperation` when the database clock, not the application clock, must supply a timestamp:
+Pass `SqlTime.NOW` in place of a value when the database clock, not the application clock, must supply a timestamp:
 
 ```csharp
 var touchQuery = User.BeginUpdate(connector)
-    .Update(x => x.UpdatedUtc, new SqlLinqer.Components.Update.ServerTimeOperation())
+    .Update(x => x.UpdatedUtc, SqlTime.NOW)
     .Where(x => x.Id, currentUser.Id, SqlOp.EQ);
 ```
 
@@ -100,11 +100,16 @@ var touchQuery = User.BeginUpdate(connector)
 | PostgreSQL | `CURRENT_TIMESTAMP` | The exact instant in a `timestamptz` column. A plain `timestamp` column stores the session time zone's local time. |
 | DuckDB | `now()` | The same as PostgreSQL. |
 
-The operation also works in an [insert conflict update](insert.md#update-a-row-that-already-exists).
 On PostgreSQL and DuckDB the assigned time is the time the transaction started, so every statement in one transaction assigns the same value.
 
-To assign the server time to inserted rows, use [`InsertServerTime`](insert.md#insert-the-servers-time).
-To filter by the server time, pass [`SqlServerTime.NOW`](select.md#compare-with-the-servers-time) to `Where`.
+`SqlTime.NOW` has the same meaning wherever a query takes a value:
+
+| Use | Call |
+| --- | --- |
+| Update a column | `Update(x => x.UpdatedUtc, SqlTime.NOW)` |
+| [Insert a column](insert.md#insert-the-servers-time) | `Insert(x => x.CreatedUtc, SqlTime.NOW)` |
+| [Update a row that already exists](insert.md#update-a-row-that-already-exists) | `OnConflictUpdate(x => x.UpdatedUtc, SqlTime.NOW)` |
+| [Filter](select.md#compare-with-the-servers-time) | `Where(x => x.DueUtc, SqlTime.NOW, SqlOp.LTE)` |
 
 To read the server time, call `GetServerTime` or `GetServerTimeAsync` on the connector:
 
@@ -131,13 +136,9 @@ The operation also works in an [insert conflict update](insert.md#update-a-row-t
 
 ## Define a custom operation
 
-Inherit from `UpdateOperation` to define an assignment. `Render` returns the whole assignment, such as `column = expression`.
-Its `statement` argument gives you the two ways to name the column:
-
-- `statement.RenderTarget(flavor)` renders the left side of the assignment.
-- `statement.UpdateColumn.Render(flavor)` renders the column's existing value for the right side.
-
-Use each in its place. PostgreSQL, SQLite, and DuckDB reject a table-qualified column on the left side, and `RenderTarget` renders the form each database accepts.
+Inherit from `UpdateOperation` to compute the assigned value. `RenderValue` returns only the expression on the right side of the assignment.
+SqlLinqer renders the column on the left side in the form each database accepts.
+`statement.UpdateColumn.Render(flavor)` renders the column's existing value.
 
 This operation converts the existing value to upper case on every database:
 
@@ -145,19 +146,16 @@ This operation converts the existing value to upper case on every database:
 using SqlLinqer;
 using SqlLinqer.Components.Render;
 using SqlLinqer.Components.Update;
-using SqlLinqer.Queries.Core;
 
 public class UpperCase : UpdateOperation
 {
-    public override string Render(
-        UpdateQuery query,
+    public override string RenderValue(
         UpdateStatement statement,
         ParameterCollection parameters,
         DbFlavor flavor)
     {
-        var target = statement.RenderTarget(flavor);
         var current = statement.UpdateColumn.Render(flavor);
-        return $"{target} = UPPER({current})";
+        return $"UPPER({current})";
     }
 }
 ```
@@ -176,8 +174,7 @@ public class ReplaceEmailDomain : UpdateOperation
         this.newDomain = newDomain;
     }
 
-    public override string Render(
-        UpdateQuery query,
+    public override string RenderValue(
         UpdateStatement statement,
         ParameterCollection parameters,
         DbFlavor flavor)
@@ -185,10 +182,9 @@ public class ReplaceEmailDomain : UpdateOperation
         if (flavor != DbFlavor.SqlServer && flavor != DbFlavor.AzureSql)
             throw new NotSupportedException("This operation requires SQL Server or Azure SQL.");
 
-        var target = statement.RenderTarget(flavor);
         var current = statement.UpdateColumn.Render(flavor);
         var placeholder = parameters.AddParameter(newDomain);
-        return $"{target} = CONCAT(SUBSTRING({current}, 1, CHARINDEX('@', {current}) - 1), {placeholder})";
+        return $"CONCAT(SUBSTRING({current}, 1, CHARINDEX('@', {current}) - 1), {placeholder})";
     }
 }
 ```
@@ -200,6 +196,9 @@ var replaceDomainQuery = User.BeginUpdate(connector)
     .Update(x => x.Email, new ReplaceEmailDomain("@newcompany.com"))
     .Where(x => x.Email, "%@company.com", SqlOp.LIKE);
 ```
+
+A custom operation works unchanged in an [insert conflict update](insert.md#update-a-row-that-already-exists).
+An operation written for 3.0.0 overrides `Render` and returns `column = expression`. Rename the method to `RenderValue`, remove its `query` parameter, and return only the expression.
 
 ## Execute an update
 

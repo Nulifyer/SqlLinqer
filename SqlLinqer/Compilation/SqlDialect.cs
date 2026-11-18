@@ -46,14 +46,31 @@ namespace SqlLinqer.Compilation
             });
         }
 
-        // The clause that locks the root table's selected rows, or null when the dialect
-        // expresses the lock elsewhere. SQL Server uses table hints rendered with the FROM clause.
-        internal virtual string RowLock(SqlRowLock mode, bool shared, string rootAlias, bool joined)
+        // A row lock renders in one of two places. PostgreSQL and MySQL end the statement with a locking clause.
+        // SQL Server and Azure SQL put table hints on the root table. A dialect without row locks rejects the clause.
+        internal virtual string RowLockClause(SqlLinqer.Components.Select.RowLock rowLock, string rootAlias, bool joined)
             => throw new NotSupportedException($"{Flavor} does not support row locks on a SELECT.");
+        internal virtual string RowLockHint(SqlLinqer.Components.Select.RowLock rowLock) => null;
 
-        private static string LockingRead(SqlRowLock mode, bool shared, string rootAlias, bool joined)
-            => (shared ? "FOR SHARE" : "FOR UPDATE") + (joined ? " OF " + rootAlias : null)
-                + (mode == SqlRowLock.SKIPLOCKED ? " SKIP LOCKED" : mode == SqlRowLock.NOWAIT ? " NOWAIT" : null);
+        private static string LockingRead(SqlLinqer.Components.Select.RowLock rowLock, string rootAlias, bool joined)
+            => string.Join(" ", new[] { rowLock.Shared ? "FOR SHARE" : "FOR UPDATE", joined ? "OF " + rootAlias : null,
+                SqlLinqer.Extensions.EnumExtensions.EnumExtensions.GetDescription(rowLock.Wait) }.Where(part => !string.IsNullOrEmpty(part)));
+
+        // The database server's current time, as a write assigns it and a filter compares it.
+        // The column selects the text form on a database that stores times as text.
+        internal abstract string ServerTime(SqlLinqer.Components.Modeling.Column column = null);
+
+        // A query that returns the current UTC time as a timestamp without a zone.
+        internal virtual string ServerTimeRead => "SELECT " + ServerTime();
+
+        // The single place a value becomes SQL: a server value renders as an expression, and any other value binds a parameter.
+        internal string Value(object value, SqlLinqer.Components.Modeling.Column column, SqlLinqer.Components.Render.ParameterCollection parameters,
+            System.Data.DbType? dbType = null)
+            => value is SqlTime ? ServerTime(column) : parameters.AddParameter(value, dbType);
+
+        // True when the value renders as an expression and binds no parameter.
+        internal static bool IsServerValue(object value) => value is SqlTime;
+
         internal virtual string RenderCount(PreparedSelect inner, string with)
             => $"SELECT COUNT(*) FROM ({Render(inner)}) AS {"SqlLinqerCount".DbWrap(Flavor)}";
 
@@ -72,10 +89,15 @@ namespace SqlLinqer.Compilation
             internal override string RenderCount(PreparedSelect inner, string with)
                 => $"{with} SELECT COUNT(*) FROM ({Render(inner)}) AS [SqlLinqerCount]";
             internal override string NativeCount => "COUNT_BIG(*)";
+            internal override string ServerTime(SqlLinqer.Components.Modeling.Column column = null) => "SYSUTCDATETIME()";
             internal override string UnorderedWindow => "ORDER BY (SELECT NULL)";
             internal override string PreserveDerivedOrder(PreparedSelect select, string sql)
                 => select.Top == 0 && select.Limit <= 0 && !string.IsNullOrEmpty(select.OrderBy) ? sql + " OFFSET 0 ROWS" : sql;
-            internal override string RowLock(SqlRowLock mode, bool shared, string rootAlias, bool joined) => null;
+            internal override string RowLockClause(SqlLinqer.Components.Select.RowLock rowLock, string rootAlias, bool joined) => null;
+            // REPEATABLEREAD holds shared locks until the transaction ends, without the key-range locks of HOLDLOCK.
+            internal override string RowLockHint(SqlLinqer.Components.Select.RowLock rowLock)
+                => $"WITH ({(rowLock.Shared ? "REPEATABLEREAD" : "UPDLOCK")}, ROWLOCK"
+                    + (rowLock.Wait == SqlLockWait.SKIPLOCKED ? ", READPAST" : rowLock.Wait == SqlLockWait.NOWAIT ? ", NOWAIT" : null) + ")";
             internal override string Correlate(string sql, string alias, string barrierAlias)
                 => $"CROSS APPLY (SELECT TOP (9223372036854775807) * FROM ({sql}) AS {barrierAlias.DbWrap(Flavor)}) AS {alias.DbWrap(Flavor)}";
         }
@@ -83,13 +105,16 @@ namespace SqlLinqer.Compilation
         private sealed class PostgresDialect : SqlDialect
         {
             internal PostgresDialect() : base(DbFlavor.PostgreSql) { }
-            internal override string RowLock(SqlRowLock mode, bool shared, string rootAlias, bool joined) => LockingRead(mode, shared, rootAlias, joined);
+            internal override string ServerTime(SqlLinqer.Components.Modeling.Column column = null) => "CURRENT_TIMESTAMP";
+            internal override string ServerTimeRead => "SELECT CURRENT_TIMESTAMP AT TIME ZONE 'UTC'";
+            internal override string RowLockClause(SqlLinqer.Components.Select.RowLock rowLock, string rootAlias, bool joined) => LockingRead(rowLock, rootAlias, joined);
         }
 
         private sealed class MySqlDialect : SqlDialect
         {
             internal MySqlDialect() : base(DbFlavor.MySql) { }
-            internal override string RowLock(SqlRowLock mode, bool shared, string rootAlias, bool joined) => LockingRead(mode, shared, rootAlias, joined);
+            internal override string ServerTime(SqlLinqer.Components.Modeling.Column column = null) => "UTC_TIMESTAMP(6)";
+            internal override string RowLockClause(SqlLinqer.Components.Select.RowLock rowLock, string rootAlias, bool joined) => LockingRead(rowLock, rootAlias, joined);
             internal override string Correlate(string sql, string alias, string barrierAlias)
                 => $"JOIN LATERAL (SELECT * FROM ({sql}) AS {barrierAlias.DbWrap(Flavor)} LIMIT 18446744073709551615) AS {alias.DbWrap(Flavor)} ON TRUE";
         }
@@ -97,11 +122,23 @@ namespace SqlLinqer.Compilation
         {
             internal SqliteDialect() : base(DbFlavor.Sqlite, selectedOrder: false) { }
             internal override bool UsesLocalChildren => true;
+            // SQLite stores times as text and compares them as text. Match the text Microsoft.Data.Sqlite writes
+            // for a bound value, so a server-assigned time sorts and compares with application times.
+            internal override string ServerTime(SqlLinqer.Components.Modeling.Column column = null)
+            {
+                var type = (column as SqlLinqer.Components.Modeling.ReflectedColumn)?.ValueType;
+                bool offset = (Nullable.GetUnderlyingType(type ?? typeof(object)) ?? type) == typeof(DateTimeOffset);
+                return offset ? "strftime('%Y-%m-%d %H:%M:%f+00:00', 'now')" : "strftime('%Y-%m-%d %H:%M:%f', 'now')";
+            }
         }
 
         private sealed class DuckDbDialect : SqlDialect
         {
             internal DuckDbDialect() : base(DbFlavor.DuckDb) { }
+            // DuckDB resolves a bare CURRENT_TIMESTAMP in a conflict assignment as a column name.
+            internal override string ServerTime(SqlLinqer.Components.Modeling.Column column = null) => "now()";
+            // DuckDB reports microseconds since the Unix epoch.
+            internal override string ServerTimeRead => "SELECT epoch_us(now())";
         }
     }
 }

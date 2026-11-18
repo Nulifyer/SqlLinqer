@@ -49,7 +49,7 @@ internal static class CompilationRegressionTests
             var snapshot = query.Capture();
             var exists = snapshot.RenderForExists(DbFlavor.PostgreSql);
             Check(exists.Text.Contains("EXISTS") && exists.Text.EndsWith("-- exists extension") && exists.Parameters.Count == 1, "The existence hook did not compile the check: " + exists.Text);
-            Check(exists.CommandRole == "Exists" && exists.IsReadOnlySelect, "The existence check lost its role");
+            Check(exists.CommandRole == "Exists" && exists.Transactional == false, "The existence check lost its role");
             Check(snapshot.Render(DbFlavor.PostgreSql).Text.EndsWith("-- data extension"), "The existence hook changed captured state");
             var database = new FakeDatabase { ScalarFactory = () => 1 };
             Check(query.ExecuteExists(new FakeConnector(database)).GetResultOrThrow() && database.Executed.Single().CommandText.EndsWith("-- exists extension"),

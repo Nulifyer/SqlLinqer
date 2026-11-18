@@ -13,8 +13,9 @@ namespace SqlLinqer.Connections
 {
     public abstract partial class BaseConnector
     {
-        private readonly Guid _tvpNodeId = Guid.NewGuid();
-        private readonly ConcurrentDictionary<string, long> _nextTvpCleanup = new ConcurrentDictionary<string, long>();
+        // A session connector shares these with its source, so both act as one lease holder.
+        private readonly Guid _tvpNodeId;
+        private readonly ConcurrentDictionary<string, long> _nextTvpCleanup;
 
         private static int TvpSeconds(TimeSpan value, bool allowZero, string name)
         {

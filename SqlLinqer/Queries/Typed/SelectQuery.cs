@@ -75,18 +75,16 @@ namespace SqlLinqer.Queries.Typed
         }
 
         /// <inheritdoc/>
-        public SelectQuery<T> ForUpdate(SqlRowLock wait = SqlRowLock.WAIT)
+        public SelectQuery<T> ForUpdate(SqlLockWait wait = SqlLockWait.WAIT)
         {
-            RowLock = wait;
-            RowLockShared = false;
+            RowLock = new SqlLinqer.Components.Select.RowLock(false, wait);
             return this;
         }
 
         /// <inheritdoc/>
-        public SelectQuery<T> ForShare(SqlRowLock wait = SqlRowLock.WAIT)
+        public SelectQuery<T> ForShare(SqlLockWait wait = SqlLockWait.WAIT)
         {
-            RowLock = wait;
-            RowLockShared = true;
+            RowLock = new SqlLinqer.Components.Select.RowLock(true, wait);
             return this;
         }
 
@@ -227,14 +225,14 @@ namespace SqlLinqer.Queries.Typed
         }
 
         /// <inheritdoc/>
-        public SelectQuery<T> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlServerTime value, SqlOp op)
+        public SelectQuery<T> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlTime value, SqlOp op)
         {
             RootWhere.Where<TProperty>(expression, value, op, SqlSubQueryOp.ANY);
             return this;
         }
 
         /// <inheritdoc/>
-        public SelectQuery<T> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlServerTime value, SqlOp op, SqlSubQueryOp sub_op)
+        public SelectQuery<T> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlTime value, SqlOp op, SqlSubQueryOp sub_op)
         {
             RootWhere.Where<TProperty>(expression, value, op, sub_op);
             return this;

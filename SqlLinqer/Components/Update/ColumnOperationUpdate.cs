@@ -26,9 +26,9 @@ namespace SqlLinqer.Components.Update
         }
 
         /// <inheritdoc/>
-        public override string Render(UpdateQuery query, ParameterCollection parameters, DbFlavor flavor)
+        public override string RenderValue(UpdateQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
-            return Operation.Render(query, this, parameters, flavor);
+            return Operation.RenderValue(this, parameters, flavor);
         }
     }
 }

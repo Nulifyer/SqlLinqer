@@ -29,7 +29,7 @@ internal static class FilteredAggregateRegressionTests
                 string sql = Regex.Replace(Family().Render(flavor).Text, @"\s+", " ");
                 bool clause = flavor is DbFlavor.PostgreSql or DbFlavor.Sqlite or DbFlavor.DuckDb;
                 Check(Regex.Matches(sql, clause ? @"FILTER \(WHERE " : @"\(CASE WHEN ").Count == 5, sql);
-                Check(!sql.Contains("COALESCE"), "Only a filtered sum substitutes zero: " + sql);
+                Check(!sql.Contains("COALESCE"), "A filter changed what an aggregate returns for no rows: " + sql);
             });
         foreach (var flavor in Enum.GetValues<DbFlavor>())
             test($"filtered aggregates render FILTER or CASE WHEN for {flavor}", () =>
@@ -39,7 +39,7 @@ internal static class FilteredAggregateRegressionTests
                 bool clause = flavor is DbFlavor.PostgreSql or DbFlavor.Sqlite or DbFlavor.DuckDb;
                 Check(Regex.Matches(sql, @"FILTER \(WHERE ").Count == (clause ? 2 : 0), sql);
                 Check(Regex.Matches(sql, @"\(CASE WHEN ").Count == (clause ? 0 : 2), sql);
-                Check(sql.Contains("COALESCE(SUM("), "A filtered sum can return NULL for a group without matches");
+                Check(!sql.Contains("COALESCE"), "A filtered sum no longer follows an unfiltered sum for a group without matches: " + sql);
                 Check(sql.Contains("GROUP BY") && rendered.Parameters.Count == 3, "Grouping or bindings changed: " + sql);
                 string count = Regex.Replace(Query().RenderForCount(new SqlLinqer.Components.Render.ParameterCollection(flavor), flavor), @"\s+", " ");
                 Check(!count.Contains("FILTER") && !count.Contains("CASE WHEN"), "A group count kept unused measures: " + count);

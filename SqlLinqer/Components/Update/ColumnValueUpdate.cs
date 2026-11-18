@@ -26,10 +26,9 @@ namespace SqlLinqer.Components.Update
         }
 
         /// <inheritdoc/>
-        public override string Render(UpdateQuery query, ParameterCollection parameters, DbFlavor flavor)
+        public override string RenderValue(UpdateQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
-            string placeholder = parameters.AddParameter(Value);
-            return $"{RenderTarget(flavor)} = {placeholder}";
+            return SqlLinqer.Compilation.SqlDialect.For(flavor).Value(Value, UpdateColumn, parameters);
         }
     }
 }

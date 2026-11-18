@@ -30,17 +30,16 @@ namespace SqlLinqer.Components.Insert
 
         internal bool HasColumns => Columns.Count > 0;
         internal IReadOnlyCollection<ReflectedColumn> InsertColumns => Columns.Values;
-        // Columns that receive the database server's time. They render an expression and bind no parameter.
-        private readonly List<string> ServerTimeColumns = new List<string>();
-        internal bool HasServerTimeColumns => ServerTimeColumns.Count > 0;
+        // Values that every row receives for a column, in place of the row's own value. A server value such as
+        // SqlTime.NOW renders as an expression and binds no parameter.
+        private readonly Dictionary<string, object> ColumnValues = new Dictionary<string, object>();
+        internal bool HasServerValues => ColumnValues.Values.Any(SqlLinqer.Compilation.SqlDialect.IsServerValue);
 
-        internal void AddServerTimeColumn(ReflectedColumn column)
+        internal void SetColumnValue(ReflectedColumn column, object value)
         {
             AddColumn(column);
-            if (!ServerTimeColumns.Contains(column.UUID))
-                ServerTimeColumns.Add(column.UUID);
+            ColumnValues[column.UUID] = value;
         }
-
 
         /// <summary>
         /// A collection of rows to be inserted into a table
@@ -102,7 +101,7 @@ namespace SqlLinqer.Components.Insert
         {
             if (Rows.Count == 0)
                 return 0;
-            int bound = Columns.Count - ServerTimeColumns.Count;
+            int bound = Columns.Count - ColumnValues.Values.Count(SqlLinqer.Compilation.SqlDialect.IsServerValue);
             if (bound == 0 || parameterLimit <= 0)
                 return Rows.Count;
             int size = parameterLimit / bound;
@@ -116,7 +115,7 @@ namespace SqlLinqer.Components.Insert
             var batch = new InsertRowCollection();
             foreach (var column in Columns.Values)
                 batch.AddColumn(column);
-            batch.ServerTimeColumns.AddRange(ServerTimeColumns);
+            foreach (var value in ColumnValues) batch.ColumnValues.Add(value.Key, value.Value);
             for (int i = offset; i < offset + count; i++)
                 batch.AddRow(Rows[i]);
             return batch;
@@ -178,24 +177,13 @@ namespace SqlLinqer.Components.Insert
         /// <param name="flavor">The type of Sql database being used</param>
         public string RenderAsRows(ParameterCollection parameters, DbFlavor flavor)
         {
-            if (ServerTimeColumns.Count > 0)
-            {
-                var rendered = Rows.Select(obj => $"{Environment.NewLine}\t(" + string.Join(",", Columns.Values.Select(column =>
-                {
-                    if (ServerTimeColumns.Contains(column.UUID))
-                        return SqlLinqer.Components.Update.ServerTimeOperation.Expression(flavor, column);
-                    var value = new InsertRowValue(column.ColumnName, ReadValue(obj, column), column.DbType);
-                    return parameters.AddParameter(value.Value, value.DbType);
-                })) + ")");
-                return string.Join(",", rendered);
-            }
             var insertRows = Rows.Select(obj =>
             {
                 var row = new InsertRow();
                 foreach (var column in Columns.Values)
                 {
-                    var value = new InsertRowValue(column.ColumnName, ReadValue(obj, column), column.DbType);
-                    row.Values.Add(value);
+                    object value = ColumnValues.TryGetValue(column.UUID, out object shared) ? shared : ReadValue(obj, column);
+                    row.Values.Add(new InsertRowValue(column.ColumnName, value, column.DbType) { Source = column });
                 }
                 return row;
             });

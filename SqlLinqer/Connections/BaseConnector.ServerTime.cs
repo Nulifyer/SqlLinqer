@@ -3,7 +3,6 @@ using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
 using SqlLinqer.Components.Render;
-using SqlLinqer.Components.Update;
 
 namespace SqlLinqer.Connections
 {
@@ -41,7 +40,7 @@ namespace SqlLinqer.Connections
         }
 
         private RenderedQuery ServerTimeQuery()
-            => new RenderedQuery(ServerTimeOperation.ReadUtc(DbFlavor)) { CommandRole = "ServerTime", IsReadOnlySelect = true };
+            => new RenderedQuery(SqlLinqer.Compilation.SqlDialect.For(DbFlavor).ServerTimeRead) { CommandRole = "ServerTime", Transactional = false };
 
         // Every provider query returns UTC wall-clock time, whatever kind the provider reports.
         private static SqlResponse<DateTimeOffset> ToServerTime(SqlResponse<DateTime> response)

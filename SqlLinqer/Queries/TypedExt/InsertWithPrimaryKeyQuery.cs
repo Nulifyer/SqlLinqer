@@ -63,9 +63,9 @@ namespace SqlLinqer.Queries.TypedExt
         }
 
         /// <inheritdoc/>
-        public new InsertWithPrimaryKeyQuery<T, TPk> InsertServerTime(params Expression<Func<T, object>>[] members)
+        public new InsertWithPrimaryKeyQuery<T, TPk> Insert<TProperty>(Expression<Func<T, TProperty>> expression, SqlTime value)
         {
-            base.InsertServerTime(members);
+            base.Insert(expression, value);
             return this;
         }
 
@@ -101,6 +101,12 @@ namespace SqlLinqer.Queries.TypedExt
         }
         /// <inheritdoc/>
         public new InsertWithPrimaryKeyQuery<T, TPk> OnConflictUpdate<TProperty>(Expression<Func<T, TProperty>> expression, TProperty value)
+        {
+            base.OnConflictUpdate(expression, value);
+            return this;
+        }
+        /// <inheritdoc/>
+        public new InsertWithPrimaryKeyQuery<T, TPk> OnConflictUpdate<TProperty>(Expression<Func<T, TProperty>> expression, SqlTime value)
         {
             base.OnConflictUpdate(expression, value);
             return this;

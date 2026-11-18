@@ -73,11 +73,12 @@ namespace SqlLinqer.Compilation
             var working = SnapshotGraph.Capture(source);
             var result = new RenderedQuery();
             result.QueryName = working.QueryName;
-            result.IsReadOnlySelect = working is SelectQuery;
             result.CommandRole = working is SelectQuery ? "Select" : working is InsertQuery ? "Insert"
                 : working is UpdateQuery ? "Update" : working is DeleteQuery ? "Delete" : "Command";
-            result.Transactional = (flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb)
-                && (working is InsertQuery || working is UpdateQuery || working is DeleteQuery);
+            // A write owns a transaction on every database, so a failure after the statement runs, such as a returned
+            // row that cannot be mapped, rolls the write back. Other commands follow their own choice or the terminal's.
+            result.Transactional = working is InsertQuery || working is UpdateQuery || working is DeleteQuery ? true
+                : working is SelectQuery ? false : working.OwnsTransaction;
             result.Text = working.Render(result.Parameters, flavor);
             if (working is SelectQuery select)
             {

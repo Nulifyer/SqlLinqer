@@ -36,7 +36,7 @@ internal static class UpsertRegressionTests
         {
             var query = Insert().OnConflict(x => x.DocumentId, x => x.Language)
                 .OnConflictUpdate(x => x.Generation, new BasicMathOperation(BasicMathOperation.MathOp.Add, 1)).OnConflictUpdate(x => x.Token);
-            Check(Sql(query, DbFlavor.MySql).EndsWith("VALUES (@P1,@P2,@P3,@P4,@P5) ON DUPLICATE KEY UPDATE `upsert_leases`.`generation` = `upsert_leases`.`generation` + @P6,`token` = VALUES(`token`)"),
+            Check(Sql(query, DbFlavor.MySql).EndsWith("VALUES (@P1,@P2,@P3,@P4,@P5) ON DUPLICATE KEY UPDATE `upsert_leases`.`generation` = `upsert_leases`.`generation` + @P6,`upsert_leases`.`token` = VALUES(`token`)"),
                 Sql(query, DbFlavor.MySql));
             Check(Sql(Insert().OnConflict(x => x.DocumentId).OnConflictDoNothing(), DbFlavor.MySql).EndsWith("ON DUPLICATE KEY UPDATE `document_id` = `document_id`"), "MySQL do nothing changed");
             Throws<NotSupportedException>(() => Upsert().Render(DbFlavor.MySql));

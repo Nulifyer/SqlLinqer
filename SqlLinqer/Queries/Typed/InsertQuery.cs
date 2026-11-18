@@ -77,12 +77,10 @@ namespace SqlLinqer.Queries.Typed
         }
 
         /// <inheritdoc/>
-        public InsertQuery<T> InsertServerTime(params Expression<Func<T, object>>[] members)
+        public InsertQuery<T> Insert<TProperty>(Expression<Func<T, TProperty>> expression, SqlTime value)
         {
-            if (members == null) throw new ArgumentNullException(nameof(members));
-            foreach (var member in members)
-                Inserts.AddServerTimeColumn(FindRootColumn(member) as ReflectedColumn
-                    ?? throw new FormatException($"Expression '{member}' does not target a mapped member."));
+            Inserts.SetColumnValue(FindRootColumn(expression) as ReflectedColumn
+                ?? throw new FormatException($"Expression '{expression}' does not target a mapped member."), value);
             return this;
         }
 
@@ -123,35 +121,43 @@ namespace SqlLinqer.Queries.Typed
             foreach (var column in where.GetColumnReferences())
                 if (column.Table.UUID != Table.UUID)
                     throw new FormatException($"Column '{column.ColumnName}' does not belong to the root table. An insert conflict can only reference its own table.");
-            ConflictAction.Where(where);
+            ConflictAction.Condition.AddComponent(where);
             return this;
         }
 
         /// <inheritdoc/>
         public InsertQuery<T> OnConflictWhere<TProperty>(Expression<Func<T, TProperty>> expression, SqlOp op)
         {
-            ConflictAction.WhereInserted(FindRootColumn(expression), op);
+            ConflictAction.Condition.AddComponent(new SqlLinqer.Components.Where.WhereColumnInserted(FindRootColumn(expression), op));
             return this;
         }
 
         /// <inheritdoc/>
         public InsertQuery<T> OnConflictUpdate<TProperty>(Expression<Func<T, TProperty>> expression)
         {
-            ConflictAction.UpdateFromInserted(FindRootColumn(expression));
+            ConflictAction.Updates.AddUpdate(new ColumnInsertedUpdate(FindRootColumn(expression)));
             return this;
         }
 
         /// <inheritdoc/>
         public InsertQuery<T> OnConflictUpdate<TProperty>(Expression<Func<T, TProperty>> expression, TProperty value)
         {
-            ConflictAction.UpdateValue(FindRootColumn(expression), value);
+            ConflictAction.Updates.AddUpdate(new ColumnValueUpdate(FindRootColumn(expression), value));
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public InsertQuery<T> OnConflictUpdate<TProperty>(Expression<Func<T, TProperty>> expression, SqlTime value)
+        {
+            ConflictAction.Updates.AddUpdate(new ColumnValueUpdate(FindRootColumn(expression), value));
             return this;
         }
 
         /// <inheritdoc/>
         public InsertQuery<T> OnConflictUpdate<TProperty>(Expression<Func<T, TProperty>> expression, UpdateOperation operation)
         {
-            ConflictAction.UpdateOperation(FindRootColumn(expression), operation);
+            ConflictAction.Updates.AddUpdate(new ColumnOperationUpdate(FindRootColumn(expression),
+                operation ?? throw new ArgumentNullException(nameof(operation))));
             return this;
         }
 

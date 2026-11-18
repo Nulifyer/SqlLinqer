@@ -82,19 +82,19 @@ var instanceResponse = anotherUser
 
 ## Insert the server's time
 
-`InsertServerTime` writes the database server's current time into a column of every row.
+Pass `SqlTime.NOW` to `Insert` to write the database server's current time into a column of every row.
 The rows' own values for that column are not sent:
 
 ```csharp
 var response = connector.BeginInsert<DocumentLease>()
     .InsertAuto(leases)
-    .InsertServerTime(x => x.GrantedUtc)
+    .Insert(x => x.GrantedUtc, SqlTime.NOW)
     .Execute(transaction);
 ```
 
-Name several members to assign several columns. A named column is inserted even when automatic insertion excludes it.
-The time is the one that [`ServerTimeOperation`](update.md#set-a-column-to-the-server-time) assigns in an update.
-`ExecuteTvp` does not support `InsertServerTime`. Use `Execute`.
+Call `Insert` once for each column. A named column is inserted even when automatic insertion excludes it.
+The time is the one that [`SqlTime.NOW` assigns in an update](update.md#set-a-column-to-the-server-time).
+`ExecuteTvp` does not support a server value. Use `Execute`.
 
 ## Update a row that already exists
 
@@ -118,6 +118,7 @@ The members must form a primary key or a unique constraint in the database.
 | --- | --- |
 | `OnConflictUpdate(member)` | Sets the column from the value this insert supplied. |
 | `OnConflictUpdate(member, value)` | Sets the column to a fixed value. |
+| `OnConflictUpdate(member, SqlTime.NOW)` | Sets the column to the database server's current time. |
 | `OnConflictUpdate(member, operation)` | Computes the column from the existing row's value. |
 | `OnConflictUpdateAuto()` | Sets every inserted column that allows automatic updates. It skips the key members and the primary key. |
 | `OnConflictDoNothing()` | Leaves the existing row unchanged and skips the new row. |
@@ -139,8 +140,8 @@ var generation = connector.BeginInsert<DocumentLease>()
 ```
 
 Import `SqlLinqer.Components.Update` for `BasicMathOperation`.
-`BasicMathOperation`, `SetIfNullOperation`, and `ServerTimeOperation` work in a conflict update.
-A [custom operation](update.md#define-a-custom-operation) works when it reads only its `statement` argument. The `query` argument is not the insert.
+Every operation that works in an update works in a conflict update, including a [custom operation](update.md#define-a-custom-operation).
+The assignments of a conflict update are the same statements an update uses.
 
 ### Update only when a condition holds
 
@@ -208,9 +209,9 @@ A batch must not contain two rows with the same key. PostgreSQL and SQL Server r
 Insert batching applies as usual. Each batch is one statement.
 Values that the conflict action binds are sent with every batch and count toward the parameter limit, so a batch holds slightly fewer rows.
 
-A conflict action runs only for a row that already exists. `OnConflictUpdate(x => x.UpdatedUtc, new ServerTimeOperation())` sets the server time on an updated row.
-A newly inserted row keeps the value your application supplied, unless [`InsertServerTime`](#insert-the-servers-time) names the column.
-With `InsertServerTime(x => x.UpdatedUtc)` and `OnConflictUpdate(x => x.UpdatedUtc)`, an inserted row and an updated row both receive the server time.
+A conflict action runs only for a row that already exists. `OnConflictUpdate(x => x.UpdatedUtc, SqlTime.NOW)` sets the server time on an updated row.
+A newly inserted row keeps the value your application supplied, unless [`Insert(x => x.UpdatedUtc, SqlTime.NOW)`](#insert-the-servers-time) names the column.
+With both calls, an inserted row and an updated row receive the server time.
 `ExecuteTvp` does not support a conflict action. Use `Execute`.
 
 ## Use a table-valued parameter

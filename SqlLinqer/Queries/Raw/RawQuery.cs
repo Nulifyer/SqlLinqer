@@ -19,6 +19,11 @@ namespace SqlLinqer.Queries.Raw
         : BaseQuery
         , IQueryExecutable<int>
         , IAsyncQueryExecutable<int>
+        , IQueryExecutableScalar
+        , IAsyncQueryExecutableScalar
+        , IQueryExecutableRows
+        , IAsyncQueryExecutableRows
+        , IAsyncQueryExecutableRowStream
     {
         private static readonly ConcurrentDictionary<Type, PropertyInfo[]> ValueProperties = new ConcurrentDictionary<Type, PropertyInfo[]>();
 
@@ -42,7 +47,7 @@ namespace SqlLinqer.Queries.Raw
         /// A property name matches its @name marker without regard to case. An existing value with the same name is replaced.
         /// </summary>
         /// <param name="values">The object or string-keyed dictionary supplying the values.</param>
-        /// <returns>This query.</returns>
+        /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
         public RawQuery Values(object values)
         {
             if (values == null) throw new ArgumentNullException(nameof(values));
@@ -74,7 +79,7 @@ namespace SqlLinqer.Queries.Raw
         /// <param name="name">The marker name, without the @ prefix.</param>
         /// <param name="value">The value to bind. Null binds a database NULL.</param>
         /// <param name="dbType">An optional explicit provider parameter type.</param>
-        /// <returns>This query.</returns>
+        /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
         public RawQuery Value(string name, object value, DbType? dbType = null)
             => SetValue(name, value, dbType, false);
 
@@ -86,7 +91,7 @@ namespace SqlLinqer.Queries.Raw
         /// <param name="name">The marker name, without the @ prefix.</param>
         /// <param name="values">The elements to bind. The list is copied. A string or byte array is one value, not a list.</param>
         /// <param name="dbType">An optional explicit provider parameter type for every element.</param>
-        /// <returns>This query.</returns>
+        /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
         public RawQuery ValueList(string name, System.Collections.IEnumerable values, DbType? dbType = null)
         {
             if (values == null) throw new ArgumentNullException(nameof(values));
@@ -111,23 +116,27 @@ namespace SqlLinqer.Queries.Raw
         /// Use it for SQL that declares its own variables, such as T-SQL DECLARE or MySQL session variables.
         /// A supplied value without a marker is still rejected.
         /// </summary>
-        /// <returns>This query.</returns>
-        public RawQuery IgnoreUnmatchedMarkers()
+        /// <param name="ignore">True to leave unmatched markers unchanged. False restores the check.</param>
+        /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
+        public RawQuery IgnoreUnmatchedMarkers(bool ignore = true)
         {
-            _ignoreUnmatchedMarkers = true;
+            _ignoreUnmatchedMarkers = ignore;
             return this;
         }
 
         /// <summary>
-        /// Runs the command without the transaction that Execute and ExecuteScalar otherwise open on a connection they own.
+        /// Runs the command without the transaction that Execute and ExecuteScalar otherwise open when the caller supplies none.
         /// Use it for reads, and for statements that cannot run inside a transaction.
         /// </summary>
-        /// <returns>This query.</returns>
-        public RawQuery WithoutTransaction()
+        /// <param name="withoutTransaction">True to run without an owned transaction. False restores the default.</param>
+        /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
+        public RawQuery WithoutTransaction(bool withoutTransaction = true)
         {
-            _withoutTransaction = true;
+            _withoutTransaction = withoutTransaction;
             return this;
         }
+
+        internal override bool? OwnsTransaction => _withoutTransaction ? false : (bool?)null;
 
         /// <summary>
         /// Replaces each @name marker with a parameter bound to its value. Markers inside string literals, quoted identifiers, and comments are left alone.

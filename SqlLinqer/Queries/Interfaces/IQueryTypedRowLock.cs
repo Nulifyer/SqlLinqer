@@ -3,7 +3,7 @@ namespace SqlLinqer.Queries.Interfaces
     /// <summary>
     /// Locks the rows a query selects.
     /// </summary>
-    /// <typeparam name="TQuery">The query type being returned</typeparam>
+    /// <typeparam name="TQuery">The fluent query type.</typeparam>
     public interface IQueryTypedRowLock<TQuery>
     {
         /// <summary>
@@ -12,8 +12,8 @@ namespace SqlLinqer.Queries.Interfaces
         /// PostgreSQL and MySQL render FOR UPDATE; SQL Server and Azure SQL render UPDLOCK table hints. SQLite and DuckDB are not supported.
         /// </summary>
         /// <param name="wait">Whether to wait for, skip, or fail on rows another transaction has locked.</param>
-        /// <returns>This query.</returns>
-        TQuery ForUpdate(SqlRowLock wait = SqlRowLock.WAIT);
+        /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
+        TQuery ForUpdate(SqlLockWait wait = SqlLockWait.WAIT);
         /// <summary>
         /// Takes a shared lock on the selected root rows until the caller's transaction ends. Other transactions can read and share-lock the rows,
         /// but cannot change or delete them. Use it to keep a parent row in place while writing rows that refer to it.
@@ -22,7 +22,7 @@ namespace SqlLinqer.Queries.Interfaces
         /// A later call to ForUpdate or ForShare replaces an earlier one.
         /// </summary>
         /// <param name="wait">Whether to wait for, skip, or fail on rows another transaction has locked for update.</param>
-        /// <returns>This query.</returns>
-        TQuery ForShare(SqlRowLock wait = SqlRowLock.WAIT);
+        /// <returns>The same mutable query builder, so further calls can extend the query.</returns>
+        TQuery ForShare(SqlLockWait wait = SqlLockWait.WAIT);
     }
 }

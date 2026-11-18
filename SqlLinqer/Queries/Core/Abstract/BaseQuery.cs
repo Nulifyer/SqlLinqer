@@ -12,6 +12,8 @@ namespace SqlLinqer.Queries.Core.Abstract
     public abstract class BaseQuery : IQueryCore
     {
         internal BaseConnector BoundConnector { get; set; }
+        // Whether this command asks for an owned transaction. Null leaves the choice to the terminal that runs it.
+        internal virtual bool? OwnsTransaction => null;
         internal bool IsCompilationCopy;
 
         /// <summary>A stable diagnostic name copied into rendered commands. It does not change generated SQL.</summary>

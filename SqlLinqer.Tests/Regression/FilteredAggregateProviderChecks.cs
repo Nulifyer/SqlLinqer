@@ -37,7 +37,7 @@ internal static class FilteredAggregateProviderChecks
                 Qr = q.Count(w => w.Where(e => e.Source, source, SqlOp.EQ)),
                 QrBig = q.CountBig(w => w.Where(e => e.Source, source, SqlOp.EQ)),
                 LargeQr = q.Count(w => w.Where(e => e.Source, source, SqlOp.EQ).Where(e => e.Bytes, 15, SqlOp.GT)),
-                QrBytes = q.Sum(e => e.Bytes, w => w.Where(e => e.Source, source, SqlOp.EQ)),
+                QrBytes = (int?)q.Sum(e => e.Bytes, w => w.Where(e => e.Source, source, SqlOp.EQ)),
                 Bytes = q.Sum(e => e.Bytes),
                 QrValues = q.Count(e => e.Bytes, w => w.Where(e => e.Source, source, SqlOp.EQ)),
                 QrValuesBig = q.CountBig(e => e.Bytes, w => w.Where(e => e.Source, source, SqlOp.EQ)),
@@ -53,7 +53,7 @@ internal static class FilteredAggregateProviderChecks
                 $"Filtered value counts, extremes, or average changed for a matching group: {rows[0]}");
             Check(rows[1].QrValues == 0 && rows[1].QrValuesBig == 0 && rows[1].LargestQr == null && rows[1].SmallestQr == null && rows[1].AverageQr == null,
                 $"A group without matches did not return zero counts and NULL extremes: {rows[1]}");
-            Check(rows[1].Views == 1 && rows[1].Qr == 0 && rows[1].QrBig == 0 && rows[1].LargeQr == 0 && rows[1].QrBytes == 0 && rows[1].Bytes == 7,
+            Check(rows[1].Views == 1 && rows[1].Qr == 0 && rows[1].QrBig == 0 && rows[1].LargeQr == 0 && rows[1].QrBytes == null && rows[1].Bytes == 7,
                 $"Filtered aggregates changed for a group without matches: {rows[1]}");
 
             var page = asynchronous ? await query.Page(2, 1).ExecuteWithTotalCountAsync() : query.Page(2, 1).ExecuteWithTotalCount();

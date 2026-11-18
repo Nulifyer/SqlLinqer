@@ -19,6 +19,8 @@ namespace SqlLinqer.Components.Insert
         /// The value to be inserted
         /// </summary>
         public object Value { get; }
+        // The mapped column, which selects the text form of a server value on a database that stores times as text.
+        internal SqlLinqer.Components.Modeling.Column Source { get; set; }
 
         /// <summary>
         /// A value to be inserted into a table. This holds the code type and Sql type of the data.

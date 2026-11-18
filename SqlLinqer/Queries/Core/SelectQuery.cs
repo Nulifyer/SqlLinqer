@@ -41,9 +41,7 @@ namespace SqlLinqer.Queries.Core
         /// </summary>
         protected internal PagingControls PagingControls;
         /// <summary>The row lock taken on the root table's selected rows, or null for an ordinary read.</summary>
-        protected internal SqlRowLock? RowLock;
-        /// <summary>True when the row lock is shared, so other transactions can still read and share-lock the rows. False locks them for update.</summary>
-        protected internal bool RowLockShared;
+        protected internal RowLock RowLock;
         // Set while this select renders as the right side of a comparison, where it may return only one column.
         internal bool IsPredicateSubQuery;
 
@@ -311,7 +309,7 @@ namespace SqlLinqer.Queries.Core
         /// <returns>The existence check's SQL and bindings.</returns>
         protected internal virtual RenderedQuery CompileExists(DbFlavor flavor)
         {
-            var result = new RenderedQuery { Parameters = new ParameterCollection(flavor), QueryName = QueryName, CommandRole = "Exists", IsReadOnlySelect = true };
+            var result = new RenderedQuery { Parameters = new ParameterCollection(flavor), QueryName = QueryName, CommandRole = "Exists", Transactional = false };
             result.Text = SelectPreparation.Exists(this, new RenderContext(result.Parameters, SqlDialect.For(flavor)));
             return result;
         }

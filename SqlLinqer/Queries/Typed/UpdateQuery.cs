@@ -97,6 +97,20 @@ namespace SqlLinqer.Queries.Typed
             return this;
         }
         /// <inheritdoc/>
+        public UpdateQuery<T> Update<TProperty>(Expression<Func<T, TProperty>> expression, SqlTime value)
+        {
+            var path = expression.GetMemberPath();
+            var column = Table.FindColumnFromPath(path);
+            if (column == null)
+                throw new SqlLinqer.Exceptions.SqlPathNotFoundException(Table, path);
+            if (column.Table.UUID != Table.UUID)
+                throw new FormatException($"Expression '{expression}' does not target a root column. Update queries can only update one table.");
+
+            Updates.AddUpdate(new ColumnValueUpdate(column, value));
+
+            return this;
+        }
+        /// <inheritdoc/>
         public UpdateQuery<T> Update<TProperty>(Expression<Func<T, TProperty>> expression, UpdateOperation operation)
         {
             var path = expression.GetMemberPath();
@@ -174,13 +188,13 @@ namespace SqlLinqer.Queries.Typed
             return this;
         }
         /// <inheritdoc/>
-        public UpdateQuery<T> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlServerTime value, SqlOp op)
+        public UpdateQuery<T> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlTime value, SqlOp op)
         {
             RootWhere.Where<TProperty>(expression, value, op, SqlSubQueryOp.ANY);
             return this;
         }
         /// <inheritdoc/>
-        public UpdateQuery<T> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlServerTime value, SqlOp op, SqlSubQueryOp sub_op)
+        public UpdateQuery<T> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlTime value, SqlOp op, SqlSubQueryOp sub_op)
         {
             RootWhere.Where<TProperty>(expression, value, op, sub_op);
             return this;

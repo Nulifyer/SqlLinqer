@@ -154,7 +154,7 @@ var report = connector.BeginSelectBuilder<ReaderEvent>()
         DocumentId = q.Select(e => e.DocumentId),
         Views = q.Count(),
         QrViews = q.Count(filter => filter.Where(e => e.Source, "qr", SqlOp.EQ)),
-        QrBytes = q.Sum(e => e.Bytes, filter => filter.Where(e => e.Source, "qr", SqlOp.EQ))
+        QrBytes = (long?)q.Sum(e => e.Bytes, filter => filter.Where(e => e.Source, "qr", SqlOp.EQ))
     })
     .Where(e => e.Kind, "view", SqlOp.EQ)
     .OrderBy(row => row.DocumentId, SqlDir.ASC);
@@ -164,8 +164,8 @@ The filter uses the same `Where` methods as a query. Chain several calls to requ
 The query's own `Where` selects the rows in the report. An aggregate's filter narrows only that aggregate.
 
 `Count`, `CountBig`, `Sum`, `Avg`, `Min`, `Max`, and `StringAgg` accept a filter as their last argument.
-A group without matching rows returns `0` for a filtered count and for a filtered sum.
-A filtered `Avg`, `Min`, or `Max` returns NULL for that group. Cast the call to a nullable type to receive it:
+A filter does not change what an aggregate returns for no rows. A group without matching rows returns `0` for a count.
+`Sum`, `Avg`, `Min`, and `Max` return NULL for that group, as they do for an empty table. Cast the call to a nullable type to receive it:
 
 ```csharp
 LargestQr = (int?)q.Max(e => e.Bytes, filter => filter.Where(e => e.Source, "qr", SqlOp.EQ))
@@ -277,19 +277,19 @@ A letter or digit here means an ASCII letter or digit. An underscore counts as p
 
 ## Compare with the server's time
 
-Pass `SqlServerTime.NOW` in place of a value to compare a column with the database server's clock.
+Pass `SqlTime.NOW` in place of a value to compare a column with the database server's clock.
 No application time is sent:
 
 ```csharp
 var due = connector.BeginSelect<TranslationBatch>()
     .SelectRootColumns()
-    .Where(x => x.RetryAfterUtc, SqlServerTime.NOW, SqlOp.LTE)
+    .Where(x => x.RetryAfterUtc, SqlTime.NOW, SqlOp.LTE)
     .Execute()
     .GetResultOrThrow();
 ```
 
 The same filter works in an update, a delete, and an aggregate filter.
-The time is the one that [`ServerTimeOperation`](update.md#set-a-column-to-the-server-time) assigns, so the two compare correctly on every database.
+The time is the one that [`SqlTime.NOW` assigns in a write](update.md#set-a-column-to-the-server-time), so the two compare correctly on every database.
 
 ## Group conditions
 
@@ -384,12 +384,12 @@ var next = connector.BeginSelect<TranslationBatch>()
     .Where(x => x.State, "queued", SqlOp.EQ)
     .OrderBy(x => x.CreatedUtc, SqlDir.ASC)
     .Top(1)
-    .ForUpdate(SqlRowLock.SKIPLOCKED)
+    .ForUpdate(SqlLockWait.SKIPLOCKED)
     .Execute(transaction)
     .GetResultOrThrow();
 ```
 
-| `SqlRowLock` | Behavior when another transaction holds a selected row |
+| `SqlLockWait` | Behavior when another transaction holds a selected row |
 | --- | --- |
 | `WAIT` (default) | Waits for the other transaction to finish. |
 | `SKIPLOCKED` | Leaves the locked row out of the result. |
@@ -419,7 +419,7 @@ var owner = connector.BeginSelect<User>()
     .GetResultOrThrow();
 ```
 
-`ForShare` accepts the same `SqlRowLock` values as `ForUpdate`.
+`ForShare` accepts the same `SqlLockWait` values as `ForUpdate`.
 
 | Database | SQL |
 | --- | --- |
@@ -441,7 +441,7 @@ var next = connector.BeginSelect<TranslationBatch>()
     .Where(x => x.State, "queued", SqlOp.EQ)
     .OrderBy(x => x.CreatedUtc, SqlDir.ASC)
     .Top(1)
-    .ForUpdate(SqlRowLock.SKIPLOCKED);
+    .ForUpdate(SqlLockWait.SKIPLOCKED);
 
 var claimed = connector.BeginUpdate<TranslationBatch, Guid>()
     .Update(x => x.State, "running")

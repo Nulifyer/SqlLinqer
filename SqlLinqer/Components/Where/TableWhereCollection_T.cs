@@ -42,13 +42,13 @@ namespace SqlLinqer.Components.Where
             return this;
         }
         /// <inheritdoc/>
-        public TableWhereCollection<T> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlServerTime value, SqlOp op)
+        public TableWhereCollection<T> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlTime value, SqlOp op)
         {
             base.WhereColumnValue(expression.GetMemberPath(), value, op, SqlSubQueryOp.ANY);
             return this;
         }
         /// <inheritdoc/>
-        public TableWhereCollection<T> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlServerTime value, SqlOp op, SqlSubQueryOp sub_op)
+        public TableWhereCollection<T> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlTime value, SqlOp op, SqlSubQueryOp sub_op)
         {
             base.WhereColumnValue(expression.GetMemberPath(), value, op, sub_op);
             return this;

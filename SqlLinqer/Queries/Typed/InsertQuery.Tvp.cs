@@ -134,7 +134,7 @@ namespace SqlLinqer.Queries.Typed
             bool typeCleanupRequired = false;
             try
             {
-                conn = connector.ResolveConnection(existingTransaction, null, out ownsConnection);
+                conn = connector.ResolveConnection(existingTransaction, out ownsConnection);
                 if (conn.State != ConnectionState.Open)
                     conn.Open();
 
@@ -304,7 +304,7 @@ namespace SqlLinqer.Queries.Typed
             bool typeCleanupRequired = false;
             try
             {
-                conn = connector.ResolveConnection(existingTransaction, null, out ownsConnection);
+                conn = connector.ResolveConnection(existingTransaction, out ownsConnection);
                 if (conn.State != ConnectionState.Open)
                     await conn.OpenAsync(cancellationToken).ConfigureAwait(false);
 

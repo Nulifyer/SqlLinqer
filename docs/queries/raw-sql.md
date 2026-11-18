@@ -145,36 +145,37 @@ The connection stays busy until enumeration ends.
 
 ## Run on one open connection
 
-Pass an open `DbConnection` to run the command on exactly that connection.
-Use this form for session state, such as a PostgreSQL advisory lock or a temporary table:
+To keep session state, such as a PostgreSQL advisory lock or a temporary table, run the commands on a connection that you hold open.
+Create the commands from [`connector.OnConnection(connection)`](../execution/transactions.md#keep-several-queries-on-one-connection):
 
 ```csharp
 using var connection = await connector.OpenConnectionAsync(cancellationToken);
+var session = connector.OnConnection(connection);
 
-await connector.BeginSql("SELECT pg_advisory_lock(@key)", new { key })
-    .ExecuteAsync(connection, cancellationToken);
+await session.BeginSql("SELECT pg_advisory_lock(@key)", new { key })
+    .WithoutTransaction()
+    .ExecuteAsync(cancellationToken: cancellationToken);
 
-var held = (await connector.BeginSql("SELECT count(*) FROM pg_locks WHERE locktype = 'advisory'")
-    .ExecuteScalarAsync<long>(connection, cancellationToken))
+var held = (await session.BeginSql("SELECT count(*) FROM pg_locks WHERE locktype = 'advisory'")
+    .WithoutTransaction()
+    .ExecuteScalarAsync<long>(cancellationToken: cancellationToken))
     .GetResultOrThrow();
 ```
 
-On a supplied connection, SqlLinqer opens no transaction. It never closes or disposes the connection.
+`session` runs every command on your connection and never closes or disposes it. Typed builders created from `session` use the same connection.
 The connection must be open. A closed connection returns an error response.
-If the connection has an active transaction, pass that transaction instead of the connection.
-
-To run typed builders on the same connection, use [`connector.OnConnection(connection)`](../execution/transactions.md#keep-several-queries-on-one-connection).
+The transaction rules below apply on your connection as they do on a pooled one.
 
 ## Control the owned transaction
 
 When you pass a transaction, the command uses it. You commit or roll it back.
 
-When you pass neither a transaction nor a connection, SqlLinqer uses a pooled connection:
+When you pass no transaction, the terminal decides:
 
-| Terminal | Default on a pooled connection |
+| Terminal | Default without a transaction of yours |
 | --- | --- |
-| `Execute`, `ExecuteScalar<T>` | Opens a transaction, commits on success, and rolls back on failure. |
-| `ExecuteList<T>`, `ExecuteDataTable` | Opens no transaction. |
+| `Execute`, `ExecuteScalar<T>` | Opens a transaction, commits on success, and rolls back on failure. These commands can change data. |
+| `ExecuteList<T>`, `ExecuteLists<TResults>`, `ExecuteDataTable`, `ExecuteAsyncStream<T>` | Opens no transaction. |
 
 Call `WithoutTransaction()` to make `Execute` or `ExecuteScalar<T>` run without that transaction.
 Use it for a read, and for a statement that cannot run inside a transaction:
@@ -188,6 +189,7 @@ var total = connector
 ```
 
 The default transaction keeps a command that contains several statements atomic.
+`WithoutTransaction(false)` restores the default on a builder that you reuse.
 
 ## Errors
 

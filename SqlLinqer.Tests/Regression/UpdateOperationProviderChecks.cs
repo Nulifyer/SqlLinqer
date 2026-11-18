@@ -59,8 +59,8 @@ internal static class UpdateOperationProviderChecks
 
     internal sealed class UpperCase : UpdateOperation
     {
-        public override string Render(UpdateQuery query, UpdateStatement statement, ParameterCollection parameters, DbFlavor flavor)
-            => $"{statement.RenderTarget(flavor)} = UPPER({statement.UpdateColumn.Render(flavor)})";
+        public override string RenderValue(UpdateStatement statement, ParameterCollection parameters, DbFlavor flavor)
+            => $"UPPER({statement.UpdateColumn.Render(flavor)})";
     }
 
     [SqlTable("operation_rows")]

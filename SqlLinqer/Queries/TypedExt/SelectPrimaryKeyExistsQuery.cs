@@ -70,17 +70,8 @@ namespace SqlLinqer.Queries.Typed
             if (connector == null)
                 throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
 
-            var renderedQuery = new SqlLinqer.Components.Render.RenderedQuery();
-            renderedQuery.Text = this.RenderRows(renderedQuery.Parameters, connector.DbFlavor);
-            var response = connector.ExecuteScalar<int>(renderedQuery, transaction, commandTimeout: commandTimeout);
-
-            var bool_response = new SqlResponse<bool>();
-            if (response.State == ResponseState.Error)
-                bool_response.SetError(response.Error);
-            else
-                bool_response.SetResult(response.Result > 0);
-
-            return bool_response;
+            // The same existence check a filtered select runs. It reads without an owned transaction.
+            return SqlLinqer.Queries.Execution.SelectExecution.ExecuteExists(this, connector, transaction, commandTimeout: commandTimeout);
         }
     }
 }

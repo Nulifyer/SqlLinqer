@@ -99,10 +99,9 @@ namespace SqlLinqer.Components.Select
             }
 
             string val = RenderFunction(args_processed, flavor);
-            if (filter == null) return val;
-            if (filterClause) val = $"{val} FILTER (WHERE {filter})";
-            // A filtered sum often has no matching rows in a group. Zero keeps non-nullable result members usable.
-            return Func == SqlFunc.SUM ? $"COALESCE({val}, 0)" : val;
+            // A filter never changes what an aggregate returns for no rows: a count returns zero, and every other
+            // aggregate returns NULL, as it does without a filter.
+            return filter != null && filterClause ? $"{val} FILTER (WHERE {filter})" : val;
         }
 
         private string RenderFunction(List<object> args_processed, DbFlavor flavor)

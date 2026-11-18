@@ -10,6 +10,8 @@ namespace SqlLinqer.Connections
     /// <summary>
     /// Creates database connections, binds rendered parameters, and maps command results into response objects.
     /// Each owned execution obtains and disposes its own connection. Supplied transactions retain caller ownership of their connection, commit, rollback, and disposal.
+    /// A write without a supplied transaction runs in a transaction that the connector opens, commits on success, and rolls back on failure.
+    /// A <see cref="SessionConnector"/> from OnConnection applies the same rules on one connection that the caller keeps open.
     /// </summary>
     public abstract partial class BaseConnector
     {
@@ -32,6 +34,19 @@ namespace SqlLinqer.Connections
         {
             DbFlavor = dbFlavor;
             Options = options ?? new ConnectorOptions();
+            _tvpNodeId = Guid.NewGuid();
+            _nextTvpCleanup = new System.Collections.Concurrent.ConcurrentDictionary<string, long>();
+            _tvpContracts = new System.Collections.Concurrent.ConcurrentDictionary<string, TvpContractEntry>(StringComparer.Ordinal);
+        }
+
+        // Creates a connector that shares another connector's dialect, options, and table type state.
+        internal BaseConnector(BaseConnector source)
+        {
+            DbFlavor = source.DbFlavor;
+            Options = source.Options;
+            _tvpNodeId = source._tvpNodeId;
+            _nextTvpCleanup = source._nextTvpCleanup;
+            _tvpContracts = source._tvpContracts;
         }
 
         /// <summary>
@@ -88,26 +103,25 @@ namespace SqlLinqer.Connections
             }
         }
 
-        // Set only on the copy that OnConnection returns. Every command of that copy runs on this connection.
-        private DbConnection _sessionConnection;
+        // The connection every command runs on, or null to take a connection for each command. Only SessionConnector sets it.
+        internal virtual DbConnection SessionConnection => null;
 
         /// <summary>
         /// Returns a connector that runs every command on one open connection, which the caller owns.
-        /// Use it to keep session state, such as an advisory lock or a temporary table, across typed queries.
-        /// The returned connector never opens, closes, or disposes the connection, and reports an error response when it is not open.
-        /// It otherwise behaves as this connector does: a write opens and completes its own transaction on the connection,
-        /// and a transaction passed to a terminal is used as given. Do not run its commands concurrently.
-        /// SQL Server TVP type management still uses separate connections.
+        /// Use it to keep session state, such as an advisory lock or a temporary table, across queries.
         /// </summary>
         /// <param name="connection">An open connection without an active transaction. Pass an active transaction to each terminal instead.</param>
-        /// <returns>A shallow copy of this connector bound to the connection. It shares this connector's options.</returns>
-        public BaseConnector OnConnection(DbConnection connection)
-        {
-            if (connection == null) throw new ArgumentNullException(nameof(connection));
-            var session = (BaseConnector)MemberwiseClone();
-            session._sessionConnection = connection;
-            return session;
-        }
+        /// <returns>A connector bound to the connection. It shares this connector's options and command hooks.</returns>
+        public SessionConnector OnConnection(DbConnection connection)
+            => new SessionConnector((this as SessionConnector)?.Source ?? this, connection);
+
+        // Lets a session connector run commands through its source's overridable hooks.
+        internal SqlResponse<T> RunCommand<T>(RenderedQuery query, Func<SqlResponse<T>> action) => ExecuteCommand(query, action);
+        internal Task<SqlResponse<T>> RunCommandAsync<T>(RenderedQuery query, Func<Task<SqlResponse<T>>> action, CancellationToken cancellationToken)
+            => ExecuteCommandAsync(query, action, cancellationToken);
+        internal System.Collections.Generic.IAsyncEnumerable<T> RunCommandAsyncStream<T>(RenderedQuery query,
+            Func<CancellationToken, System.Collections.Generic.IAsyncEnumerable<T>> action, CancellationToken cancellationToken)
+            => ExecuteCommandAsyncStream(query, action, cancellationToken);
 
         private void ImportFromTempQueryData(DbCommand command, RenderedQuery queryData)
         {

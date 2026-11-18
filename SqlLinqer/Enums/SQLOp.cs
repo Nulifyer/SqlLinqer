@@ -81,13 +81,21 @@ namespace SqlLinqer
         // so they use ILIKE. The other databases ignore case under their default collations.
         public static string GetOpString(this SqlOp op, DbFlavor flavor)
         {
-            string text = op.GetDescription();
             if (flavor == DbFlavor.PostgreSql || flavor == DbFlavor.DuckDb)
             {
-                if (text == "LIKE") return "ILIKE";
-                if (text == "NOT LIKE") return "NOT ILIKE";
+                switch (op)
+                {
+                    case SqlOp.LIKE:
+                    case SqlOp.LIKEWORD:
+                        return "ILIKE";
+                    case SqlOp.NOTLIKE:
+                    case SqlOp.NOTLIKEORNULL:
+                    case SqlOp.NOTLIKEWORD:
+                    case SqlOp.NOTLIKEWORDORNULL:
+                        return "NOT ILIKE";
+                }
             }
-            return text;
+            return op.GetDescription();
         }
         public static SqlOp GetInvert(this SqlOp op)
         {

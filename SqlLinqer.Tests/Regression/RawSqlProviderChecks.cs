@@ -10,7 +10,7 @@ internal static class RawSqlProviderChecks
     internal static void Run(BaseConnector db, Action<string, Action> test)
     {
         foreach (bool asynchronous in new[] { false, true })
-            test($"raw sql: named values, terminals, and a session connection, async={asynchronous}", () => CheckProvider(db, asynchronous).GetAwaiter().GetResult());
+            test($"raw sql: named values, terminals, and a session connector, async={asynchronous}", () => CheckProvider(db, asynchronous).GetAwaiter().GetResult());
     }
 
     private static async Task CheckProvider(BaseConnector db, bool asynchronous)
@@ -40,20 +40,20 @@ internal static class RawSqlProviderChecks
                 Check(data.Rows.Count == 2, "DataTable read changed");
 
             // A temporary table exists only in its session, so these reads prove the commands share the supplied connection.
-            using var connection = db.CreateConnection();
-            connection.Open();
+            using var connection = db.OpenConnection();
+            var session = db.OnConnection(connection);
             string temp = sqlServer ? "#raw_sql_session" : Q("raw_sql_session");
-            var create = db.BeginSql(sqlServer ? $"CREATE TABLE {temp} (Id INT)" : $"CREATE TEMPORARY TABLE {temp} (Id INT)");
-            (asynchronous ? await create.ExecuteAsync(connection) : create.Execute(connection)).EnsureSuccess();
-            var add = db.BeginSql($"INSERT INTO {temp} (Id) VALUES (@a), (@b)", new { a = 4, b = 5 });
-            (asynchronous ? await add.ExecuteAsync(connection) : add.Execute(connection)).EnsureSuccess();
-            var total = db.BeginSql($"SELECT SUM(Id) FROM {temp} WHERE Id > @floor", new { floor = 0 });
-            Check((asynchronous ? await total.ExecuteScalarAsync<long>(connection) : total.ExecuteScalar<long>(connection)).GetResultOrThrow() == 9,
+            var create = session.BeginSql(sqlServer ? $"CREATE TABLE {temp} (Id INT)" : $"CREATE TEMPORARY TABLE {temp} (Id INT)").WithoutTransaction();
+            (asynchronous ? await create.ExecuteAsync() : create.Execute()).EnsureSuccess();
+            var add = session.BeginSql($"INSERT INTO {temp} (Id) VALUES (@a), (@b)", new { a = 4, b = 5 });
+            (asynchronous ? await add.ExecuteAsync() : add.Execute()).EnsureSuccess();
+            var total = session.BeginSql($"SELECT SUM(Id) FROM {temp} WHERE Id > @floor", new { floor = 0 }).WithoutTransaction();
+            Check((asynchronous ? await total.ExecuteScalarAsync<long>() : total.ExecuteScalar<long>()).GetResultOrThrow() == 9,
                 "The session read used another connection");
-            var ids = db.BeginSql($"SELECT Id FROM {temp} ORDER BY Id");
-            var session = (asynchronous ? await ids.ExecuteListAsync<int>(connection) : ids.ExecuteList<int>(connection)).GetResultOrThrow();
-            Check(session.SequenceEqual(new[] { 4, 5 }), "The session list used another connection");
-            Check(connection.State == ConnectionState.Open, "The supplied connection was closed");
+            var ids = session.BeginSql($"SELECT Id FROM {temp} ORDER BY Id");
+            var sessionRows = (asynchronous ? await ids.ExecuteListAsync<int>() : ids.ExecuteList<int>()).GetResultOrThrow();
+            Check(sessionRows.SequenceEqual(new[] { 4, 5 }), "The session list used another connection");
+            Check(connection.State == ConnectionState.Open, "The session connection was closed");
 
             using var transaction = connection.BeginTransaction();
             db.BeginSql($"DELETE FROM {table} WHERE {Q("Id")} = @id", new { id = 2 }).Execute(transaction).EnsureSuccess();
@@ -74,8 +74,8 @@ internal static class RawSqlProviderChecks
             await foreach (var row in stream.ExecuteAsyncStream<Row>()) streamed.Add(row);
             Check(streamed.Count == 2 && streamed[0].Label == "a@b.c" && streamed[0].Note == null && streamed[1].Note == "second", "Streamed rows were not mapped by column name");
             var scalars = new List<int>();
-            await foreach (int id in db.BeginSql($"SELECT Id FROM {temp} ORDER BY Id").ExecuteAsyncStream<int>(connection)) scalars.Add(id);
-            Check(scalars.SequenceEqual(new[] { 4, 5 }) && connection.State == ConnectionState.Open, "A stream on a supplied connection used another connection or closed it");
+            await foreach (int id in session.BeginSql($"SELECT Id FROM {temp} ORDER BY Id").ExecuteAsyncStream<int>()) scalars.Add(id);
+            Check(scalars.SequenceEqual(new[] { 4, 5 }) && connection.State == ConnectionState.Open, "A stream on a session connection used another connection or closed it");
             using (var streamTransaction = connection.BeginTransaction())
             {
                 db.BeginSql($"DELETE FROM {table} WHERE {Q("Id")} = @id", new { id = 2 }).Execute(streamTransaction).EnsureSuccess();
@@ -85,8 +85,8 @@ internal static class RawSqlProviderChecks
                 streamTransaction.Rollback();
             }
             // Stopping early releases the command, so the next command can run on the same connection.
-            await foreach (int id in db.BeginSql($"SELECT Id FROM {temp} ORDER BY Id").ExecuteAsyncStream<int>(connection)) break;
-            Check(db.BeginSql($"SELECT COUNT(*) FROM {temp}").ExecuteScalar<long>(connection).GetResultOrThrow() == 2, "A stream that stopped early left its connection busy");
+            await foreach (int id in session.BeginSql($"SELECT Id FROM {temp} ORDER BY Id").ExecuteAsyncStream<int>()) break;
+            Check(session.BeginSql($"SELECT COUNT(*) FROM {temp}").ExecuteScalar<long>().GetResultOrThrow() == 2, "A stream that stopped early left its connection busy");
             bool mappingFailed = false;
             try { await foreach (var row in db.BeginSql($"SELECT {Q("Id")} FROM {table}").ExecuteAsyncStream<Row>()) { } }
             catch (SqlLinqer.Exceptions.SqlResponseException) { mappingFailed = true; }
@@ -98,11 +98,11 @@ internal static class RawSqlProviderChecks
                 ? await several.ExecuteListsAsync<(List<Row>, string[])>()
                 : several.ExecuteLists<(List<Row>, string[])>()).GetResultOrThrow();
             Check(matches.Single().Note == "second" && allLabels.SequenceEqual(new[] { "a@b.c", "second" }), "Several result sets were not mapped in order");
-            var onConnection = db.BeginSql($"SELECT Id FROM {temp} ORDER BY Id; SELECT COUNT(*) FROM {temp}");
+            var onConnection = session.BeginSql($"SELECT Id FROM {temp} ORDER BY Id; SELECT COUNT(*) FROM {temp}");
             var (sessionIds, sessionCount) = (asynchronous
-                ? await onConnection.ExecuteListsAsync<(List<int>, List<long>)>(connection)
-                : onConnection.ExecuteLists<(List<int>, List<long>)>(connection)).GetResultOrThrow();
-            Check(sessionIds.SequenceEqual(new[] { 4, 5 }) && sessionCount.Single() == 2, "Several result sets did not use the supplied connection");
+                ? await onConnection.ExecuteListsAsync<(List<int>, List<long>)>()
+                : onConnection.ExecuteLists<(List<int>, List<long>)>()).GetResultOrThrow();
+            Check(sessionIds.SequenceEqual(new[] { 4, 5 }) && sessionCount.Single() == 2, "Several result sets did not use the session connection");
             var tooFew = db.BeginSql($"SELECT {Q("Id")} FROM {table}").ExecuteLists<(List<int>, List<int>)>();
             Check(tooFew.State == ResponseState.Error && tooFew.Error.Message.Contains("1 result sets; expected 2"), "A missing result set was not reported");
         }
