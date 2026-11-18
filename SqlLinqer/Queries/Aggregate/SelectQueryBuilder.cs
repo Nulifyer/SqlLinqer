@@ -166,6 +166,16 @@ namespace SqlLinqer.Queries.Typed
         public abstract int Count<TProperty>(Expression<Func<TBase, TProperty>> expression, bool distinct);
 
         /// <summary>
+        /// Counts the non-null column values, optionally distinct, among the rows in each group that match a filter. A group without matching rows returns zero.
+        /// </summary>
+        /// <typeparam name="TProperty">The property type</typeparam>
+        /// <param name="expression">An expression to the property</param>
+        /// <param name="distinct">True to count each distinct value once. Write true or false in the projection, not a variable.</param>
+        /// <param name="filter">Adds the predicates that an aggregated row must satisfy.</param>
+        /// <returns>The return is fake and is only used to return the correct type for the anonymous object.</returns>
+        public abstract int Count<TProperty>(Expression<Func<TBase, TProperty>> expression, bool distinct, Action<SqlLinqer.Components.Where.TableWhereCollection<TBase>> filter);
+
+        /// <summary>
         /// Counts the rows in each group that match a filter. A group without matching rows returns zero.
         /// </summary>
         /// <param name="filter">Adds the predicates that a counted row must satisfy.</param>
@@ -212,6 +222,16 @@ namespace SqlLinqer.Queries.Typed
         /// <returns>A SQL count marker for the projection.</returns>
         public abstract long CountBig<TProperty>(Expression<Func<TBase, TProperty>> expression, bool distinct);
 
+        /// <summary>
+        /// Counts the non-null column values, optionally distinct, among the rows in each group that match a filter as a 64-bit value. A group without matching rows returns zero.
+        /// </summary>
+        /// <typeparam name="TProperty">The property type</typeparam>
+        /// <param name="expression">An expression to the property</param>
+        /// <param name="distinct">True to count each distinct value once. Write true or false in the projection, not a variable.</param>
+        /// <param name="filter">Adds the predicates that an aggregated row must satisfy.</param>
+        /// <returns>The return is fake and is only used to return the correct type for the anonymous object.</returns>
+        public abstract long CountBig<TProperty>(Expression<Func<TBase, TProperty>> expression, bool distinct, Action<SqlLinqer.Components.Where.TableWhereCollection<TBase>> filter);
+
         /// <summary>Defines a CASE expression for the projected member.</summary>
         public abstract TReturn Case<TReturn>(Action<CaseStatement<TBase>> case_statement);
 
@@ -241,6 +261,27 @@ namespace SqlLinqer.Queries.Typed
 
         /// <summary>Projects strings aggregated across rows.</summary>
         public abstract string StringAgg(params Expression<Func<TBase, object>>[] expressions);
+
+        /// <summary>
+        /// Joins the non-null values of a text column across the rows of each group, with a separator between values.
+        /// The order of the values is not defined. A group without values returns NULL.
+        /// </summary>
+        /// <typeparam name="TProperty">The property type</typeparam>
+        /// <param name="expression">An expression to the text property</param>
+        /// <param name="separator">The text placed between values. Write it in the projection, not as a variable.</param>
+        /// <returns>The return is fake and is only used to return the correct type for the anonymous object.</returns>
+        public abstract string StringAgg<TProperty>(Expression<Func<TBase, TProperty>> expression, string separator);
+
+        /// <summary>
+        /// Joins the non-null values of a text column across the rows in each group that match a filter, with a separator between values.
+        /// The order of the values is not defined. A group without matching values returns NULL.
+        /// </summary>
+        /// <typeparam name="TProperty">The property type</typeparam>
+        /// <param name="expression">An expression to the text property</param>
+        /// <param name="separator">The text placed between values. Write it in the projection, not as a variable.</param>
+        /// <param name="filter">Adds the predicates that an aggregated row must satisfy.</param>
+        /// <returns>The return is fake and is only used to return the correct type for the anonymous object.</returns>
+        public abstract string StringAgg<TProperty>(Expression<Func<TBase, TProperty>> expression, string separator, Action<SqlLinqer.Components.Where.TableWhereCollection<TBase>> filter);
 
         /// <summary>
         /// Projects the SQL sum. The legacy marker returns int; choose a compatible projection member type for the database result.

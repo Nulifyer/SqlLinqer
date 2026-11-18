@@ -92,9 +92,10 @@ namespace SqlLinqer.Components.Select
             {
                 if (Func.DoGroupBy())
                     throw new NotSupportedException($"A filter applies only to aggregate functions, not {Func}.");
-                // CASE without ELSE yields NULL, which aggregates skip.
+                // CASE without ELSE yields NULL, which aggregates skip. Only the aggregated value is conditional;
+                // further arguments, such as a separator, stay as they are.
                 if (!filterClause)
-                    args_processed = new List<object> { $"CASE WHEN {filter} THEN {string.Join(",", args_processed)} END" };
+                    args_processed[0] = $"CASE WHEN {filter} THEN {args_processed[0]} END";
             }
 
             string val = RenderFunction(args_processed, flavor);
@@ -146,6 +147,18 @@ namespace SqlLinqer.Components.Select
                     break;
                 case DbFlavor.MySql when Func == SqlFunc.COUNT_BIG:
                     val = $"COUNT({ArgPrefix}{string.Join(",", args_processed)})";
+                    break;
+                case DbFlavor.SqlServer when Func == SqlFunc.STRING_AGG && args_processed.Count > 0:
+                case DbFlavor.AzureSql when Func == SqlFunc.STRING_AGG && args_processed.Count > 0:
+                    // SQL Server rejects a Unicode separator beside a non-Unicode value, and limits a non-MAX result to 8,000 bytes.
+                    args_processed[0] = $"CAST({args_processed[0]} AS NVARCHAR(MAX))";
+                    val = $"{Func.GetDescription()}({ArgPrefix}{string.Join(",", args_processed)})";
+                    break;
+                case DbFlavor.MySql when Func == SqlFunc.STRING_AGG:
+                    // MySQL has no STRING_AGG. GROUP_CONCAT takes its separator after a keyword.
+                    val = args_processed.Count > 1
+                        ? $"GROUP_CONCAT({ArgPrefix}{args_processed[0]} SEPARATOR {args_processed[1]})"
+                        : $"GROUP_CONCAT({ArgPrefix}{string.Join(",", args_processed)})";
                     break;
                 default:
                     val = $"{Func.GetDescription()}({ArgPrefix}{string.Join(",", args_processed)})";

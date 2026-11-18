@@ -65,6 +65,38 @@ internal static class FilteredAggregateProviderChecks
                 WebBytes = q.Sum(e => e.Bytes, w => w.Where(e => e.Source, "web", SqlOp.EQ)),
             }).Execute().GetResultOrThrow().Single();
             Check(overall.Web == 2 && overall.WebBytes == 12, "An ungrouped filtered aggregate changed");
+
+            // Distinct counts and joined text accept the same filter. The values of joined text arrive in no set order.
+            db.BeginInsert<Event>().InsertAuto(new[]
+            {
+                new Event { Id = 5, DocumentId = 1, Source = "qr", Bytes = 10 },
+                new Event { Id = 6, DocumentId = 1, Source = "app", Bytes = 10 },
+            }).Execute().EnsureSuccess();
+            var distinct = db.BeginSelectBuilder<Event>().BuildQuery(q => new
+            {
+                Document = q.Select(e => e.DocumentId),
+                Sizes = q.Count(e => e.Bytes, true),
+                QrSizes = q.Count(e => e.Bytes, true, w => w.Where(e => e.Source, source, SqlOp.EQ)),
+                QrSizesBig = q.CountBig(e => e.Bytes, true, w => w.Where(e => e.Source, source, SqlOp.EQ)),
+                QrRows = q.Count(e => e.Bytes, false, w => w.Where(e => e.Source, source, SqlOp.EQ)),
+                Sources = q.StringAgg(e => e.Source, "|"),
+                OtherSources = q.StringAgg(e => e.Source, "|", w => w.Where(e => e.Source, source, SqlOp.NOT)),
+            }).OrderBy(row => row.Document, SqlDir.ASC);
+            var counted = (asynchronous ? await distinct.ExecuteAsync() : distinct.Execute()).GetResultOrThrow();
+            Check(counted[0].Sizes == 3 && counted[0].QrSizes == 2 && counted[0].QrSizesBig == 2 && counted[0].QrRows == 3,
+                $"A filtered distinct count changed for a matching group: {counted[0]}");
+            Check(counted[1].Sizes == 1 && counted[1].QrSizes == 0 && counted[1].QrSizesBig == 0 && counted[1].QrRows == 0,
+                $"A filtered distinct count changed for a group without matches: {counted[1]}");
+            string Sorted(string joined) => joined == null ? null : string.Join("|", joined.Split('|').OrderBy(x => x, StringComparer.Ordinal));
+            Check(Sorted(counted[0].Sources) == "app|qr|qr|qr|web" && Sorted(counted[0].OtherSources) == "app|web",
+                $"Joined text changed for a matching group: {counted[0]}");
+            Check(counted[1].Sources == "web" && counted[1].OtherSources == "web", $"Joined text changed for a single-row group: {counted[1]}");
+            var none = db.BeginSelectBuilder<Event>().BuildQuery(q => new
+            {
+                Document = q.Select(e => e.DocumentId),
+                Missing = q.StringAgg(e => e.Source, ", ", w => w.Where(e => e.Source, "none", SqlOp.EQ)),
+            }).Execute().GetResultOrThrow();
+            Check(none.Count == 2 && none.All(row => row.Missing == null), "Joined text without matching rows was not NULL");
         }
         finally { db.BeginSql($"DROP TABLE IF EXISTS {table}").Execute(); }
     }

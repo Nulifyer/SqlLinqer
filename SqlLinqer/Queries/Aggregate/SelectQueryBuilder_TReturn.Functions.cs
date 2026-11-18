@@ -191,6 +191,22 @@ namespace SqlLinqer.Queries.Typed
         public SelectFuncStatement CountBig(MemberInfo member, Expression expression, LambdaExpression filter)
             => Filtered(CountBig(member, expression, Expression.Constant(false)), filter);
 
+        /// <summary>Creates a SQL expression for the count of non-null, optionally distinct expression values over rows matching a filter.</summary>
+        public SelectFuncStatement Count(MemberInfo member, Expression expression, ConstantExpression distinct, LambdaExpression filter)
+            => Filtered(Count(member, expression, distinct), filter);
+
+        /// <summary>Creates a SQL expression for the 64-bit count of non-null, optionally distinct expression values over rows matching a filter.</summary>
+        public SelectFuncStatement CountBig(MemberInfo member, Expression expression, ConstantExpression distinct, LambdaExpression filter)
+            => Filtered(CountBig(member, expression, distinct), filter);
+
+        /// <summary>Creates a SQL expression for strings joined across rows with a separator.</summary>
+        public SelectFuncStatement StringAgg(MemberInfo member, Expression expression, ConstantExpression separator)
+            => new SelectFuncStatement(SqlFunc.STRING_AGG, member.Name, GetArg(member, expression), separator.Value);
+
+        /// <summary>Creates a SQL expression for strings joined across rows matching a filter.</summary>
+        public SelectFuncStatement StringAgg(MemberInfo member, Expression expression, ConstantExpression separator, LambdaExpression filter)
+            => Filtered(StringAgg(member, expression, separator), filter);
+
         /// <summary>Creates a SQL expression for the average of an expression over rows matching a filter.</summary>
         public SelectFuncStatement Avg(MemberInfo member, Expression expression, LambdaExpression filter)
             => Filtered(Avg(member, expression), filter);

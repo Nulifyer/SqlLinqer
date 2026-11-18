@@ -163,13 +163,30 @@ var report = connector.BeginSelectBuilder<ReaderEvent>()
 The filter uses the same `Where` methods as a query. Chain several calls to require all of them.
 The query's own `Where` selects the rows in the report. An aggregate's filter narrows only that aggregate.
 
-`Count`, `CountBig`, `Sum`, `Avg`, `Min`, and `Max` accept a filter as their last argument.
+`Count`, `CountBig`, `Sum`, `Avg`, `Min`, `Max`, and `StringAgg` accept a filter as their last argument.
 A group without matching rows returns `0` for a filtered count and for a filtered sum.
 A filtered `Avg`, `Min`, or `Max` returns NULL for that group. Cast the call to a nullable type to receive it:
 
 ```csharp
 LargestQr = (int?)q.Max(e => e.Bytes, filter => filter.Where(e => e.Source, "qr", SqlOp.EQ))
 ```
+
+A distinct count takes the filter after its `distinct` argument. This counts the different readers who arrived from a QR code:
+
+```csharp
+QrReaders = q.Count(e => e.ReaderId, true, filter => filter.Where(e => e.Source, "qr", SqlOp.EQ))
+```
+
+`StringAgg(member, separator)` joins the non-null values of a text column, and also accepts a filter:
+
+```csharp
+Sources = q.StringAgg(e => e.Source, ", "),
+QrLanguages = q.StringAgg(e => e.Language, ", ", filter => filter.Where(e => e.Source, "qr", SqlOp.EQ))
+```
+
+The database does not define the order of the joined values. A group without values returns NULL.
+Write the separator and the `distinct` argument as constants in the projection, not as variables.
+MySQL renders `GROUP_CONCAT`, and SQLite renders `group_concat`.
 
 PostgreSQL, SQLite, and DuckDB render `FILTER (WHERE ...)`. SQL Server, Azure SQL, and MySQL render `CASE WHEN` inside the aggregate.
 The results are the same.
