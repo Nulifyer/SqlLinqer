@@ -28,6 +28,7 @@ internal static class SqlModelContractChecks
         SelectTerminalProviderChecks.Run(connector, test);
         FilteredAggregateProviderChecks.Run(connector, test);
         ServerTimeProviderChecks.Run(connector, test);
+        UpdateOperationProviderChecks.Run(connector, test);
         ValueConversionProviderChecks.Run(connector, test);
         ComplexRelationshipChecks.Run(connector, test);
         RelationshipStressChecks.Run(connector, test);

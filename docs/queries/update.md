@@ -110,17 +110,58 @@ var asOfUtc = (await connector.GetServerTimeAsync(transaction, cancellationToken
 The result is a `DateTimeOffset` with a zero offset on every database. The read opens no transaction of its own.
 Inside a PostgreSQL transaction, the value is the time the transaction started.
 
-## Define a custom operation
+## Keep an existing value
 
-Inherit from `UpdateOperation` to define an assignment. This SQL Server example replaces an email domain:
+Use `SetIfNullOperation` to assign a value only when the column is NULL. A column that already has a value keeps it:
 
 ```csharp
-using System;
+var startQuery = connector.BeginUpdate<TranslationBatch>()
+    .Update(x => x.State, "running")
+    .Update(x => x.StartedUtc, new SqlLinqer.Components.Update.SetIfNullOperation(now))
+    .Where(x => x.Id, batchId, SqlOp.EQ);
+```
+
+It renders `started_utc = COALESCE(started_utc, @value)` on every database.
+The operation also works in an [insert conflict update](insert.md#update-a-row-that-already-exists).
+
+## Define a custom operation
+
+Inherit from `UpdateOperation` to define an assignment. `Render` returns the whole assignment, such as `column = expression`.
+Its `statement` argument gives you the two ways to name the column:
+
+- `statement.RenderTarget(flavor)` renders the left side of the assignment.
+- `statement.UpdateColumn.Render(flavor)` renders the column's existing value for the right side.
+
+Use each in its place. PostgreSQL, SQLite, and DuckDB reject a table-qualified column on the left side, and `RenderTarget` renders the form each database accepts.
+
+This operation converts the existing value to upper case on every database:
+
+```csharp
 using SqlLinqer;
 using SqlLinqer.Components.Render;
 using SqlLinqer.Components.Update;
 using SqlLinqer.Queries.Core;
 
+public class UpperCase : UpdateOperation
+{
+    public override string Render(
+        UpdateQuery query,
+        UpdateStatement statement,
+        ParameterCollection parameters,
+        DbFlavor flavor)
+    {
+        var target = statement.RenderTarget(flavor);
+        var current = statement.UpdateColumn.Render(flavor);
+        return $"{target} = UPPER({current})";
+    }
+}
+```
+
+Bind application values with `parameters.AddParameter(value)` and place the returned placeholder in the expression.
+Check `flavor` and throw `NotSupportedException` when the expression uses a function that only some databases provide.
+This SQL Server operation replaces an email domain:
+
+```csharp
 public class ReplaceEmailDomain : UpdateOperation
 {
     private readonly string newDomain;
@@ -139,14 +180,15 @@ public class ReplaceEmailDomain : UpdateOperation
         if (flavor != DbFlavor.SqlServer && flavor != DbFlavor.AzureSql)
             throw new NotSupportedException("This operation requires SQL Server or Azure SQL.");
 
-        var target = statement.UpdateColumn.Render(flavor);
+        var target = statement.RenderTarget(flavor);
+        var current = statement.UpdateColumn.Render(flavor);
         var placeholder = parameters.AddParameter(newDomain);
-        return $"{target} = CONCAT(SUBSTRING({target}, 1, CHARINDEX('@', {target}) - 1), {placeholder})";
+        return $"{target} = CONCAT(SUBSTRING({current}, 1, CHARINDEX('@', {current}) - 1), {placeholder})";
     }
 }
 ```
 
-Apply it to emails that have the old domain:
+Import `System` for `NotSupportedException`. Apply the operation to emails that have the old domain:
 
 ```csharp
 var replaceDomainQuery = User.BeginUpdate(connector)

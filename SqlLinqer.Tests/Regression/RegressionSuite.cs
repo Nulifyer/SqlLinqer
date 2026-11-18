@@ -43,6 +43,7 @@ internal static class RegressionSuite
         SelectTerminalRegressionTests.Run(Test);
         FilteredAggregateRegressionTests.Run(Test);
         ExecutionHelperRegressionTests.Run(Test);
+        UpdateOperationRegressionTests.Run(Test);
         CommandInterruptionRegressionTests.Run(Test);
         AdoptionRegressionTests.Run(Test);
 

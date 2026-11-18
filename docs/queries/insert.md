@@ -122,8 +122,8 @@ var generation = connector.BeginInsert<DocumentLease>()
 ```
 
 Import `SqlLinqer.Components.Update` for `BasicMathOperation`.
-`BasicMathOperation` and `ServerTimeOperation` work in a conflict update.
-A custom operation works when it reads only its `statement` argument. The `query` argument is not the insert.
+`BasicMathOperation`, `SetIfNullOperation`, and `ServerTimeOperation` work in a conflict update.
+A [custom operation](update.md#define-a-custom-operation) works when it reads only its `statement` argument. The `query` argument is not the insert.
 
 ### Read returned values
 
