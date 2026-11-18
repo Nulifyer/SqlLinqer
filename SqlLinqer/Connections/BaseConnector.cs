@@ -1,5 +1,8 @@
 using System;
+using System.Data;
 using System.Data.Common;
+using System.Threading;
+using System.Threading.Tasks;
 using SqlLinqer.Components.Render;
 
 namespace SqlLinqer.Connections
@@ -36,6 +39,54 @@ namespace SqlLinqer.Connections
         /// </summary>
         /// <returns>A new provider connection configured for the database.</returns>
         public abstract DbConnection CreateConnection();
+
+        /// <summary>
+        /// Creates a connection and opens it. The caller owns the open connection and disposes it.
+        /// If opening fails, the connection is disposed and the provider's exception is thrown.
+        /// </summary>
+        /// <returns>An open provider connection.</returns>
+        public DbConnection OpenConnection()
+        {
+            var connection = CreateConnection();
+            try
+            {
+                if (connection.State != ConnectionState.Open)
+                    connection.Open();
+                return connection;
+            }
+            catch
+            {
+                // A failed disposal must not hide the reason the connection could not open.
+                try { connection.Dispose(); }
+                catch { }
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Asynchronously creates a connection and opens it. The caller owns the open connection and disposes it.
+        /// If opening fails or is cancelled, the connection is disposed and the exception is thrown.
+        /// </summary>
+        /// <param name="cancellationToken">Cancels provider connection opening.</param>
+        /// <returns>An open provider connection.</returns>
+        /// <exception cref="System.OperationCanceledException">The supplied cancellation token was cancelled.</exception>
+        public async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var connection = CreateConnection();
+            try
+            {
+                if (connection.State != ConnectionState.Open)
+                    await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                return connection;
+            }
+            catch
+            {
+                try { connection.Dispose(); }
+                catch { }
+                throw;
+            }
+        }
 
         private void ImportFromTempQueryData(DbCommand command, RenderedQuery queryData)
         {

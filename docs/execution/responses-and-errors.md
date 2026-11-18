@@ -39,6 +39,24 @@ var users = page.Result;
 var total = page.TotalResults;
 ```
 
+For an asynchronous terminal, `GetResultOrThrowAsync()` and `EnsureSuccessAsync()` take the pending response, so the call needs no wrapping parentheses:
+
+```csharp
+var users = await connector.BeginSelect<User>()
+    .SelectRootColumns()
+    .ExecuteAsync(cancellationToken: cancellationToken)
+    .GetResultOrThrowAsync();
+
+var page = await connector.BeginSelect<User>()
+    .SelectRootColumns()
+    .OrderBy(x => x.Id, SqlDir.ASC)
+    .Page(1, 20)
+    .ExecuteWithTotalCountAsync(cancellationToken: cancellationToken)
+    .EnsureSuccessAsync();
+```
+
+`EnsureSuccessAsync()` returns the concrete response, as `EnsureSuccess()` does.
+
 These helpers are optional. Existing state-based handling still works. Requested async cancellation can throw before a response is returned; the helpers do not intercept it.
 
 ## Where errors appear
@@ -55,6 +73,7 @@ A failure reaches your code in one of three ways:
 
 Calls that you make on the provider yourself throw the provider's exception directly.
 These include `connection.Open()`, `connection.BeginTransaction()`, `transaction.Commit()`, and `transaction.Rollback()`.
+`connector.OpenConnection()` and `OpenConnectionAsync()` also throw the provider's exception, because they return the connection itself and not a response.
 Catch the provider exception around those calls.
 
 One path differs. `ExecuteTvp` returns the provider's exception unwrapped when it cannot open a connection or prepare its table type.

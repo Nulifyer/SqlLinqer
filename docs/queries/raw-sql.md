@@ -84,8 +84,7 @@ Pass an open `DbConnection` to run the command on exactly that connection.
 Use this form for session state, such as a PostgreSQL advisory lock or a temporary table:
 
 ```csharp
-using var connection = connector.CreateConnection();
-await connection.OpenAsync(cancellationToken);
+using var connection = await connector.OpenConnectionAsync(cancellationToken);
 
 await connector.BeginSql("SELECT pg_advisory_lock(@key)", new { key })
     .ExecuteAsync(connection, cancellationToken);

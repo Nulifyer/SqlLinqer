@@ -24,8 +24,7 @@ public class UserRegistrationService
     {
         var user = new User { Username = username, Email = email };
 
-        using var connection = connector.CreateConnection();
-        connection.Open();
+        using var connection = connector.OpenConnection();
         using var transaction = connection.BeginTransaction();
 
         try
@@ -57,6 +56,9 @@ public class UserRegistrationService
     }
 }
 ```
+
+`OpenConnection` creates a connection and opens it. If the open fails, it disposes the connection and throws the provider's exception.
+`OpenConnectionAsync(cancellationToken)` is the asynchronous form.
 
 Pass the same transaction to every query in the operation. Check each response before committing.
 The service owns the connection and transaction, so it also handles commit, rollback, and disposal.
