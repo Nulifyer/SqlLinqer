@@ -48,6 +48,14 @@ internal static class ServerTimeProviderChecks
             Check((asynchronous ? await update.ExecuteAsync() : update.Execute()).GetResultOrThrow() == 1, "The update did not affect the row");
             Near(Utc(Read().Touched.Value), "An update did not assign the server time");
 
+            // A server-assigned time must sort and compare with times the application binds.
+            int Matching(DateTime bound, SqlOp op) => db.BeginSelect<Row>().SelectRootColumns().Where(x => x.Touched, (DateTime?)bound, op).Execute().GetResultOrThrow().Count;
+            var reference = DateTime.SpecifyKind(DateTime.UtcNow, db.DbFlavor is DbFlavor.PostgreSql or DbFlavor.DuckDb ? DateTimeKind.Utc : DateTimeKind.Unspecified);
+            Check(Matching(reference.AddMinutes(10), SqlOp.LT) == 1 && Matching(reference.AddMinutes(-10), SqlOp.GT) == 1,
+                "A server-assigned time did not fall between bound times around now");
+            Check(Matching(reference.AddMinutes(10), SqlOp.GT) == 0 && Matching(reference.AddMinutes(-10), SqlOp.LT) == 0,
+                "A server-assigned time compared wrongly with a bound time");
+
             db.BeginUpdate<Row>().Update(x => x.Touched, (DateTime?)null).Where(x => x.Id, 1, SqlOp.EQ).Execute().EnsureSuccess();
             db.BeginInsert<Row>().InsertAuto(new Row { Id = 1 }).OnConflict(x => x.Id).OnConflictUpdate(x => x.Touched, new ServerTimeOperation())
                 .Execute().EnsureSuccess();

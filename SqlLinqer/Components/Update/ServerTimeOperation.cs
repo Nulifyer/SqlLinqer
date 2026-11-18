@@ -19,11 +19,11 @@ namespace SqlLinqer.Components.Update
         /// <returns>The rendered assignment.</returns>
         public override string Render(UpdateQuery query, UpdateStatement statement, ParameterCollection parameters, DbFlavor flavor)
         {
-            return $"{statement.RenderTarget(flavor)} = {Expression(flavor)}";
+            return $"{statement.RenderTarget(flavor)} = {Expression(flavor, statement.UpdateColumn)}";
         }
 
         // The expression a write assigns. Server-time reads use ReadUtc so every provider returns the same shape.
-        internal static string Expression(DbFlavor flavor)
+        internal static string Expression(DbFlavor flavor, SqlLinqer.Components.Modeling.Column column = null)
         {
             switch (flavor)
             {
@@ -33,7 +33,11 @@ namespace SqlLinqer.Components.Update
                 case DbFlavor.MySql:
                     return "UTC_TIMESTAMP(6)";
                 case DbFlavor.Sqlite:
-                    return "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
+                    // SQLite stores times as text and compares them as text. Match the text Microsoft.Data.Sqlite writes
+                    // for a bound value, so a server-assigned time sorts and compares with application times.
+                    var type = (column as SqlLinqer.Components.Modeling.ReflectedColumn)?.ValueType;
+                    bool offset = (Nullable.GetUnderlyingType(type ?? typeof(object)) ?? type) == typeof(DateTimeOffset);
+                    return offset ? "strftime('%Y-%m-%d %H:%M:%f+00:00', 'now')" : "strftime('%Y-%m-%d %H:%M:%f', 'now')";
                 case DbFlavor.PostgreSql:
                     return "CURRENT_TIMESTAMP";
                 case DbFlavor.DuckDb:

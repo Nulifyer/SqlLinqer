@@ -95,11 +95,12 @@ var touchQuery = User.BeginUpdate(connector)
 | --- | --- | --- |
 | SQL Server, Azure SQL | `SYSUTCDATETIME()` | The current UTC time. |
 | MySQL | `UTC_TIMESTAMP(6)` | The current UTC time. Use a `DATETIME` column. |
-| SQLite | `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')` | The current UTC time as ISO 8601 text. |
+| SQLite | `strftime('%Y-%m-%d %H:%M:%f', 'now')` | The current UTC time, in the text format that Microsoft.Data.Sqlite writes for a bound `DateTime`. A `DateTimeOffset` member also receives `+00:00`. Server-assigned and application-assigned times therefore sort and compare together. |
 | PostgreSQL | `CURRENT_TIMESTAMP` | The exact instant in a `timestamptz` column. A plain `timestamp` column stores the session time zone's local time. |
 | DuckDB | `now()` | The same as PostgreSQL. |
 
 The operation also works in an [insert conflict update](insert.md#update-a-row-that-already-exists).
+On PostgreSQL and DuckDB the assigned time is the time the transaction started, so every statement in one transaction assigns the same value.
 
 To read the server time, call `GetServerTime` or `GetServerTimeAsync` on the connector:
 
