@@ -80,8 +80,9 @@ internal static class StreamingRegressionTests
             query.Where(x => x.Id, 999, SqlOp.EQ).Top(1);
             await Collect(stream);
             await Collect(stream);
+            // Check the bound values, not the SQL text: generated table aliases are numbered and can contain any digits.
             Check(db.Executed.All(c => c.Parameters.Count == 1 && c.Parameters[0].Value.Equals("original")
-                && !c.CommandText.Contains("999") && !c.CommandText.Contains("LIMIT 1")), "Builder mutation reached the stream");
+                && !c.CommandText.Contains("LIMIT 1")), "Builder mutation reached the stream");
             Check(!ReferenceEquals(db.Executed[0].Parameters[0], db.Executed[1].Parameters[0]), "Bindings reused across enumerations");
         });
 
