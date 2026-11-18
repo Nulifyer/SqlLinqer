@@ -43,7 +43,8 @@ A release candidate invites validation before the stable release and does not pr
 
 Do not overwrite a package, move a published tag, or reuse a candidate number for different content.
 Previously published labels, including `preview` labels, remain available under their original names. New prereleases follow the `rc.N` convention.
-The local project version ending in `-dev` is a development placeholder. The release tag supplies the published version.
+The project files carry the version `0.0.0-dev`. It marks a local development build and never changes between releases.
+The publish workflow replaces it with the release tag's version through `-p:Version`.
 
 ## Publish a version
 

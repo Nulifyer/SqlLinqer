@@ -5,7 +5,7 @@
     <Authors>Kyle Leddy</Authors>
     <Description>Dependency injection registrations for SqlLinqer connectors.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>2.2.0-dev</Version>
+    <Version>0.0.0-dev</Version>
     <RepositoryUrl>https://github.com/Nulifyer/SqlLinqer</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
