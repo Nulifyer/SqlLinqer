@@ -76,6 +76,24 @@ namespace SqlLinqer.Queries.TypedExt
             return this;
         }
         /// <inheritdoc/>
+        public new InsertWithPrimaryKeyQuery<T, TPk> OnConflictConstraint(string name)
+        {
+            base.OnConflictConstraint(name);
+            return this;
+        }
+        /// <inheritdoc/>
+        public new InsertWithPrimaryKeyQuery<T, TPk> OnConflictWhere(System.Action<SqlLinqer.Components.Where.TableWhereCollection<T>> filter)
+        {
+            base.OnConflictWhere(filter);
+            return this;
+        }
+        /// <inheritdoc/>
+        public new InsertWithPrimaryKeyQuery<T, TPk> OnConflictWhere<TProperty>(Expression<Func<T, TProperty>> expression, SqlOp op)
+        {
+            base.OnConflictWhere(expression, op);
+            return this;
+        }
+        /// <inheritdoc/>
         public new InsertWithPrimaryKeyQuery<T, TPk> OnConflictUpdate<TProperty>(Expression<Func<T, TProperty>> expression)
         {
             base.OnConflictUpdate(expression);

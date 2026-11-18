@@ -15,6 +15,9 @@ internal static class UpsertProviderChecks
         if (db.DbFlavor != DbFlavor.MySql)
             foreach (bool asynchronous in new[] { false, true })
                 test($"writes: update and delete return typed output rows, async={asynchronous}", () => TypedOutput(db, asynchronous).GetAwaiter().GetResult());
+        foreach (bool asynchronous in new[] { false, true })
+            test($"upsert: a condition limits which conflicting rows are updated, async={asynchronous}", () => Conditional(db, asynchronous).GetAwaiter().GetResult());
+        test("upsert: a named constraint is a conflict target on PostgreSQL only", () => NamedConstraint(db));
     }
 
     private static async Task CheckProvider(BaseConnector db, bool asynchronous)
@@ -93,6 +96,120 @@ internal static class UpsertProviderChecks
                 Check(bulkRows.Count == 420 && bulkRows.All(x => x.Generation == pass && x.State == (pass == 1 ? "new" : "current")),
                     $"A full upsert batch did not insert, then update, every row on pass {pass}");
             }
+        }
+        finally { db.BeginSql($"DROP TABLE IF EXISTS {table}").Execute(); }
+    }
+
+    private static async Task Conditional(BaseConnector db, bool asynchronous)
+    {
+        string Q(string value) => value.DbWrap(db.DbFlavor);
+        string table = (string.IsNullOrEmpty(db.Options.DefaultSchema) ? "" : Q(db.Options.DefaultSchema) + ".") + Q("upsert_leases");
+        List<Lease> Read() => db.BeginSql($"SELECT * FROM {table} ORDER BY {Q("document_id")}, {Q("language")}").ExecuteList<Lease>().GetResultOrThrow();
+        try
+        {
+            db.BeginSql($"CREATE TABLE {table} ({Q("document_id")} INTEGER NOT NULL, {Q("language")} VARCHAR(8) NOT NULL, {Q("generation")} INTEGER NOT NULL, "
+                + $"{Q("token")} VARCHAR(40) NULL, {Q("state")} VARCHAR(16) NULL, PRIMARY KEY ({Q("document_id")}, {Q("language")}))").Execute().EnsureSuccess();
+            db.BeginInsert<Lease>().InsertAuto(new[]
+            {
+                new Lease { DocumentId = 1, Language = "en", Generation = 5, Token = "old", State = "open" },
+                new Lease { DocumentId = 2, Language = "en", Generation = 5, Token = "old", State = "open" },
+                new Lease { DocumentId = 3, Language = "en", Generation = 5, Token = "old", State = "closed" },
+            }).Execute().EnsureSuccess();
+
+            // Only a newer generation replaces a stored row. Document 1 is older, document 2 is newer, document 4 is new.
+            var newer = db.BeginInsert<Lease>()
+                .InsertAuto(new[]
+                {
+                    new Lease { DocumentId = 1, Language = "en", Generation = 4, Token = "stale", State = "open" },
+                    new Lease { DocumentId = 2, Language = "en", Generation = 6, Token = "fresh", State = "open" },
+                    new Lease { DocumentId = 4, Language = "en", Generation = 1, Token = "first", State = "open" },
+                })
+                .OnConflict(x => x.DocumentId, x => x.Language)
+                .OnConflictUpdate(x => x.Generation).OnConflictUpdate(x => x.Token)
+                .OnConflictWhere(x => x.Generation, SqlOp.LT);
+            int affected = (asynchronous ? await newer.ExecuteAsync() : newer.Execute()).GetResultOrThrow();
+            var rows = Read();
+            Check(rows[0].Generation == 5 && rows[0].Token == "old", "A conflicting row that failed the condition was updated");
+            Check(rows[1].Generation == 6 && rows[1].Token == "fresh", "A conflicting row that met the condition was not updated");
+            Check(rows.Count == 4 && rows[3].Token == "first", "A new row was not inserted beside conditional updates");
+            if (db.DbFlavor != DbFlavor.MySql) Check(affected == 2, $"The affected-row count included a row the condition left unchanged: {affected}");
+
+            // A filter on the existing row combines with the comparison. Document 3 is newer but closed.
+            var open = db.BeginInsert<Lease>()
+                .InsertAuto(new[]
+                {
+                    new Lease { DocumentId = 2, Language = "en", Generation = 7, Token = "next", State = "open" },
+                    new Lease { DocumentId = 3, Language = "en", Generation = 7, Token = "next", State = "open" },
+                })
+                .OnConflict(x => x.DocumentId, x => x.Language)
+                .OnConflictUpdate(x => x.Generation).OnConflictUpdate(x => x.Token, "claimed")
+                .OnConflictWhere(x => x.Generation, SqlOp.LT)
+                .OnConflictWhere(w => w.Where(x => x.State, "open", SqlOp.EQ));
+            (asynchronous ? await open.ExecuteAsync() : open.Execute()).EnsureSuccess();
+            rows = Read();
+            Check(rows[1].Generation == 7 && rows[1].Token == "claimed", "A row that met both conditions was not updated");
+            Check(rows[2].Generation == 5 && rows[2].Token == "old", "A row that failed the filter on its existing values was updated");
+
+            if (db.DbFlavor != DbFlavor.MySql)
+            {
+                // A row the condition leaves unchanged is not returned.
+                var returned = db.BeginInsert<Lease>()
+                    .InsertAuto(new[]
+                    {
+                        new Lease { DocumentId = 1, Language = "en", Generation = 1, Token = "stale", State = "open" },
+                        new Lease { DocumentId = 4, Language = "en", Generation = 2, Token = "second", State = "open" },
+                    })
+                    .OnConflict(x => x.DocumentId, x => x.Language).OnConflictUpdateAuto().OnConflictWhere(x => x.Generation, SqlOp.LT)
+                    .Output(x => x.DocumentId).ExecuteWithOutput<int>().GetResultOrThrow();
+                Check(returned.SequenceEqual(new[] { 4 }), "Returned rows included a row the condition left unchanged: " + string.Join(",", returned));
+            }
+            else
+            {
+                // MySQL assigns left to right, so only one column that the condition reads can be assigned.
+                var twoRead = db.BeginInsert<Lease>().InsertAuto(new Lease { DocumentId = 1, Language = "en", Generation = 9, Token = "t", State = "s" })
+                    .OnConflict(x => x.DocumentId, x => x.Language).OnConflictUpdate(x => x.Generation).OnConflictUpdate(x => x.State)
+                    .OnConflictWhere(x => x.Generation, SqlOp.LT).OnConflictWhere(w => w.Where(x => x.State, "open", SqlOp.EQ));
+                try { twoRead.Render(db); throw new Exception("MySQL accepted a conditional update that assigns two columns its condition reads"); }
+                catch (NotSupportedException) { }
+                // An operation is made conditional as well.
+                db.BeginInsert<Lease>().InsertAuto(new Lease { DocumentId = 1, Language = "en", Generation = 1, Token = "t", State = "open" })
+                    .OnConflict(x => x.DocumentId, x => x.Language)
+                    .OnConflictUpdate(x => x.Generation, new BasicMathOperation(BasicMathOperation.MathOp.Add, 10))
+                    .OnConflictUpdate(x => x.Token, new SetIfNullOperation("unused"))
+                    .OnConflictWhere(w => w.Where(x => x.Token, "missing", SqlOp.EQ)).Execute().EnsureSuccess();
+                Check(Read()[0].Generation == 5, "A conditional operation ran although its condition failed");
+            }
+
+            var skip = db.BeginInsert<Lease>().InsertAuto(new Lease { DocumentId = 1, Language = "en", Generation = 1 })
+                .OnConflict(x => x.DocumentId, x => x.Language).OnConflictDoNothing().OnConflictWhere(x => x.Generation, SqlOp.LT);
+            try { skip.Render(db); throw new Exception("A condition on a skipped conflict was accepted"); }
+            catch (InvalidOperationException) { }
+        }
+        finally { db.BeginSql($"DROP TABLE IF EXISTS {table}").Execute(); }
+    }
+
+    private static void NamedConstraint(BaseConnector db)
+    {
+        string Q(string value) => value.DbWrap(db.DbFlavor);
+        string table = (string.IsNullOrEmpty(db.Options.DefaultSchema) ? "" : Q(db.Options.DefaultSchema) + ".") + Q("upsert_leases");
+        var upsert = db.BeginInsert<Lease>().InsertAuto(new Lease { DocumentId = 1, Language = "en", Generation = 2, Token = "b", State = "new" })
+            .OnConflictConstraint("upsert_leases_key").OnConflictUpdate(x => x.Generation).OnConflictUpdate(x => x.Token);
+        if (db.DbFlavor is not (DbFlavor.PostgreSql or DbFlavor.MySql))
+        {
+            try { upsert.Render(db); }
+            catch (NotSupportedException) { return; }
+            throw new Exception("A named constraint target was accepted on a database that cannot use one");
+        }
+        try
+        {
+            db.BeginSql($"CREATE TABLE {table} ({Q("document_id")} INTEGER NOT NULL, {Q("language")} VARCHAR(8) NOT NULL, {Q("generation")} INTEGER NOT NULL, "
+                + $"{Q("token")} VARCHAR(40) NULL, {Q("state")} VARCHAR(16) NULL, CONSTRAINT {Q("upsert_leases_key")} PRIMARY KEY ({Q("document_id")}, {Q("language")}))").Execute().EnsureSuccess();
+            db.BeginInsert<Lease>().InsertAuto(new Lease { DocumentId = 1, Language = "en", Generation = 1, Token = "a", State = "new" }).Execute().EnsureSuccess();
+            upsert.Execute().EnsureSuccess();
+            var row = db.BeginSql($"SELECT * FROM {table}").ExecuteList<Lease>().GetResultOrThrow().Single();
+            Check(row.Generation == 2 && row.Token == "b" && row.State == "new", "A conflict on a named constraint did not update the row");
+            // Key members named later replace the constraint.
+            Check(!upsert.OnConflict(x => x.DocumentId, x => x.Language).Render(db).Text.Contains("CONSTRAINT"), "Key members did not replace a named constraint");
         }
         finally { db.BeginSql($"DROP TABLE IF EXISTS {table}").Execute(); }
     }

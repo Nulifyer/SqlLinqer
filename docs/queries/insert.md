@@ -121,6 +121,7 @@ The members must form a primary key or a unique constraint in the database.
 | `OnConflictUpdate(member, operation)` | Computes the column from the existing row's value. |
 | `OnConflictUpdateAuto()` | Sets every inserted column that allows automatic updates. It skips the key members and the primary key. |
 | `OnConflictDoNothing()` | Leaves the existing row unchanged and skips the new row. |
+| `OnConflictWhere(...)` | Updates a conflicting row only when [a condition holds](#update-only-when-a-condition-holds). |
 
 An operation is an `UpdateOperation`, as in an [update](update.md#apply-a-numeric-operation).
 This example grants a lease. It starts at generation 1 and adds 1 each time the document already has a lease:
@@ -140,6 +141,39 @@ var generation = connector.BeginInsert<DocumentLease>()
 Import `SqlLinqer.Components.Update` for `BasicMathOperation`.
 `BasicMathOperation`, `SetIfNullOperation`, and `ServerTimeOperation` work in a conflict update.
 A [custom operation](update.md#define-a-custom-operation) works when it reads only its `statement` argument. The `query` argument is not the insert.
+
+### Update only when a condition holds
+
+`OnConflictWhere` limits a conflict update. A conflicting row that does not meet the condition stays unchanged.
+This example keeps a stored row unless the incoming row has a higher version:
+
+```csharp
+var response = connector.BeginInsert<DocumentIndex>()
+    .InsertAuto(incoming)
+    .OnConflict(x => x.DocumentId)
+    .OnConflictUpdateAuto()
+    .OnConflictWhere(x => x.Version, SqlOp.LT)
+    .Execute(transaction);
+```
+
+| Form | Condition |
+| --- | --- |
+| `OnConflictWhere(member, op)` | Compares the existing row's value with the inserted value. The existing value is on the left, so `SqlOp.LT` means "existing is less than inserted". |
+| `OnConflictWhere(filter => ...)` | Tests the existing row with the same `Where` methods as a query, such as `filter.Where(x => x.State, "open", SqlOp.EQ)`. |
+
+Several calls combine with AND. A NULL on either side of a comparison does not match.
+A row that the condition leaves unchanged is not returned by `Output`. Except on MySQL, it does not add to the affected-row count.
+`OnConflictWhere` does not combine with `OnConflictDoNothing`.
+
+PostgreSQL, SQLite, and DuckDB render `DO UPDATE SET ... WHERE`. SQL Server and Azure SQL render `WHEN MATCHED AND ...`.
+MySQL has no conditional update, so each assignment renders `column = IF(condition, new value, column)`.
+MySQL assigns columns from left to right, and a later assignment reads the values that earlier ones wrote.
+SqlLinqer therefore assigns a column that the condition reads last. If the update assigns two such columns, rendering throws `NotSupportedException`.
+
+### Name a constraint as the key
+
+On PostgreSQL, `OnConflictConstraint("document_leases_pkey")` names a unique constraint in place of the key members.
+MySQL ignores the name, as it ignores key members. The other databases throw `NotSupportedException` when the command renders.
 
 ### Read returned values
 

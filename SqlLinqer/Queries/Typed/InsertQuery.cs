@@ -108,6 +108,33 @@ namespace SqlLinqer.Queries.Typed
         }
 
         /// <inheritdoc/>
+        public InsertQuery<T> OnConflictConstraint(string name)
+        {
+            ConflictAction.SetConstraint(name);
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public InsertQuery<T> OnConflictWhere(Action<SqlLinqer.Components.Where.TableWhereCollection<T>> filter)
+        {
+            if (filter == null) throw new ArgumentNullException(nameof(filter));
+            var where = new SqlLinqer.Components.Where.TableWhereCollection<T>(Table, SqlWhereOp.AND);
+            filter(where);
+            foreach (var column in where.GetColumnReferences())
+                if (column.Table.UUID != Table.UUID)
+                    throw new FormatException($"Column '{column.ColumnName}' does not belong to the root table. An insert conflict can only reference its own table.");
+            ConflictAction.Where(where);
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public InsertQuery<T> OnConflictWhere<TProperty>(Expression<Func<T, TProperty>> expression, SqlOp op)
+        {
+            ConflictAction.WhereInserted(FindRootColumn(expression), op);
+            return this;
+        }
+
+        /// <inheritdoc/>
         public InsertQuery<T> OnConflictUpdate<TProperty>(Expression<Func<T, TProperty>> expression)
         {
             ConflictAction.UpdateFromInserted(FindRootColumn(expression));
