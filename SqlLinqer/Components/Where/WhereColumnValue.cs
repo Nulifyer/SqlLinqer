@@ -121,7 +121,7 @@ namespace SqlLinqer.Components.Where
                         return groupORNULL.FinalizeStatements(query, flavor);
                     case SqlOp.LIKEWORD:
                     case SqlOp.NOTLIKEWORD:
-                        if (flavor == DbFlavor.DuckDb || flavor == DbFlavor.Sqlite)
+                        if (MatchesWordsNatively(flavor))
                             return this;
                         var likeOp = Operator == SqlOp.LIKEWORD ? SqlOp.LIKE : SqlOp.NOTLIKE;
                         var groupOp = Operator == SqlOp.LIKEWORD ? SqlWhereOp.OR : SqlWhereOp.AND;
@@ -140,6 +140,11 @@ namespace SqlLinqer.Components.Where
         }
         /// <inheritdoc/>
         public override bool TryCombineInto(WhereCollection current_collection, IWhereComponent parent_component) => false;
+
+        // Only SQL Server and Azure SQL read [^0-9A-z] in a LIKE pattern as a character class.
+        // The other databases match a whole word with a regular expression or, on SQLite, GLOB.
+        internal static bool MatchesWordsNatively(DbFlavor? flavor)
+            => flavor == DbFlavor.DuckDb || flavor == DbFlavor.Sqlite || flavor == DbFlavor.PostgreSql || flavor == DbFlavor.MySql;
 
         private static string WordPattern(string value)
         {
@@ -260,10 +265,15 @@ namespace SqlLinqer.Components.Where
                 }
             }
 
-            if (flavor == DbFlavor.DuckDb && (Operator == SqlOp.LIKEWORD || Operator == SqlOp.NOTLIKEWORD || Operator == SqlOp.NOTLIKEWORDORNULL))
+            if ((flavor == DbFlavor.DuckDb || flavor == DbFlavor.PostgreSql || flavor == DbFlavor.MySql)
+                && (Operator == SqlOp.LIKEWORD || Operator == SqlOp.NOTLIKEWORD || Operator == SqlOp.NOTLIKEWORDORNULL))
             {
                 string pattern = parameters.AddParameter(hanldedValue == null ? null : WordPattern(Convert.ToString(hanldedValue)));
-                string match = $"regexp_matches({columnTarget}, {pattern}, 'si')";
+                // Each form ignores case as LIKE does on its database, and lets a wildcard cross a line break.
+                // MySQL follows the column's collation, as its LIKE does.
+                string match = flavor == DbFlavor.DuckDb ? $"regexp_matches({columnTarget}, {pattern}, 'si')"
+                    : flavor == DbFlavor.PostgreSql ? $"({columnTarget} ~* {pattern})"
+                    : $"REGEXP_LIKE({columnTarget}, {pattern}, 'n')";
                 builder.Append(Operator == SqlOp.LIKEWORD ? match : Operator == SqlOp.NOTLIKEWORD
                     ? $"NOT {match}" : $"({columnTarget} IS NULL OR NOT {match})");
                 return;

@@ -16,6 +16,7 @@ internal static class SelectTerminalProviderChecks
         test("select: row locks skip, fail fast, and claim queued rows", () => RowLocks(db));
         test("select: LIKE and NOT LIKE ignore case", () => LikeIgnoresCase(db));
         test("select: a filtering subselect may order by a column it does not select", () => SubselectOrdering(db));
+        test("select: whole-word matching finds a word at any position", () => WholeWords(db));
     }
 
     private static string TableName(BaseConnector db)
@@ -85,6 +86,33 @@ internal static class SelectTerminalProviderChecks
             Check(Ids(db.BeginSelect<Job>().Where(x => x.State, "Q%", SqlOp.NOTLIKE)).SequenceEqual(new[] { 3 }), "NOT LIKE did not ignore case");
             Check(Ids(db.BeginSelect<Job>().Where(x => x.State, "DONE", SqlOp.LIKEWORD)).SequenceEqual(new[] { 3 }), "Whole-word LIKE did not ignore case");
             Check(Ids(db.BeginSelect<Job>().Where(x => x.State, "QUEUED", SqlOp.EQ)).Count is 0 or 2, "Equality failed");
+        }
+        finally { Drop(db); }
+    }
+
+    private static void WholeWords(BaseConnector db)
+    {
+        string Q(string value) => value.DbWrap(db.DbFlavor);
+        try
+        {
+            db.BeginSql($"CREATE TABLE {TableName(db)} ({Q("id")} INTEGER PRIMARY KEY, {Q("state")} VARCHAR(16) NOT NULL, {Q("owner")} VARCHAR(40) NULL, {Q("parent_id")} INTEGER NULL, {Q("created")} {(db.DbFlavor is DbFlavor.SqlServer or DbFlavor.AzureSql ? "DATETIME2" : "TIMESTAMP")} NULL)").Execute().EnsureSuccess();
+            string[] owners = { "red", "a red apple", "Red.apple", "apple,RED", "redapple", "tired", "re d", "r3d apple", null, "100% red", "(red)" };
+            db.BeginInsert<Job>().InsertAuto(owners.Select((owner, index) => new Job { Id = index + 1, State = "x", Owner = owner })).Execute().EnsureSuccess();
+            List<int> Ids(string pattern, SqlOp op) => db.BeginSelect<Job>().Select(x => x.Id).Where(x => x.Owner, pattern, op)
+                .OrderBy(x => x.Id, SqlDir.ASC).Execute().GetResultOrThrow().Select(x => x.Id).ToList();
+            void Same(List<int> actual, int[] expected, string message)
+                => Check(actual.SequenceEqual(expected), $"{message}: {string.Join(",", actual)}");
+            // The word may stand alone, lead, trail, or sit between other characters that are not letters or digits.
+            Same(Ids("red", SqlOp.LIKEWORD), new[] { 1, 2, 3, 4, 10, 11 }, "A whole word was not found at every position");
+            Same(Ids("red", SqlOp.NOTLIKEWORD), new[] { 5, 6, 7, 8 }, "NOT whole-word did not return the other non-null rows");
+            Same(Ids("red", SqlOp.NOTLIKEWORDORNULL), new[] { 5, 6, 7, 8, 9 }, "NOT whole-word OR NULL did not add the null row");
+            // LIKE wildcards keep their meaning inside the word.
+            Same(Ids("r_d", SqlOp.LIKEWORD), new[] { 1, 2, 3, 4, 8, 10, 11 }, "A single-character wildcard changed inside a whole word");
+            // Characters that are special in a regular expression match literally.
+            Same(Ids("(red)", SqlOp.LIKEWORD), new[] { 11 }, "Punctuation in a whole word did not match literally");
+            Same(Ids("red.apple", SqlOp.LIKEWORD), new[] { 3 }, "A period in a whole word matched as a wildcard");
+            Check(db.BeginUpdate<Job>().Update(x => x.State, "y").Where(x => x.Owner, "red", SqlOp.LIKEWORD).Execute().GetResultOrThrow() == 6,
+                "An update filtered by a whole word changed a different number of rows");
         }
         finally { Drop(db); }
     }

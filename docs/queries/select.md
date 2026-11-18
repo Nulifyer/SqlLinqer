@@ -257,8 +257,23 @@ public List<User> SearchUsers(
 | SQL Server, Azure SQL, MySQL | `LIKE`, `NOT LIKE` | Ignores case under the default collation. A column with a case-sensitive collation still matches case-sensitively. |
 | SQLite | `LIKE`, `NOT LIKE` | Ignores case for ASCII letters only. |
 
-The whole-word operators, such as `SqlOp.LIKEWORD`, follow the same case handling.
 For a case-sensitive pattern match, use [hand-written SQL](raw-sql.md).
+
+`SqlOp.LIKEWORD` matches a value that contains the pattern as a whole word.
+The word can be the whole value, or it can have a character that is not a letter or digit on each side.
+`"red"` matches `red`, `a red apple`, and `apple,RED`, but not `redapple`.
+The pattern can contain the `%` and `_` wildcards. `SqlOp.NOTLIKEWORD` and `SqlOp.NOTLIKEWORDORNULL` are the negative forms.
+The whole-word operators follow the same case handling as `LIKE`.
+
+| Database | SQL for a whole-word match |
+| --- | --- |
+| SQL Server, Azure SQL | `LIKE` with character classes |
+| PostgreSQL | The `~*` regular-expression operator |
+| MySQL | `REGEXP_LIKE`, which requires MySQL 8.0.4 or later |
+| DuckDB | `regexp_matches` |
+| SQLite | `GLOB` |
+
+A letter or digit here means an ASCII letter or digit. An underscore counts as part of a word.
 
 ## Group conditions
 

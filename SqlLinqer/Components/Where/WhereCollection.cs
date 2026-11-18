@@ -121,7 +121,7 @@ namespace SqlLinqer.Components.Where
                         break;
                     case WhereStatement statement:
                         // Keep user-defined Finalize overrides on the public statement type.
-                        var new_stm = (flavor == DbFlavor.DuckDb || flavor == DbFlavor.Sqlite) && statement.GetType() == typeof(WhereColumnValue)
+                        var new_stm = WhereColumnValue.MatchesWordsNatively(flavor) && statement.GetType() == typeof(WhereColumnValue)
                             ? ((WhereColumnValue)statement).FinalizeForDialect(query, flavor)
                             : statement.Finalize(query);
                         if (new_stm != null)
