@@ -102,6 +102,7 @@ internal static class SelectTerminalProviderChecks
         try
         {
             Create(db);
+            if (db.DbFlavor == DbFlavor.PostgreSql) db.BeginSql($"ANALYZE {TableName(db)}").WithoutTransaction().Execute().EnsureSuccess();
             using var firstConnection = db.CreateConnection();
             using var secondConnection = db.CreateConnection();
             firstConnection.Open();
@@ -144,11 +145,23 @@ internal static class SelectTerminalProviderChecks
             }
             else
             {
+                if (db.DbFlavor == DbFlavor.PostgreSql)
+                {
+                    // Force the plan that re-runs the subselect for every outer row. Each re-run skips rows this
+                    // statement already updated, so a subselect that is not evaluated once claims more than its limit.
+                    foreach (string setting in new[] { "hashjoin", "mergejoin", "indexscan", "bitmapscan", "material", "hashagg", "sort", "memoize" })
+                        db.BeginSql($"SET LOCAL enable_{setting}=off").Execute(claim).EnsureSuccess();
+                    string plan = string.Join(" ", db.BeginSql($"EXPLAIN (COSTS OFF) UPDATE {TableName(db)} SET state = 'x' WHERE id IN "
+                        + $"(SELECT id FROM {TableName(db)} WHERE state = 'queued' ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED)").ExecuteList<string>(claim).GetResultOrThrow());
+                    Check(plan.Contains("Nested Loop Semi Join"), "The planner settings no longer force the plan this check depends on: " + plan);
+                }
                 var update = db.BeginUpdate<Job, int>().Update(x => x.State, "running").Update(x => x.Owner, "worker");
-                var next = new SelectQuery<Job>(db.Options.DefaultSchema).Select(x => x.Id)
-                    .Where(x => x.State, "queued", SqlOp.EQ).OrderBy(x => x.Id, SqlDir.ASC).Top(1).ForUpdate(SqlRowLock.SKIPLOCKED);
+                // The subselect orders by a column it does not select, as a queue ordered by creation time does.
+                var next = new SelectQuery<Job>(db.Options.DefaultSchema).Select(x => x.Id).Where(x => x.State, "queued", SqlOp.EQ)
+                    .OrderBy(x => x.State, SqlDir.ASC).ThenBy(x => x.Id, SqlDir.ASC).Top(1).ForUpdate(SqlRowLock.SKIPLOCKED);
                 var claimed = update.Where(x => x.Id, next, SqlArrayOp.IN).Execute(claim).EnsureSuccess();
-                Check(claimed.Result == 1 && claimed.TouchedPrimaryKeys.Single() == 1, "The claim update did not return the claimed key");
+                Check(claimed.Result == 1 && claimed.TouchedPrimaryKeys.Single() == 1,
+                    $"The claim update did not claim exactly the first queued row: {claimed.Result} rows, keys {string.Join(",", claimed.TouchedPrimaryKeys)}");
             }
             claim.Commit();
             var rows = db.BeginSelect<Job>().SelectRootColumns().OrderBy(x => x.Id, SqlDir.ASC).Execute().GetResultOrThrow();

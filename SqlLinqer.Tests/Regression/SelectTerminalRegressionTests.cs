@@ -79,6 +79,19 @@ internal static class SelectTerminalRegressionTests
                 Check(columns.Contains(" ILIKE ") == ilike && columns.Contains("LIKE"), columns);
                 Check(!equal.Contains("LIKE"), "Another operator changed");
             });
+        test("a locking subselect is evaluated once on PostgreSQL", () =>
+        {
+            string Claim(DbFlavor flavor, SqlArrayOp op) => Clean(new UpdateQuery<Job>().Update(x => x.State, "running")
+                .Where(x => x.Id, Next(SqlRowLock.SKIPLOCKED), op).Render(flavor).Text);
+            // ARRAY(...) is an InitPlan, so PostgreSQL cannot re-run the locking read for each outer row.
+            Check(Regex.IsMatch(Claim(DbFlavor.PostgreSql, SqlArrayOp.IN), @" = ANY \(ARRAY\(\s*SELECT .* FOR UPDATE SKIP LOCKED\s*\)\)"), Claim(DbFlavor.PostgreSql, SqlArrayOp.IN));
+            Check(Regex.IsMatch(Claim(DbFlavor.PostgreSql, SqlArrayOp.NOTIN), @" != ALL \(ARRAY\(\s*SELECT .* FOR UPDATE SKIP LOCKED\s*\)\)"), Claim(DbFlavor.PostgreSql, SqlArrayOp.NOTIN));
+            string plain = Clean(new UpdateQuery<Job>().Update(x => x.State, "running")
+                .Where(x => x.Id, new SelectQuery<Job>().Select(x => x.Id).Where(x => x.State, "queued", SqlOp.EQ), SqlArrayOp.IN).Render(DbFlavor.PostgreSql).Text);
+            Check(!plain.Contains("ARRAY") && plain.Contains("= ANY ("), "A subselect without a row lock changed: " + plain);
+            foreach (var flavor in new[] { DbFlavor.SqlServer, DbFlavor.AzureSql, DbFlavor.MySql })
+                Check(!Claim(flavor, SqlArrayOp.IN).Contains("ARRAY"), "Another dialect rendered a PostgreSQL array");
+        });
         foreach (var flavor in Enum.GetValues<DbFlavor>())
             test($"a filtering subselect omits an order-only column for {flavor}", () =>
             {

@@ -197,6 +197,12 @@ namespace SqlLinqer.Components.Where
                 subquery.IsPredicateSubQuery = true;
                 string rendered = subquery.RenderRows(parameters, flavor);
 
+                // PostgreSQL can re-run a quantified subselect for every outer row. A locking read then skips the rows
+                // this statement already changed and returns the next ones, exceeding its limit. ARRAY(...) is
+                // evaluated once per statement.
+                if (flavor == DbFlavor.PostgreSql && subquery.RowLock.HasValue)
+                    rendered = $"ARRAY({rendered})";
+
                 builder.Append($"{Column.Render(flavor)} {Operator.GetOpString(flavor)} {SubQueryOp.GetDescription()} ({rendered})");
                 return;
             }

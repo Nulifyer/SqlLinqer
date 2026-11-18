@@ -379,9 +379,15 @@ var claimedId = claimed.TouchedPrimaryKeys.SingleOrDefault();
 ```
 
 Two workers that run this at the same time claim different rows. A worker that finds no free row updates nothing.
+The update never changes more rows than the subselect's `Top` allows.
 Import `SqlLinqer.Queries.Typed` for `SelectQuery<T>`.
 
 The subselect returns one column, the key. It can order by a column that it does not select, such as `CreatedUtc` above.
+
+On PostgreSQL, SqlLinqer renders a locking subselect inside `ARRAY(...)`, so the database evaluates it once for the statement.
+A plain `IN (subselect)` can be evaluated again for each row of the updated table.
+Each evaluation then skips the rows that the statement has already changed and locks the next ones, which exceeds the limit.
+The same rendering applies when a delete or a select filters by a locking subselect.
 
 MySQL cannot update a table that the same statement selects from in a subquery.
 On MySQL, run the locking select and then update the returned key, both in one transaction.
