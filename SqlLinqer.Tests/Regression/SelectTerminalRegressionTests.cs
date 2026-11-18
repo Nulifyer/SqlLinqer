@@ -106,6 +106,18 @@ internal static class SelectTerminalRegressionTests
                 string alone = Clean(Ordered().Render(flavor).Text);
                 Check(Regex.Match(alone, @"SELECT (?:TOP 1 )?(?<list>.*?) FROM ").Groups["list"].Value.Contains(','), "A standalone select changed: " + alone);
             });
+        test("a filtering subselect built from the connector uses the connector's default schema", () =>
+        {
+            var connector = new FakeConnector(new FakeDatabase());
+            connector.Options.DefaultSchema = "tenant";
+            string Claim(SelectQuery<Job> next) => Clean(connector.BeginUpdate<Job>().Update(x => x.State, "running")
+                .Where(x => x.Id, next.Select(x => x.Id).Top(1).ForUpdate(SqlRowLock.SKIPLOCKED), SqlArrayOp.IN).Render(connector).Text);
+            string bound = Claim(connector.BeginSelect<Job>());
+            Check(Regex.Matches(bound, "\"tenant\"\\.\"select_jobs\"").Count == 2, "The connector-built subselect lost the schema: " + bound);
+            // A query resolves its schema at construction, so a detached subselect needs it passed in.
+            Check(Regex.Matches(Claim(new SelectQuery<Job>()), "\"tenant\"\\.\"select_jobs\"").Count == 1, "A detached subselect changed its schema rule");
+            Check(Regex.Matches(Claim(new SelectQuery<Job>("tenant")), "\"tenant\"\\.\"select_jobs\"").Count == 2, "An explicit schema was not applied");
+        });
         test("row locks are rejected where they cannot apply", () =>
         {
             Throws<NotSupportedException>(() => Next(SqlRowLock.WAIT).Render(DbFlavor.Sqlite));

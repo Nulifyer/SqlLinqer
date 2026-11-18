@@ -63,7 +63,7 @@ internal static class SelectTerminalProviderChecks
         {
             Create(db);
             // Ordering by State must not add State to the subselect, which may return only one column.
-            var newestQueued = new SelectQuery<Job>(db.Options.DefaultSchema).Select(x => x.Id).Where(x => x.State, "queued", SqlOp.EQ)
+            var newestQueued = db.BeginSelect<Job>().Select(x => x.Id).Where(x => x.State, "queued", SqlOp.EQ)
                 .OrderBy(x => x.State, SqlDir.ASC).ThenBy(x => x.Id, SqlDir.DESC);
             // MySQL does not accept LIMIT in a quantified subselect, so its subselect keeps both queued rows.
             if (db.DbFlavor != DbFlavor.MySql) newestQueued.Top(1);
@@ -157,7 +157,8 @@ internal static class SelectTerminalProviderChecks
                 }
                 var update = db.BeginUpdate<Job, int>().Update(x => x.State, "running").Update(x => x.Owner, "worker");
                 // The subselect orders by a column it does not select, as a queue ordered by creation time does.
-                var next = new SelectQuery<Job>(db.Options.DefaultSchema).Select(x => x.Id).Where(x => x.State, "queued", SqlOp.EQ)
+                // Built from the connector, as the guide shows, so it resolves the same schema as the update.
+                var next = db.BeginSelect<Job>().Select(x => x.Id).Where(x => x.State, "queued", SqlOp.EQ)
                     .OrderBy(x => x.State, SqlDir.ASC).ThenBy(x => x.Id, SqlDir.ASC).Top(1).ForUpdate(SqlRowLock.SKIPLOCKED);
                 var claimed = update.Where(x => x.Id, next, SqlArrayOp.IN).Execute(claim).EnsureSuccess();
                 Check(claimed.Result == 1 && claimed.TouchedPrimaryKeys.Single() == 1,

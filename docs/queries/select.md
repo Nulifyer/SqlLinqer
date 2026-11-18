@@ -362,7 +362,7 @@ On PostgreSQL, SQL Server, and Azure SQL, one update can claim the next row and 
 Build the locking select as a subquery and filter the update with it:
 
 ```csharp
-var next = new SelectQuery<TranslationBatch>()
+var next = connector.BeginSelect<TranslationBatch>()
     .Select(x => x.Id)
     .Where(x => x.State, "queued", SqlOp.EQ)
     .OrderBy(x => x.CreatedUtc, SqlDir.ASC)
@@ -380,7 +380,10 @@ var claimedId = claimed.TouchedPrimaryKeys.SingleOrDefault();
 
 Two workers that run this at the same time claim different rows. A worker that finds no free row updates nothing.
 The update never changes more rows than the subselect's `Top` allows.
-Import `SqlLinqer.Queries.Typed` for `SelectQuery<T>`.
+
+Build the subselect from the connector, as the update is. Both then use the connector's default schema.
+A query resolves its schema when it is created, not when it runs.
+A subselect created with `new SelectQuery<T>()` has no schema unless you pass one to its constructor, even when the outer query has one.
 
 The subselect returns one column, the key. It can order by a column that it does not select, such as `CreatedUtc` above.
 
