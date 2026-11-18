@@ -29,6 +29,8 @@ namespace SqlLinqer.Queries.Typed
         , IAsyncQueryExecutableStream<T>
         , IQueryExecutableTotalCount<T>
         , IAsyncQueryExecutableTotalCount<T>
+        , IQueryExecutableExists
+        , IAsyncQueryExecutableExists
         where T : class
     {
         /// <summary>

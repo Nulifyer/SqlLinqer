@@ -42,38 +42,19 @@ namespace SqlLinqer.Queries.Typed
         public Task<SqlSelectResponse<T>> ExecuteWithTotalCountAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
             => SelectExecution.ExecuteWithTotalCountAsync<T>(this, connector, transaction, cancellationToken, commandTimeout: commandTimeout);
 
-        /// <summary>
-        /// Checks whether any row matches this query's filters. Selected fields, ordering, paging, and row locks do not apply.
-        /// The check does not open an owned transaction.
-        /// </summary>
-        /// <param name="transaction">An optional caller-owned transaction.</param>
-        /// <param name="commandTimeout">Overrides the connector command timeout for this execution.</param>
-        /// <returns>True when at least one row matches, and the execution state.</returns>
+        /// <inheritdoc/>
         public SqlResponse<bool> ExecuteExists(DbTransaction transaction = null, TimeSpan? commandTimeout = null)
             => ExecuteExists(ExecutionConnector, transaction, commandTimeout: commandTimeout);
 
-        /// <summary>Checks on the supplied connector whether any row matches this query's filters.</summary>
-        /// <param name="connector">The connector to execute with.</param>
-        /// <param name="transaction">An optional caller-owned transaction.</param>
-        /// <param name="commandTimeout">Overrides the connector command timeout for this execution.</param>
-        /// <returns>True when at least one row matches, and the execution state.</returns>
+        /// <inheritdoc/>
         public SqlResponse<bool> ExecuteExists(BaseConnector connector, DbTransaction transaction = null, TimeSpan? commandTimeout = null)
             => SelectExecution.ExecuteExists(this, connector, transaction, commandTimeout: commandTimeout);
 
-        /// <summary>Asynchronously checks whether any row matches this query's filters. Requested cancellation throws.</summary>
-        /// <param name="transaction">An optional caller-owned transaction.</param>
-        /// <param name="cancellationToken">Cancels connection opening and command execution.</param>
-        /// <param name="commandTimeout">Overrides the connector command timeout for this execution.</param>
-        /// <returns>True when at least one row matches, and the execution state.</returns>
+        /// <inheritdoc/>
         public Task<SqlResponse<bool>> ExecuteExistsAsync(DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
             => ExecuteExistsAsync(ExecutionConnector, transaction, cancellationToken, commandTimeout: commandTimeout);
 
-        /// <summary>Asynchronously checks on the supplied connector whether any row matches this query's filters. Requested cancellation throws.</summary>
-        /// <param name="connector">The connector to execute with.</param>
-        /// <param name="transaction">An optional caller-owned transaction.</param>
-        /// <param name="cancellationToken">Cancels connection opening and command execution.</param>
-        /// <param name="commandTimeout">Overrides the connector command timeout for this execution.</param>
-        /// <returns>True when at least one row matches, and the execution state.</returns>
+        /// <inheritdoc/>
         public Task<SqlResponse<bool>> ExecuteExistsAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
             => SelectExecution.ExecuteExistsAsync(this, connector, transaction, cancellationToken, commandTimeout: commandTimeout);
     }

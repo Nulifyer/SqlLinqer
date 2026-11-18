@@ -126,6 +126,14 @@ internal static class SelectTerminalRegressionTests
             new SelectQuery<Job>().Select(x => x.Id).Where(x => x.Id, new SelectQuery<Job>().Select(x => x.Id).ForUpdate(), SqlArrayOp.IN).Render(DbFlavor.MySql);
             new UpdateQuery<Job>().Update(x => x.State, "running").Where(x => x.Id, new SelectQuery<Job>().Select(x => x.ParentId), SqlArrayOp.IN).Render(DbFlavor.MySql);
         });
+        test("the existence check is part of the executable contracts", () =>
+        {
+            var database = new FakeDatabase { ScalarFactory = () => 1 };
+            var connector = new FakeConnector(database);
+            SqlLinqer.Queries.Interfaces.IQueryExecutableExists sync = new SelectQuery<Job>().Where(x => x.Id, 1, SqlOp.EQ);
+            SqlLinqer.Queries.Interfaces.IAsyncQueryExecutableExists asynchronous = new SelectQuery<Job>().Where(x => x.Id, 1, SqlOp.EQ);
+            Check(sync.ExecuteExists(connector).GetResultOrThrow() && asynchronous.ExecuteExistsAsync(connector).GetAwaiter().GetResult().GetResultOrThrow(), "The contracts changed the result");
+        });
         test("row locks are rejected where they cannot apply", () =>
         {
             Throws<NotSupportedException>(() => Next(SqlRowLock.WAIT).Render(DbFlavor.Sqlite));
