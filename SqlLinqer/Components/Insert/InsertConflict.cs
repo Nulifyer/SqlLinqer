@@ -94,6 +94,14 @@ namespace SqlLinqer.Components.Insert
             return string.Join(",", rendered);
         }
 
+        // The conflict action binds its values once per statement, so each batch must leave room for them.
+        internal int CountParameters(SqlLinqer.Queries.Core.InsertQuery query, IReadOnlyCollection<ReflectedColumn> inserted, DbFlavor flavor)
+        {
+            var parameters = new ParameterCollection(flavor);
+            RenderAssignments(query, inserted, parameters, flavor);
+            return parameters.Count;
+        }
+
         private string RenderTarget(DbFlavor flavor)
             => string.Join(",", Target.Select(column => column.ColumnName.DbWrap(flavor)));
 

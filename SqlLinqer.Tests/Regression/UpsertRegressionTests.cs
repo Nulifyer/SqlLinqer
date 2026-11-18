@@ -67,6 +67,22 @@ internal static class UpsertRegressionTests
             var partial = new InsertQuery<PartialLease>().InsertAuto(new PartialLease { DocumentId = 1 }).OnConflict(x => x.DocumentId);
             Throws<InvalidOperationException>(() => partial.OnConflictUpdate(x => x.Token).Render(DbFlavor.PostgreSql));
         });
+        foreach (bool asynchronous in new[] { false, true })
+            test($"upsert: bound conflict values count toward the parameter limit, async={asynchronous}", () =>
+            {
+                // Five columns fill the default 2,100 parameter budget at exactly 420 rows. The conflict values need room too.
+                var database = new FakeDatabase();
+                var connector = new FakeConnector(database);
+                var rows = Enumerable.Range(1, 420).Select(i => new Lease { DocumentId = i, Language = "en", Generation = 1, Token = "t", State = "new" }).ToArray();
+                var query = new InsertQuery<Lease>().InsertAuto(rows).OnConflict(x => x.DocumentId, x => x.Language)
+                    .OnConflictUpdate(x => x.Generation, new BasicMathOperation(BasicMathOperation.MathOp.Add, 1))
+                    .OnConflictUpdate(x => x.State, "current");
+                var response = asynchronous ? query.ExecuteAsync(connector).GetAwaiter().GetResult() : query.Execute(connector);
+                Check(response.State == ResponseState.Valid, "A full upsert batch was rejected: " + response.Error?.Message);
+                Check(database.Executed.Count == 2 && database.Executed.All(c => c.Parameters.Count <= 2100),
+                    "Batches: " + string.Join(",", database.Executed.Select(c => c.Parameters.Count)));
+                Check(database.Executed.Sum(c => c.Parameters.Count) == 420 * 5 + 2 * 2, "Rows or conflict values were lost across batches");
+            });
         test("upsert: a captured query keeps its conflict action", () =>
         {
             var query = Upsert();

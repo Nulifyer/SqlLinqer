@@ -131,6 +131,7 @@ A [custom operation](update.md#define-a-custom-operation) works when it reads on
 Every mapped member of that class must be one of the output columns, so declare a small row class instead of reusing the model.
 For one output column, use a scalar type such as `int`.
 Updates and deletes have the same terminal. `ExecuteWithOutput()` without a type still returns a `DataTable`.
+
 With a conflict update, the returned row is the row after the insert or the update.
 With `OnConflictDoNothing`, a skipped row returns nothing. Except on MySQL, it does not add to the affected-row count.
 `BeginInsert<T, TKey>` returns the keys of inserted and updated rows in `TouchedPrimaryKeys`.
@@ -145,6 +146,7 @@ With `OnConflictDoNothing`, a skipped row returns nothing. Except on MySQL, it d
 
 A batch must not contain two rows with the same key. PostgreSQL and SQL Server reject a statement that would change one row twice.
 Insert batching applies as usual. Each batch is one statement.
+Values that the conflict action binds are sent with every batch and count toward the parameter limit, so a batch holds slightly fewer rows.
 `ExecuteTvp` does not support a conflict action. Use `Execute`.
 
 ## Use a table-valued parameter

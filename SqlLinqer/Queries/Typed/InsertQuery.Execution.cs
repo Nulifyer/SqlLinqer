@@ -108,7 +108,7 @@ namespace SqlLinqer.Queries.Typed
             if (connector.DbFlavor == DbFlavor.SqlServer || connector.DbFlavor == DbFlavor.AzureSql)
                 parameterLimit = parameterLimit > 0 ? Math.Min(parameterLimit, 2100) : 2100;
             int batchSize;
-            try { batchSize = Math.Max(1, Inserts.GetBatchSize(parameterLimit)); }
+            try { batchSize = Math.Max(1, Inserts.GetBatchSize(RowParameterBudget(connector, parameterLimit))); }
             catch (Exception error) { return new SqlResponse<TResult>(error); }
             if (connector.DbFlavor == DbFlavor.SqlServer || connector.DbFlavor == DbFlavor.AzureSql)
                 batchSize = Math.Min(batchSize, 1000);
@@ -188,6 +188,17 @@ namespace SqlLinqer.Queries.Typed
                 }
             }
             return combined;
+        }
+
+        // Rows share each statement's parameter budget with the values a conflict action binds.
+        private int RowParameterBudget(BaseConnector connector, int parameterLimit)
+        {
+            if (parameterLimit <= 0 || Conflict == null)
+                return parameterLimit;
+            int budget = parameterLimit - Conflict.CountParameters(this, Inserts.InsertColumns, connector.DbFlavor);
+            if (budget <= 0)
+                throw new InvalidOperationException("The insert's conflict action alone exceeds the configured parameter limit.");
+            return budget;
         }
 
         private RenderedQuery RenderBatch(BaseConnector connector, int offset, int count)
@@ -308,7 +319,7 @@ namespace SqlLinqer.Queries.Typed
             if (connector.DbFlavor == DbFlavor.SqlServer || connector.DbFlavor == DbFlavor.AzureSql)
                 parameterLimit = parameterLimit > 0 ? Math.Min(parameterLimit, 2100) : 2100;
             int batchSize;
-            try { batchSize = Math.Max(1, Inserts.GetBatchSize(parameterLimit)); }
+            try { batchSize = Math.Max(1, Inserts.GetBatchSize(RowParameterBudget(connector, parameterLimit))); }
             catch (Exception error) { return new SqlResponse<TResult>(error); }
             if (connector.DbFlavor == DbFlavor.SqlServer || connector.DbFlavor == DbFlavor.AzureSql)
                 batchSize = Math.Min(batchSize, 1000);

@@ -81,6 +81,18 @@ internal static class UpsertProviderChecks
             rows = Read();
             Check(rows.Count == 3 && rows[1].Generation == 1 && rows[1].Token == "d" && rows[2].Token == "e", "Do nothing changed an existing row or dropped a new one");
             if (returnsRows) Check(skipped == 1, "Do nothing counted a skipped row");
+
+            // 420 rows of five columns fill the default parameter budget exactly, before the conflict values are bound.
+            var many = Enumerable.Range(100, 420).Select(i => new Lease { DocumentId = i, Language = "en", Generation = 1, Token = "t", State = "new" }).ToArray();
+            for (int pass = 1; pass <= 2; pass++)
+            {
+                var bulk = db.BeginInsert<Lease>().InsertAuto(many).OnConflict(x => x.DocumentId, x => x.Language)
+                    .OnConflictUpdate(x => x.Generation, new BasicMathOperation(BasicMathOperation.MathOp.Add, 1)).OnConflictUpdate(x => x.State, "current");
+                (asynchronous ? await bulk.ExecuteAsync() : bulk.Execute()).EnsureSuccess();
+                var bulkRows = Read().Where(x => x.DocumentId >= 100).ToList();
+                Check(bulkRows.Count == 420 && bulkRows.All(x => x.Generation == pass && x.State == (pass == 1 ? "new" : "current")),
+                    $"A full upsert batch did not insert, then update, every row on pass {pass}");
+            }
         }
         finally { db.BeginSql($"DROP TABLE IF EXISTS {table}").Execute(); }
     }
