@@ -103,6 +103,10 @@ namespace SqlLinqer.Connections
             }
         }
 
+        // Every terminal resolves its connector here, so a missing connector is reported the same way everywhere.
+        internal static BaseConnector Require(BaseConnector connector)
+            => connector ?? throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+
         // The connection every command runs on, or null to take a connection for each command. Only SessionConnector sets it.
         internal virtual DbConnection SessionConnection => null;
 

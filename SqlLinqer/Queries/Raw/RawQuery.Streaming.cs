@@ -15,6 +15,6 @@ namespace SqlLinqer.Queries.Raw
         /// <inheritdoc/>
         public IAsyncEnumerable<T> ExecuteAsyncStream<T>(BaseConnector connector, DbTransaction transaction = null,
             CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
-            => Require(connector).ExecuteReaderListAsyncStream<T>(Render(connector), transaction, cancellationToken, commandTimeout);
+            => BaseConnector.Require(connector).ExecuteReaderListAsyncStream<T>(Render(connector), transaction, cancellationToken, commandTimeout);
     }
 }

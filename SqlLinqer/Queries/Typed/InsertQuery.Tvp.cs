@@ -128,36 +128,32 @@ namespace SqlLinqer.Queries.Typed
                     existingTransaction, execute, commandTimeout: commandTimeout);
             var tempQuery = PrepareTvp(connector, out string createType, out string dropType, out var reusable);
             var response = new SqlResponse<TResult>();
-            DbConnection conn = null;
-            bool ownsConnection = false;
-            DbTransaction transaction = null;
+            ExecutionScope scope = null;
             bool typeCleanupRequired = false;
             try
             {
-                conn = connector.ResolveConnection(existingTransaction, out ownsConnection);
-                if (conn.State != ConnectionState.Open)
-                    conn.Open();
+                scope = ExecutionScope.Open(connector, existingTransaction);
 
                 // Type DDL must be committed before SQL Server binds the TVP. It also
                 // needs independent cleanup when a caller rolls back or dooms its transaction.
                 typeCleanupRequired = reusable == null;
                 if (reusable != null)
-                    transaction = connector.BeginReusableTvpExecution(reusable, conn, existingTransaction, commandTimeout);
+                    scope.Adopt(connector.BeginReusableTvpExecution(reusable, scope.Connection, existingTransaction, commandTimeout));
                 else
                 {
-                    var create = connector.ExecuteTypeDdl(new RenderedQuery(createType), conn.Database, commandTimeout: commandTimeout);
+                    var create = connector.ExecuteTypeDdl(new RenderedQuery(createType), scope.Connection.Database, commandTimeout: commandTimeout);
                     if (create.State == ResponseState.Error) throw create.Error;
-                    transaction = existingTransaction ?? conn.BeginTransaction(IsolationLevel.ReadCommitted);
+                    scope.BeginOwnedTransaction(IsolationLevel.ReadCommitted);
                 }
-                response = execute(tempQuery, transaction);
+                response = execute(tempQuery, scope.Transaction);
                 if (response.State == ResponseState.Error) throw response.Error;
                 if (reusable == null)
                 {
-                    var drop = connector.ExecuteTypeDdl(new RenderedQuery(dropType), conn.Database, commandTimeout: commandTimeout);
+                    var drop = connector.ExecuteTypeDdl(new RenderedQuery(dropType), scope.Connection.Database, commandTimeout: commandTimeout);
                     if (drop.State == ResponseState.Error) throw drop.Error;
                 }
                 typeCleanupRequired = false;
-                if (existingTransaction == null) transaction.Commit();
+                scope.Commit();
             }
             catch (Exception failure)
             {
@@ -165,16 +161,12 @@ namespace SqlLinqer.Queries.Typed
                 var error = failure is SqlLinqer.Exceptions.SqlResponseException ? failure
                     : new SqlLinqer.Exceptions.SqlResponseException(tempQuery, failure);
                 if (reusable != null) connector.InvalidateTvpTypes();
-                if (existingTransaction == null && transaction != null)
-                {
-                    try { transaction.Rollback(); }
-                    catch { }
-                }
+                scope?.Rollback();
                 if (typeCleanupRequired)
                 {
                     try
                     {
-                        var cleanup = connector.ExecuteTypeDdl(new RenderedQuery(dropType), conn.Database, commandTimeout: commandTimeout);
+                        var cleanup = connector.ExecuteTypeDdl(new RenderedQuery(dropType), scope.Connection.Database, commandTimeout: commandTimeout);
                         if (cleanup.State == ResponseState.Error) error.Data["TvpTypeCleanupError"] = cleanup.Error;
                     }
                     catch (Exception cleanupError) { error.Data["TvpTypeCleanupError"] = cleanupError; }
@@ -185,13 +177,12 @@ namespace SqlLinqer.Queries.Typed
             }
             finally
             {
-                DisposeTvpResources(tempQuery, ownsConnection ? conn : null,
-                    existingTransaction == null ? transaction : null, response);
+                DisposeTvpResources(tempQuery, scope, response);
             }
             return response;
         }
 
-        private static void DisposeTvpResources<TResult>(RenderedQuery query, DbConnection connection, DbTransaction transaction, SqlResponse<TResult> response)
+        private static void DisposeTvpResources<TResult>(RenderedQuery query, ExecutionScope scope, SqlResponse<TResult> response)
         {
             Exception cleanupError = null;
             void Dispose(IDisposable resource)
@@ -199,8 +190,7 @@ namespace SqlLinqer.Queries.Typed
                 try { resource?.Dispose(); }
                 catch (Exception error) { if (cleanupError == null) cleanupError = error; }
             }
-            Dispose(transaction);
-            Dispose(connection);
+            Dispose(scope);
             Dispose(query);
             if (cleanupError == null) return;
             if (response.State == ResponseState.Error) response.Error.Data["TvpResourceCleanupError"] = cleanupError;
@@ -298,38 +288,34 @@ namespace SqlLinqer.Queries.Typed
                     existingTransaction, execute, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
             var tempQuery = PrepareTvp(connector, out string createType, out string dropType, out var reusable);
             var response = new SqlResponse<TResult>();
-            DbConnection conn = null;
-            bool ownsConnection = false;
-            DbTransaction transaction = null;
+            ExecutionScope scope = null;
             bool typeCleanupRequired = false;
             try
             {
-                conn = connector.ResolveConnection(existingTransaction, out ownsConnection);
-                if (conn.State != ConnectionState.Open)
-                    await conn.OpenAsync(cancellationToken).ConfigureAwait(false);
+                scope = await ExecutionScope.OpenAsync(connector, existingTransaction, cancellationToken).ConfigureAwait(false);
 
                 // Autocommit type DDL avoids SQL Server's self-deadlock on USER_TYPE metadata.
                 // Mark the attempt first so cancellation after server execution still triggers cleanup.
                 typeCleanupRequired = reusable == null;
                 if (reusable != null)
-                    transaction = await connector.BeginReusableTvpExecutionAsync(reusable, conn, existingTransaction, cancellationToken, commandTimeout).ConfigureAwait(false);
+                    scope.Adopt(await connector.BeginReusableTvpExecutionAsync(reusable, scope.Connection, existingTransaction, cancellationToken, commandTimeout).ConfigureAwait(false));
                 else
                 {
-                    var create = await connector.ExecuteTypeDdlAsync(new RenderedQuery(createType), conn.Database, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
+                    var create = await connector.ExecuteTypeDdlAsync(new RenderedQuery(createType), scope.Connection.Database, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
                     if (create.State == ResponseState.Error) throw create.Error;
                     cancellationToken.ThrowIfCancellationRequested();
-                    transaction = existingTransaction ?? conn.BeginTransaction(IsolationLevel.ReadCommitted);
+                    scope.BeginOwnedTransaction(IsolationLevel.ReadCommitted);
                 }
-                response = await execute(tempQuery, transaction).ConfigureAwait(false);
+                response = await execute(tempQuery, scope.Transaction).ConfigureAwait(false);
                 if (response.State == ResponseState.Error) throw response.Error;
                 if (reusable == null)
                 {
-                    var drop = await connector.ExecuteTypeDdlAsync(new RenderedQuery(dropType), conn.Database, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
+                    var drop = await connector.ExecuteTypeDdlAsync(new RenderedQuery(dropType), scope.Connection.Database, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
                     if (drop.State == ResponseState.Error) throw drop.Error;
                 }
                 typeCleanupRequired = false;
                 cancellationToken.ThrowIfCancellationRequested();
-                if (existingTransaction == null) transaction.Commit();
+                scope.Commit();
             }
             catch (Exception failure)
             {
@@ -337,16 +323,12 @@ namespace SqlLinqer.Queries.Typed
                 var error = failure is SqlLinqer.Exceptions.SqlResponseException ? failure
                     : new SqlLinqer.Exceptions.SqlResponseException(tempQuery, failure);
                 if (reusable != null) connector.InvalidateTvpTypes();
-                if (existingTransaction == null && transaction != null)
-                {
-                    try { transaction.Rollback(); }
-                    catch { }
-                }
+                scope?.Rollback();
                 if (typeCleanupRequired)
                 {
                     try
                     {
-                        var cleanup = await connector.ExecuteTypeDdlAsync(new RenderedQuery(dropType), conn.Database, CancellationToken.None, commandTimeout: commandTimeout).ConfigureAwait(false);
+                        var cleanup = await connector.ExecuteTypeDdlAsync(new RenderedQuery(dropType), scope.Connection.Database, CancellationToken.None, commandTimeout: commandTimeout).ConfigureAwait(false);
                         if (cleanup.State == ResponseState.Error) error.Data["TvpTypeCleanupError"] = cleanup.Error;
                     }
                     catch (Exception cleanupError) { error.Data["TvpTypeCleanupError"] = cleanupError; }
@@ -358,8 +340,7 @@ namespace SqlLinqer.Queries.Typed
             }
             finally
             {
-                DisposeTvpResources(tempQuery, ownsConnection ? conn : null,
-                    existingTransaction == null ? transaction : null, response);
+                DisposeTvpResources(tempQuery, scope, response);
             }
             return response;
         }

@@ -33,8 +33,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<DataTable> ExecuteWithOutput(BaseConnector connector, DbTransaction transaction = null, TimeSpan? commandTimeout = null)
         {
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
             commandTimeout = connector.ResolveCommandTimeout(commandTimeout);
             return ExecuteBatches<DataTable>(connector, transaction,
                 (query, tx) => connector.ExecuteReaderDataTable(query, tx, commandTimeout: commandTimeout),
@@ -55,8 +54,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<List<TRow>> ExecuteWithOutput<TRow>(BaseConnector connector, DbTransaction transaction = null, TimeSpan? commandTimeout = null)
         {
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
             commandTimeout = connector.ResolveCommandTimeout(commandTimeout);
             WriteExecution.ValidateTypedOutput<TRow>(Outputs);
             if (this.Inserts.Count == 0)
@@ -68,8 +66,7 @@ namespace SqlLinqer.Queries.Typed
 
         internal SqlResponse<int> ExecuteAndCapturePrimaryKeys(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null, TimeSpan? commandTimeout = null)
         {
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
             commandTimeout = connector.ResolveCommandTimeout(commandTimeout);
 
             if (this.Inserts.Count == 0)
@@ -124,9 +121,7 @@ namespace SqlLinqer.Queries.Typed
             if (Inserts.Count <= batchSize)
                 return execute(first, existingTransaction);
 
-            DbConnection connection = null;
-            bool ownsConnection = false;
-            DbTransaction transaction = null;
+            ExecutionScope scope = null;
             TResult result = default;
             bool hasResult = false;
             var combined = new SqlResponse<TResult>();
@@ -135,9 +130,8 @@ namespace SqlLinqer.Queries.Typed
                 // Report connection and transaction start failures like a single-command insert does.
                 try
                 {
-                    connection = connector.ResolveConnection(existingTransaction, out ownsConnection);
-                    if (connection.State != ConnectionState.Open) connection.Open();
-                    transaction = existingTransaction ?? connection.BeginTransaction(connector.OwnedIsolationLevel);
+                    scope = ExecutionScope.Open(connector, existingTransaction);
+                    scope.BeginOwnedTransaction(connector.OwnedIsolationLevel);
                 }
                 catch (Exception error) { throw new SqlLinqer.Exceptions.SqlResponseException(first, error); }
                 for (int offset = 0; offset < Inserts.Count; offset += batchSize)
@@ -145,21 +139,17 @@ namespace SqlLinqer.Queries.Typed
                     var query = offset == 0 ? first : RenderBatch(connector, offset, Math.Min(batchSize, Inserts.Count - offset));
                     if (parameterLimit > 0 && query.Parameters.Count > parameterLimit)
                         throw new InvalidOperationException("The insert command exceeds the configured parameter limit.");
-                    var response = execute(query, transaction);
+                    var response = execute(query, scope.Transaction);
                     if (response.State == ResponseState.Error) throw response.Error;
                     result = hasResult ? merge(result, response.Result) : response.Result;
                     hasResult = true;
                 }
-                if (existingTransaction == null) transaction.Commit();
+                scope.Commit();
                 combined.SetResult(result);
             }
             catch (Exception error)
             {
-                if (existingTransaction == null && transaction != null)
-                {
-                    try { transaction.Rollback(); }
-                    catch { }
-                }
+                scope?.Rollback();
                 if (hasResult)
                 {
                     try { discard?.Invoke(result); }
@@ -169,21 +159,14 @@ namespace SqlLinqer.Queries.Typed
             }
             finally
             {
-                if (existingTransaction == null)
+                try { scope?.Dispose(); }
+                catch (Exception cleanupError)
                 {
-                    try
+                    if (combined.State == ResponseState.Valid)
                     {
-                        try { transaction?.Dispose(); }
-                        finally { if (ownsConnection) connection?.Dispose(); }
-                    }
-                    catch (Exception cleanupError)
-                    {
-                        if (combined.State == ResponseState.Valid)
-                        {
-                            try { discard?.Invoke(result); }
-                            catch { }
-                            combined.SetError(cleanupError);
-                        }
+                        try { discard?.Invoke(result); }
+                        catch { }
+                        combined.SetError(cleanupError);
                     }
                 }
             }
@@ -238,8 +221,7 @@ namespace SqlLinqer.Queries.Typed
         public async Task<SqlResponse<DataTable>> ExecuteWithOutputAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
             commandTimeout = connector.ResolveCommandTimeout(commandTimeout);
             return await ExecuteBatchesAsync<DataTable>(connector, transaction,
                 async (query, tx) => await connector.ExecuteReaderDataTableAsync(query, tx, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false),
@@ -261,8 +243,7 @@ namespace SqlLinqer.Queries.Typed
         public async Task<SqlResponse<List<TRow>>> ExecuteWithOutputAsync<TRow>(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
             commandTimeout = connector.ResolveCommandTimeout(commandTimeout);
             WriteExecution.ValidateTypedOutput<TRow>(Outputs);
             if (this.Inserts.Count == 0)
@@ -276,8 +257,7 @@ namespace SqlLinqer.Queries.Typed
         internal async Task<SqlResponse<int>> ExecuteAndCapturePrimaryKeysAsync(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
             commandTimeout = connector.ResolveCommandTimeout(commandTimeout);
 
             if (this.Inserts.Count == 0)
@@ -334,9 +314,7 @@ namespace SqlLinqer.Queries.Typed
             if (Inserts.Count <= batchSize)
                 return await execute(first, existingTransaction).ConfigureAwait(false);
 
-            DbConnection connection = null;
-            bool ownsConnection = false;
-            DbTransaction transaction = null;
+            ExecutionScope scope = null;
             TResult result = default;
             bool hasResult = false;
             var combined = new SqlResponse<TResult>();
@@ -345,9 +323,8 @@ namespace SqlLinqer.Queries.Typed
                 // Report connection and transaction start failures like a single-command insert does.
                 try
                 {
-                    connection = connector.ResolveConnection(existingTransaction, out ownsConnection);
-                    if (connection.State != ConnectionState.Open) await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-                    transaction = existingTransaction ?? connection.BeginTransaction(connector.OwnedIsolationLevel);
+                    scope = await ExecutionScope.OpenAsync(connector, existingTransaction, cancellationToken).ConfigureAwait(false);
+                    scope.BeginOwnedTransaction(connector.OwnedIsolationLevel);
                 }
                 catch (Exception error) when (!cancellationToken.IsCancellationRequested) { throw new SqlLinqer.Exceptions.SqlResponseException(first, error); }
                 for (int offset = 0; offset < Inserts.Count; offset += batchSize)
@@ -355,22 +332,18 @@ namespace SqlLinqer.Queries.Typed
                     var query = offset == 0 ? first : RenderBatch(connector, offset, Math.Min(batchSize, Inserts.Count - offset));
                     if (parameterLimit > 0 && query.Parameters.Count > parameterLimit)
                         throw new InvalidOperationException("The insert command exceeds the configured parameter limit.");
-                    var response = await execute(query, transaction).ConfigureAwait(false);
+                    var response = await execute(query, scope.Transaction).ConfigureAwait(false);
                     if (response.State == ResponseState.Error) throw response.Error;
                     result = hasResult ? merge(result, response.Result) : response.Result;
                     hasResult = true;
                 }
                 cancellationToken.ThrowIfCancellationRequested();
-                if (existingTransaction == null) transaction.Commit();
+                scope.Commit();
                 combined.SetResult(result);
             }
             catch (Exception error)
             {
-                if (existingTransaction == null && transaction != null)
-                {
-                    try { transaction.Rollback(); }
-                    catch { }
-                }
+                scope?.Rollback();
                 if (hasResult)
                 {
                     try { discard?.Invoke(result); }
@@ -381,21 +354,14 @@ namespace SqlLinqer.Queries.Typed
             }
             finally
             {
-                if (existingTransaction == null)
+                try { scope?.Dispose(); }
+                catch (Exception cleanupError)
                 {
-                    try
+                    if (combined.State == ResponseState.Valid)
                     {
-                        try { transaction?.Dispose(); }
-                        finally { if (ownsConnection) connection?.Dispose(); }
-                    }
-                    catch (Exception cleanupError)
-                    {
-                        if (combined.State == ResponseState.Valid)
-                        {
-                            try { discard?.Invoke(result); }
-                            catch { }
-                            combined.SetError(cleanupError);
-                        }
+                        try { discard?.Invoke(result); }
+                        catch { }
+                        combined.SetError(cleanupError);
                     }
                 }
             }

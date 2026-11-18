@@ -44,8 +44,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<int> Execute(BaseConnector connector, DbTransaction existingTransaction = null, TimeSpan? commandTimeout = null)
         {
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
 
             var rendered = this.Render(connector);
             var response = connector.ExecuteNonQuery(rendered, existingTransaction, commandTimeout: commandTimeout);
@@ -64,8 +63,7 @@ namespace SqlLinqer.Queries.Typed
         public async Task<SqlResponse<int>> ExecuteAsync(BaseConnector connector, DbTransaction existingTransaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
 
             var rendered = this.Render(connector);
             var response = await connector.ExecuteNonQueryAsync(rendered, existingTransaction, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);

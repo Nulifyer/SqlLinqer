@@ -30,8 +30,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<DataTable> ExecuteWithOutput(BaseConnector connector, DbTransaction transaction = null, TimeSpan? commandTimeout = null)
         {
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
             var rendered = this.Render(connector);
             return connector.ExecuteReaderDataTable(rendered, transaction, commandTimeout: commandTimeout);
         }
@@ -46,8 +45,7 @@ namespace SqlLinqer.Queries.Typed
         /// <returns>The result of the query in a state based wrapper including the affected primary keys.</returns>
         protected SqlResponse<int> ExecuteAndCapturePrimaryKeys(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null, TimeSpan? commandTimeout = null)
         {
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
             return WriteExecution.Execute(Render(connector), connector, existingTransaction, primaryKeys, commandTimeout: commandTimeout);
         }
 
@@ -76,8 +74,7 @@ namespace SqlLinqer.Queries.Typed
         public async Task<SqlResponse<DataTable>> ExecuteWithOutputAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
             var rendered = this.Render(connector);
             return await connector.ExecuteReaderDataTableAsync(rendered, transaction, cancellationToken: cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
         }
@@ -94,8 +91,7 @@ namespace SqlLinqer.Queries.Typed
         protected async Task<SqlResponse<int>> ExecuteAndCapturePrimaryKeysAsync(BaseConnector connector, DbTransaction existingTransaction = null, List<object> primaryKeys = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
             return await WriteExecution.ExecuteAsync(Render(connector), connector, existingTransaction, primaryKeys, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
         }
 
@@ -107,8 +103,7 @@ namespace SqlLinqer.Queries.Typed
         /// <inheritdoc/>
         public SqlResponse<List<TRow>> ExecuteWithOutput<TRow>(BaseConnector connector, DbTransaction transaction = null, TimeSpan? commandTimeout = null)
         {
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
             WriteExecution.ValidateTypedOutput<TRow>(Outputs);
             var rendered = this.Render(connector);
             return connector.ExecuteReaderList<TRow>(rendered, transaction, commandTimeout: commandTimeout);
@@ -125,8 +120,7 @@ namespace SqlLinqer.Queries.Typed
         public async Task<SqlResponse<List<TRow>>> ExecuteWithOutputAsync<TRow>(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
             WriteExecution.ValidateTypedOutput<TRow>(Outputs);
             var rendered = this.Render(connector);
             return await connector.ExecuteReaderListAsync<TRow>(rendered, transaction, cancellationToken, commandTimeout).ConfigureAwait(false);

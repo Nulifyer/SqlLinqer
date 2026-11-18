@@ -67,8 +67,7 @@ namespace SqlLinqer.Queries.Typed
         /// <returns>A valid true result for an existing key, valid false when absent, or an error response.</returns>
         public SqlResponse<bool> Execute(BaseConnector connector, DbTransaction transaction = null, TimeSpan? commandTimeout = null)
         {
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
 
             // The same existence check a filtered select runs. It reads without an owned transaction.
             return SqlLinqer.Queries.Execution.SelectExecution.ExecuteExists(this, connector, transaction, commandTimeout: commandTimeout);

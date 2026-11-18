@@ -55,29 +55,22 @@ namespace SqlLinqer.Connections
             {
                 var response = ExecuteCommand(query, () =>
                 {
-                    // Type and lease management passes independent to stay off a session connection.
-                    bool ownsConnection = independent;
-                    var connection = independent ? CreateConnection()
-                        : ResolveConnection(existingTransaction, out ownsConnection);
-                    DbTransaction ownedTransaction = null;
+                    ExecutionScope scope = null;
                     T materialized = default;
                     bool hasResult = false;
 
                     try
                     {
-                        if (connection.State != ConnectionState.Open)
-                            connection.Open();
-
-                        using (var command = connection.CreateCommand())
+                        scope = ExecutionScope.Open(this, existingTransaction, independent);
+                        using (var command = scope.Connection.CreateCommand())
                         {
                             ImportFromTempQueryData(command, query);
                             PreProcessCommand(command, timeout);
 
                             // An owned transaction opens on a pooled connection and on a session connection alike.
-                            if (transactional && existingTransaction == null)
-                                ownedTransaction = connection.BeginTransaction(OwnedIsolationLevel);
+                            if (transactional) scope.BeginOwnedTransaction(OwnedIsolationLevel);
 
-                            command.Transaction = existingTransaction ?? ownedTransaction;
+                            command.Transaction = scope.Transaction;
                             T result;
                             if (DbFlavor == DbFlavor.DuckDb || Options.CancelCommand != null)
                             {
@@ -87,7 +80,7 @@ namespace SqlLinqer.Connections
                             else result = action(command, observation);
                             materialized = result;
                             hasResult = true;
-                            ownedTransaction?.Commit();
+                            scope.Commit();
                             return new SqlResponse<T>(result);
                         }
                     }
@@ -99,21 +92,12 @@ namespace SqlLinqer.Connections
                             try { (materialized as IDisposable)?.Dispose(); }
                             catch { }
                         }
-                        if (ownedTransaction != null)
-                        {
-                            // A failed rollback must not hide the original query error.
-                            try { ownedTransaction.Rollback(); }
-                            catch { }
-                        }
+                        scope?.Rollback();
                         throw;
                     }
                     finally
                     {
-                        try
-                        {
-                            try { ownedTransaction?.Dispose(); }
-                            finally { if (ownsConnection) connection.Dispose(); }
-                        }
+                        try { scope?.Dispose(); }
                         catch
                         {
                             if (hasResult)
@@ -245,25 +229,19 @@ namespace SqlLinqer.Connections
             return ExecuteCommandAsync(query, async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                bool ownsConnection = independent;
-                var connection = independent ? CreateConnection()
-                    : ResolveConnection(existingTransaction, out ownsConnection);
-                DbTransaction ownedTransaction = null;
+                ExecutionScope scope = null;
                 T materialized = default;
                 bool hasResult = false;
                 try
                 {
-                    if (connection.State != ConnectionState.Open)
-                        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                    scope = await ExecutionScope.OpenAsync(this, existingTransaction, cancellationToken, independent).ConfigureAwait(false);
                     cancellationToken.ThrowIfCancellationRequested();
-                    using (var command = connection.CreateCommand())
+                    using (var command = scope.Connection.CreateCommand())
                     {
                         ImportFromTempQueryData(command, query);
                         PreProcessCommand(command, timeout);
-                        // netstandard2.0 has no asynchronous transaction lifecycle contract.
-                        if (transactional && existingTransaction == null)
-                            ownedTransaction = connection.BeginTransaction(OwnedIsolationLevel);
-                        command.Transaction = existingTransaction ?? ownedTransaction;
+                        if (transactional) scope.BeginOwnedTransaction(OwnedIsolationLevel);
+                        command.Transaction = scope.Transaction;
                         T result;
                         if (DbFlavor == DbFlavor.DuckDb || Options.CancelCommand != null)
                         {
@@ -274,7 +252,7 @@ namespace SqlLinqer.Connections
                         materialized = result;
                         hasResult = true;
                         cancellationToken.ThrowIfCancellationRequested();
-                        ownedTransaction?.Commit();
+                        scope.Commit();
                         return new SqlResponse<T>(result);
                     }
                 }
@@ -286,20 +264,12 @@ namespace SqlLinqer.Connections
                         try { (materialized as IDisposable)?.Dispose(); }
                         catch { }
                     }
-                    if (ownedTransaction != null)
-                    {
-                        try { ownedTransaction.Rollback(); }
-                        catch { }
-                    }
+                    scope?.Rollback();
                     throw;
                 }
                 finally
                 {
-                    try
-                    {
-                        try { ownedTransaction?.Dispose(); }
-                        finally { if (ownsConnection) connection.Dispose(); }
-                    }
+                    try { scope?.Dispose(); }
                     catch
                     {
                         if (hasResult)

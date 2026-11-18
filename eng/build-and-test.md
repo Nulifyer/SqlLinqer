@@ -65,6 +65,7 @@ Model and projection selects use the same count and streaming decisions. Insert 
 
 `Queries/Raw` holds the `BeginSql` builder. `Compilation/SqlMarkers.cs` finds its `@name` markers.
 `BaseConnector.ResolveConnection` chooses the connection for every execution: a supplied transaction's connection, the connection of a `SessionConnector`, or a new one.
+`Connections/ExecutionScope.cs` owns the connection and the owned transaction of one execution. A single command, the batches of one insert, a table-valued insert, and a stream all open one scope, so ownership, commit, rollback, and disposal have one implementation.
 Table type and lease management pass `independent` to stay on their own connections.
 `RenderedQuery.Transactional` decides whether execution opens an owned transaction. The compiler sets it for a write and clears it for a read. A hand-rendered command leaves it null, and the terminal decides.
 `SqlDialect.Value` is the single place a value becomes SQL: a server value such as `SqlTime.NOW` renders an expression, and any other value binds a parameter. Filters, updates, inserted rows, and conflict updates all call it.

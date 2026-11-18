@@ -14,7 +14,7 @@ namespace SqlLinqer.Queries.Execution
     {
         internal static SqlResponse<List<T>> Execute<T>(Core.SelectQuery query, BaseConnector connector, DbTransaction transaction, TimeSpan? commandTimeout = null) where T : class
         {
-            if (connector == null) throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
             return connector.ExecuteReaderModel<T>(query.Capture().RenderForExecution<T>(connector), transaction, commandTimeout);
         }
 
@@ -22,7 +22,7 @@ namespace SqlLinqer.Queries.Execution
             DbTransaction transaction, CancellationToken cancellationToken, TimeSpan? commandTimeout = null) where T : class
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (connector == null) throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
             return await connector.ExecuteReaderModelAsync<T>(query.Capture().RenderForExecution<T>(connector), transaction, cancellationToken, commandTimeout).ConfigureAwait(false);
         }
 
@@ -69,7 +69,7 @@ namespace SqlLinqer.Queries.Execution
 
         internal static SqlResponse<bool> ExecuteExists(Core.SelectQuery query, BaseConnector connector, DbTransaction transaction, TimeSpan? commandTimeout = null)
         {
-            if (connector == null) throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
             return ToExists(connector.ExecuteScalar<int>(query.Capture().RenderForExists(connector.DbFlavor), transaction, commandTimeout: commandTimeout));
         }
 
@@ -77,7 +77,7 @@ namespace SqlLinqer.Queries.Execution
             DbTransaction transaction, CancellationToken cancellationToken, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (connector == null) throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
             return ToExists(await connector.ExecuteScalarAsync<int>(query.Capture().RenderForExists(connector.DbFlavor), transaction,
                 cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false));
         }

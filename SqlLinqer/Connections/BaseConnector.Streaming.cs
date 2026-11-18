@@ -121,12 +121,10 @@ namespace SqlLinqer.Connections
             [EnumeratorCancellation] CancellationToken cancellationToken, TimeSpan? commandTimeout = null, ExecutionObservation observation = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var connection = ResolveConnection(transaction, out bool ownsConnection);
+            var scope = await ExecutionScope.OpenAsync(this, transaction, cancellationToken).ConfigureAwait(false);
             try
             {
-                if (connection.State != ConnectionState.Open)
-                    await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-                using (var command = connection.CreateCommand())
+                using (var command = scope.Connection.CreateCommand())
                 {
                     ImportFromTempQueryData(command, query);
                     var timeout = commandTimeout.Value;
@@ -145,7 +143,7 @@ namespace SqlLinqer.Connections
                     await foreach (var row in sequence.ConfigureAwait(false)) yield return row;
                 }
             }
-            finally { if (ownsConnection) connection.Dispose(); }
+            finally { scope.Dispose(); }
         }
 
         private async IAsyncEnumerable<T> ReadCommandStream<T>(DbCommand command, StreamRows<T> mapRows, CommandBehavior behavior,

@@ -43,8 +43,7 @@ namespace SqlLinqer.Queries.Typed
         public async Task<SqlResponse<bool>> ExecuteAsync(BaseConnector connector, DbTransaction transaction = null, CancellationToken cancellationToken = default, TimeSpan? commandTimeout = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (connector == null)
-                throw new ArgumentNullException(nameof(connector), "Either pass a connector or set the default connector.");
+            SqlLinqer.Connections.BaseConnector.Require(connector);
 
             return await SqlLinqer.Queries.Execution.SelectExecution.ExecuteExistsAsync(this, connector, transaction, cancellationToken, commandTimeout: commandTimeout).ConfigureAwait(false);
         }
