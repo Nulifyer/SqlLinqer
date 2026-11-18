@@ -25,6 +25,13 @@ namespace SqlLinqer.Components.Ordering
         /// <summary>Renders this component for the selected database dialect.</summary>
         public string Render(SelectQuery query, ParameterCollection parameters, DbFlavor flavor)
         {
+            // A filtering subselect drops order-only columns from its select list, so it orders by the source column.
+            if (query.IsPredicateSubQuery && query.Selects.TryGet(Column.Alias) == null)
+            {
+                query.Joins.AddTable(Column.Table);
+                return $"{Column.Render(flavor)} {Dir.GetDescription()}";
+            }
+
             switch (flavor)
             {
                 case DbFlavor.Sqlite:

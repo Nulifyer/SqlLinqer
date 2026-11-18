@@ -189,13 +189,13 @@ namespace SqlLinqer.Components.Where
                         || (Operator == SqlOp.NOT && SubQueryOp == SqlSubQueryOp.ALL)))
                         throw new NotSupportedException("SQLite quantified subqueries support only IN and NOT IN.");
                     subquery.DisableWiths();
+                    subquery.IsPredicateSubQuery = true;
                     builder.Append($"{columnTarget} {(Operator == SqlOp.EQ ? "IN" : "NOT IN")} ({subquery.RenderRows(parameters, flavor)})");
                     return;
                 }
                 subquery.DisableWiths();
+                subquery.IsPredicateSubQuery = true;
                 string rendered = subquery.RenderRows(parameters, flavor);
-
-
 
                 builder.Append($"{Column.Render(flavor)} {Operator.GetOpString(flavor)} {SubQueryOp.GetDescription()} ({rendered})");
                 return;

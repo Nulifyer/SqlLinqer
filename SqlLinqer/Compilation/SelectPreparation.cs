@@ -28,6 +28,9 @@ namespace SqlLinqer.Compilation
                     query.OrderBys.AddStatement(new ProjectionOrderBy(query.Selects.GetAll().First().Alias));
             }
 
+            if (query.IsPredicateSubQuery)
+                RemoveOrderOnlySelections(query);
+
             // Resolve every expression that can discover joins or CTEs before assembling
             // WITH and FROM. These mutations affect only this compilation's graph.
             string where = query.RootWhere.Render(query, parameters, flavor);
@@ -56,6 +59,17 @@ namespace SqlLinqer.Compilation
             }
             return new PreparedSelect(with, select, from, where, group, order, query.Distinct,
                 query.PagingControls.Top, query.PagingControls.Limit, query.PagingControls.Offset, rowLock);
+        }
+
+        // Ordering by an unselected column adds that column to the select list under a generated alias.
+        // A subselect compared with a column may return only one column, so it orders by the source column instead.
+        private static void RemoveOrderOnlySelections(SelectQuery query)
+        {
+            var selections = query.Selects.GetAll().ToList();
+            var kept = selections.Where(x => !(x is SelectColumn column && column.Alias == column.Column.UUID)).ToList();
+            if (kept.Count == selections.Count || kept.Count == 0) return;
+            query.Selects.Clear();
+            foreach (var selection in kept) query.Selects.AddStatement(selection);
         }
 
         // Answers whether any row matches the query's filters. Selection, ordering, paging, and row locks do not apply.

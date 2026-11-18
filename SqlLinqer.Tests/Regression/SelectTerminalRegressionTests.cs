@@ -79,6 +79,20 @@ internal static class SelectTerminalRegressionTests
                 Check(columns.Contains(" ILIKE ") == ilike && columns.Contains("LIKE"), columns);
                 Check(!equal.Contains("LIKE"), "Another operator changed");
             });
+        foreach (var flavor in Enum.GetValues<DbFlavor>())
+            test($"a filtering subselect omits an order-only column for {flavor}", () =>
+            {
+                SelectQuery<Job> Ordered() => new SelectQuery<Job>().Select(x => x.Id).Where(x => x.State, "queued", SqlOp.EQ)
+                    .OrderBy(x => x.Created, SqlDir.ASC).ThenBy(x => x.Id, SqlDir.ASC).Top(1);
+                string sql = Clean(new SelectQuery<Job>().Select(x => x.Id).Where(x => x.Id, Ordered(), SqlArrayOp.IN).Render(flavor).Text);
+                string inner = sql.Substring(sql.IndexOf("WHERE", StringComparison.Ordinal));
+                var list = Regex.Match(inner, @"SELECT (?:TOP 1 )?(?<list>.*?) FROM ");
+                Check(list.Success && !list.Groups["list"].Value.Contains(','), "The subselect returns more than one column: " + sql);
+                Check(Regex.IsMatch(inner, @"ORDER BY [^)]*created[^)]* ASC,"), "The subselect lost its ordering column: " + sql);
+                // A select executed on its own keeps its hidden ordering column.
+                string alone = Clean(Ordered().Render(flavor).Text);
+                Check(Regex.Match(alone, @"SELECT (?:TOP 1 )?(?<list>.*?) FROM ").Groups["list"].Value.Contains(','), "A standalone select changed: " + alone);
+            });
         test("row locks are rejected where they cannot apply", () =>
         {
             Throws<NotSupportedException>(() => Next(SqlRowLock.WAIT).Render(DbFlavor.Sqlite));

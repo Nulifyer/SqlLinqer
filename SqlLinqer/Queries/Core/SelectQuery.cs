@@ -42,6 +42,8 @@ namespace SqlLinqer.Queries.Core
         protected internal PagingControls PagingControls;
         /// <summary>The row lock taken on the root table's selected rows, or null for an ordinary read.</summary>
         protected internal SqlRowLock? RowLock;
+        // Set while this select renders as the right side of a comparison, where it may return only one column.
+        internal bool IsPredicateSubQuery;
 
         /// <summary>
         /// A SELECT query. Based around a root <see cref="Table"/>.

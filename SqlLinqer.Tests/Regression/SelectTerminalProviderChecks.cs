@@ -15,6 +15,7 @@ internal static class SelectTerminalProviderChecks
             test($"select: exists follows the filter and the caller transaction, async={asynchronous}", () => Exists(db, asynchronous).GetAwaiter().GetResult());
         test("select: row locks skip, fail fast, and claim queued rows", () => RowLocks(db));
         test("select: LIKE and NOT LIKE ignore case", () => LikeIgnoresCase(db));
+        test("select: a filtering subselect may order by a column it does not select", () => SubselectOrdering(db));
     }
 
     private static string TableName(BaseConnector db)
@@ -23,7 +24,7 @@ internal static class SelectTerminalProviderChecks
     private static void Create(BaseConnector db)
     {
         string Q(string value) => value.DbWrap(db.DbFlavor);
-        db.BeginSql($"CREATE TABLE {TableName(db)} ({Q("id")} INTEGER PRIMARY KEY, {Q("state")} VARCHAR(16) NOT NULL, {Q("owner")} VARCHAR(16) NULL, {Q("parent_id")} INTEGER NULL)").Execute().EnsureSuccess();
+        db.BeginSql($"CREATE TABLE {TableName(db)} ({Q("id")} INTEGER PRIMARY KEY, {Q("state")} VARCHAR(16) NOT NULL, {Q("owner")} VARCHAR(16) NULL, {Q("parent_id")} INTEGER NULL, {Q("created")} {(db.DbFlavor is DbFlavor.SqlServer or DbFlavor.AzureSql ? "DATETIME2" : "TIMESTAMP")} NULL)").Execute().EnsureSuccess();
         db.BeginInsert<Job>().InsertAuto(new[]
         {
             new Job { Id = 1, State = "queued" }, new Job { Id = 2, State = "queued", ParentId = 3 }, new Job { Id = 3, State = "done", Owner = "ada" },
@@ -52,6 +53,23 @@ internal static class SelectTerminalProviderChecks
             Check(await Any(db.BeginSelect<Job>().Where(x => x.Owner, "bob", SqlOp.EQ), transaction), "The check did not run inside the caller transaction");
             transaction.Rollback();
             Check(!await Any(db.BeginSelect<Job>().Where(x => x.Owner, "bob", SqlOp.EQ)), "The caller transaction was committed");
+        }
+        finally { Drop(db); }
+    }
+
+    private static void SubselectOrdering(BaseConnector db)
+    {
+        try
+        {
+            Create(db);
+            // Ordering by State must not add State to the subselect, which may return only one column.
+            var newestQueued = new SelectQuery<Job>(db.Options.DefaultSchema).Select(x => x.Id).Where(x => x.State, "queued", SqlOp.EQ)
+                .OrderBy(x => x.State, SqlDir.ASC).ThenBy(x => x.Id, SqlDir.DESC);
+            // MySQL does not accept LIMIT in a quantified subselect, so its subselect keeps both queued rows.
+            if (db.DbFlavor != DbFlavor.MySql) newestQueued.Top(1);
+            var ids = db.BeginSelect<Job>().Select(x => x.Id).Where(x => x.Id, newestQueued, SqlArrayOp.IN).OrderBy(x => x.Id, SqlDir.ASC)
+                .Execute().GetResultOrThrow().Select(x => x.Id).ToList();
+            Check(ids.SequenceEqual(db.DbFlavor == DbFlavor.MySql ? new[] { 1, 2 } : new[] { 2 }), "The subselect did not filter by its ordered, limited keys: " + string.Join(",", ids));
         }
         finally { Drop(db); }
     }
@@ -148,6 +166,7 @@ internal static class SelectTerminalProviderChecks
         [SqlColumn("state")] public string State { get; set; }
         [SqlColumn("owner")] public string Owner { get; set; }
         [SqlColumn("parent_id")] public int? ParentId { get; set; }
+        [SqlColumn("created"), SqlAutoInsertExclude, SqlAutoSelectExclude] public DateTime? Created { get; set; }
         [SqlOneToOne(nameof(ParentId)), SqlAutoSelectExclude] public Job Parent { get; set; }
     }
 }

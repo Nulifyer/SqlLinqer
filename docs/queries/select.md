@@ -381,5 +381,7 @@ var claimedId = claimed.TouchedPrimaryKeys.SingleOrDefault();
 Two workers that run this at the same time claim different rows. A worker that finds no free row updates nothing.
 Import `SqlLinqer.Queries.Typed` for `SelectQuery<T>`.
 
+The subselect returns one column, the key. It can order by a column that it does not select, such as `CreatedUtc` above.
+
 MySQL cannot update a table that the same statement selects from in a subquery.
 On MySQL, run the locking select and then update the returned key, both in one transaction.
