@@ -309,7 +309,10 @@ namespace SqlLinqer.Components.Where
                     builder.Append($"({group.Render(parameters, flavor)})");
                     return;
                 default:
-                    string placeholder = parameters.AddParameter(hanldedValue);
+                    // The server's clock renders as an expression, so no application time is bound.
+                    string placeholder = hanldedValue is SqlServerTime
+                        ? SqlLinqer.Components.Update.ServerTimeOperation.Expression(flavor, Column)
+                        : parameters.AddParameter(hanldedValue);
                     builder.Append($"{Column.Render(flavor)} {Operator.GetOpString(flavor)} {placeholder}");
                     if ((flavor == DbFlavor.Sqlite || flavor == DbFlavor.DuckDb) && (Operator == SqlOp.LIKE || Operator == SqlOp.NOTLIKE))
                         builder.Append(" ESCAPE '\\'");

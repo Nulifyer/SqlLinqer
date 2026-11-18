@@ -135,6 +135,8 @@ namespace SqlLinqer.Queries.Core
                 throw new System.NotSupportedException("Table-valued parameters are supported only for SQL Server.");
             if (Conflict != null)
                 throw new System.NotSupportedException("An insert with a conflict action does not support table-valued parameter execution. Use Execute.");
+            if (Inserts.HasServerTimeColumns)
+                throw new System.NotSupportedException("An insert that assigns the server time does not support table-valued parameter execution. Use Execute.");
 
             string tempTypeId = existingTypeName ??
                 (schema != null ? $"{schema.DbWrap(flavor)}." : null)

@@ -77,6 +77,18 @@ namespace SqlLinqer.Queries.TypedExt
             return this;
         }
         /// <inheritdoc/>
+        public new DeleteWithPrimaryKeyQuery<T, TPk> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlServerTime value, SqlOp op)
+        {
+            RootWhere.Where<TProperty>(expression, value, op, SqlSubQueryOp.ANY);
+            return this;
+        }
+        /// <inheritdoc/>
+        public new DeleteWithPrimaryKeyQuery<T, TPk> Where<TProperty>(Expression<Func<T, TProperty>> expression, SqlServerTime value, SqlOp op, SqlSubQueryOp sub_op)
+        {
+            RootWhere.Where<TProperty>(expression, value, op, sub_op);
+            return this;
+        }
+        /// <inheritdoc/>
         public new DeleteWithPrimaryKeyQuery<T, TPk> Where<TProperty>(Expression<Func<T, TProperty>> expression, TProperty value, SqlOp op)
         {
             RootWhere.Where<TProperty>(expression, value, op, SqlSubQueryOp.ANY);

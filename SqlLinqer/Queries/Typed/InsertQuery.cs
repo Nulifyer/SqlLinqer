@@ -76,6 +76,16 @@ namespace SqlLinqer.Queries.Typed
             return this;
         }
 
+        /// <inheritdoc/>
+        public InsertQuery<T> InsertServerTime(params Expression<Func<T, object>>[] members)
+        {
+            if (members == null) throw new ArgumentNullException(nameof(members));
+            foreach (var member in members)
+                Inserts.AddServerTimeColumn(FindRootColumn(member) as ReflectedColumn
+                    ?? throw new FormatException($"Expression '{member}' does not target a mapped member."));
+            return this;
+        }
+
         private Column FindRootColumn(Expression expression)
         {
             var path = expression.GetMemberPath();

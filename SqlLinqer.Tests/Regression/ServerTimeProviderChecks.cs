@@ -60,6 +60,38 @@ internal static class ServerTimeProviderChecks
             db.BeginInsert<Row>().InsertAuto(new Row { Id = 1 }).OnConflict(x => x.Id).OnConflictUpdate(x => x.Touched, new ServerTimeOperation())
                 .Execute().EnsureSuccess();
             Near(Utc(Read().Touched.Value), "A conflict update did not assign the server time");
+
+            // An insert assigns the server time to the named columns of every row, whatever the rows hold.
+            var stale = new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var insert = db.BeginInsert<Row>().InsertAuto(new[] { new Row { Id = 2, Touched = stale }, new Row { Id = 3 } }).InsertServerTime(x => x.Touched);
+            Check((asynchronous ? await insert.ExecuteAsync() : insert.Execute()).GetResultOrThrow() == 2, "An insert with a server time did not insert its rows");
+            var inserted = db.BeginSelect<Row>().SelectRootColumns().Where(x => x.Id, 1, SqlOp.GT).Execute().GetResultOrThrow();
+            Check(inserted.Count == 2, "Inserted rows are missing");
+            foreach (var row in inserted) Near(Utc(row.Touched.Value), "An insert did not assign the server time");
+
+            // A conflict update can copy the inserted server time, and a new row keeps it.
+            db.BeginUpdate<Row>().Update(x => x.Touched, (DateTime?)null).Where(x => x.Id, 2, SqlOp.EQ).Execute().EnsureSuccess();
+            db.BeginInsert<Row>().InsertAuto(new[] { new Row { Id = 2 }, new Row { Id = 4 } }).InsertServerTime(x => x.Touched)
+                .OnConflict(x => x.Id).OnConflictUpdate(x => x.Touched).Execute().EnsureSuccess();
+            foreach (int id in new[] { 2, 4 })
+                Near(Utc(db.BeginSelect<Row>().SelectRootColumns().Where(x => x.Id, id, SqlOp.EQ).Execute().GetResultOrThrow().Single().Touched.Value),
+                    "An upsert did not assign the inserted server time");
+
+            // A filter compares a column with the server's clock, without binding an application time.
+            db.BeginInsert<Row>().InsertAuto(new[]
+            {
+                new Row { Id = 10, Touched = reference.AddHours(-2) }, new Row { Id = 11, Touched = reference.AddHours(2) }, new Row { Id = 12 },
+            }).Execute().EnsureSuccess();
+            List<int> Ids(SqlOp op) => db.BeginSelect<Row>().Select(x => x.Id).Where(x => x.Id, 10, SqlOp.GTE).Where(x => x.Touched, SqlServerTime.NOW, op)
+                .OrderBy(x => x.Id, SqlDir.ASC).Execute().GetResultOrThrow().Select(x => x.Id).ToList();
+            Check(Ids(SqlOp.LT).SequenceEqual(new[] { 10 }) && Ids(SqlOp.GT).SequenceEqual(new[] { 11 }),
+                $"A comparison with the server time changed: before {string.Join(",", Ids(SqlOp.LT))}, after {string.Join(",", Ids(SqlOp.GT))}");
+            var due = db.BeginSelect<Row>().Select(x => x.Id).Where(x => x.Id, 10, SqlOp.GTE).Where(x => x.Touched, SqlServerTime.NOW, SqlOp.LTE);
+            Check(due.Render(db).Parameters.Count == 1, "A server-time comparison bound an application value");
+            Check(db.BeginUpdate<Row>().Update(x => x.Touched, new ServerTimeOperation()).Where(x => x.Touched, SqlServerTime.NOW, SqlOp.GT).Execute().GetResultOrThrow() == 1,
+                "An update filtered by the server time did not change the one future row");
+            Check(db.BeginDelete<Row>().Where(x => x.Id, 10, SqlOp.GTE).Where(x => x.Touched, SqlServerTime.NOW, SqlOp.LTE).Execute().GetResultOrThrow() == 2,
+                "A delete filtered by the server time did not remove the two past rows");
         }
         finally { db.BeginSql($"DROP TABLE IF EXISTS {table}").Execute(); }
     }

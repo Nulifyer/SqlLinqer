@@ -275,6 +275,22 @@ The whole-word operators follow the same case handling as `LIKE`.
 
 A letter or digit here means an ASCII letter or digit. An underscore counts as part of a word.
 
+## Compare with the server's time
+
+Pass `SqlServerTime.NOW` in place of a value to compare a column with the database server's clock.
+No application time is sent:
+
+```csharp
+var due = connector.BeginSelect<TranslationBatch>()
+    .SelectRootColumns()
+    .Where(x => x.RetryAfterUtc, SqlServerTime.NOW, SqlOp.LTE)
+    .Execute()
+    .GetResultOrThrow();
+```
+
+The same filter works in an update, a delete, and an aggregate filter.
+The time is the one that [`ServerTimeOperation`](update.md#set-a-column-to-the-server-time) assigns, so the two compare correctly on every database.
+
 ## Group conditions
 
 Use `NewWhere` to group name and email matches with OR. The manager filter applies to the entire group.

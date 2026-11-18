@@ -80,6 +80,22 @@ var instanceResponse = anotherUser
     .Execute();
 ```
 
+## Insert the server's time
+
+`InsertServerTime` writes the database server's current time into a column of every row.
+The rows' own values for that column are not sent:
+
+```csharp
+var response = connector.BeginInsert<DocumentLease>()
+    .InsertAuto(leases)
+    .InsertServerTime(x => x.GrantedUtc)
+    .Execute(transaction);
+```
+
+Name several members to assign several columns. A named column is inserted even when automatic insertion excludes it.
+The time is the one that [`ServerTimeOperation`](update.md#set-a-column-to-the-server-time) assigns in an update.
+`ExecuteTvp` does not support `InsertServerTime`. Use `Execute`.
+
 ## Update a row that already exists
 
 `OnConflict` names the unique key that identifies an existing row. Follow it with the action to take.
@@ -159,7 +175,8 @@ Insert batching applies as usual. Each batch is one statement.
 Values that the conflict action binds are sent with every batch and count toward the parameter limit, so a batch holds slightly fewer rows.
 
 A conflict action runs only for a row that already exists. `OnConflictUpdate(x => x.UpdatedUtc, new ServerTimeOperation())` sets the server time on an updated row.
-A newly inserted row keeps the value your application supplied.
+A newly inserted row keeps the value your application supplied, unless [`InsertServerTime`](#insert-the-servers-time) names the column.
+With `InsertServerTime(x => x.UpdatedUtc)` and `OnConflictUpdate(x => x.UpdatedUtc)`, an inserted row and an updated row both receive the server time.
 `ExecuteTvp` does not support a conflict action. Use `Execute`.
 
 ## Use a table-valued parameter

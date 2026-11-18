@@ -191,6 +191,20 @@ namespace SqlLinqer.Queries.Typed
         }
 
         /// <inheritdoc/>
+        public SelectAnonymousQuery<TBase, TReturn> Where<TProperty>(Expression<Func<TBase, TProperty>> expression, SqlServerTime value, SqlOp op)
+        {
+            RootWhere.Where<TProperty>(expression, value, op, SqlSubQueryOp.ANY);
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public SelectAnonymousQuery<TBase, TReturn> Where<TProperty>(Expression<Func<TBase, TProperty>> expression, SqlServerTime value, SqlOp op, SqlSubQueryOp sub_op)
+        {
+            RootWhere.Where<TProperty>(expression, value, op, sub_op);
+            return this;
+        }
+
+        /// <inheritdoc/>
         public SelectAnonymousQuery<TBase, TReturn> Where<TProperty>(Expression<Func<TBase, TProperty>> expression, TProperty value, SqlOp op)
         {
             RootWhere.Where<TProperty>(expression, value, op, SqlSubQueryOp.ANY);

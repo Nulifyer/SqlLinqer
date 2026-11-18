@@ -103,6 +103,9 @@ var touchQuery = User.BeginUpdate(connector)
 The operation also works in an [insert conflict update](insert.md#update-a-row-that-already-exists).
 On PostgreSQL and DuckDB the assigned time is the time the transaction started, so every statement in one transaction assigns the same value.
 
+To assign the server time to inserted rows, use [`InsertServerTime`](insert.md#insert-the-servers-time).
+To filter by the server time, pass [`SqlServerTime.NOW`](select.md#compare-with-the-servers-time) to `Where`.
+
 To read the server time, call `GetServerTime` or `GetServerTimeAsync` on the connector:
 
 ```csharp
