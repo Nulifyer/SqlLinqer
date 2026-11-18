@@ -398,6 +398,7 @@ internal static class RegressionSuite
         QueryDistinctChecks.Run(Test);
         MappingOwnershipChecks.Run(Test);
         TvpRegressionTests.Run(Test);
+        TvpRegressionTests.RunErrorSurface(Test);
         ReusableTvpChecks.Run(Test);
         StoredProcedureRegressionTests.Run(Test);
         ReviewRegressionTests.Run(Test);

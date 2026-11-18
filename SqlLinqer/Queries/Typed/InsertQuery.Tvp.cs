@@ -159,8 +159,11 @@ namespace SqlLinqer.Queries.Typed
                 typeCleanupRequired = false;
                 if (existingTransaction == null) transaction.Commit();
             }
-            catch (Exception error)
+            catch (Exception failure)
             {
+                // Report every execution failure as the other write terminals do. Inner commands arrive already wrapped.
+                var error = failure is SqlLinqer.Exceptions.SqlResponseException ? failure
+                    : new SqlLinqer.Exceptions.SqlResponseException(tempQuery, failure);
                 if (reusable != null) connector.InvalidateTvpTypes();
                 if (existingTransaction == null && transaction != null)
                 {
@@ -328,8 +331,11 @@ namespace SqlLinqer.Queries.Typed
                 cancellationToken.ThrowIfCancellationRequested();
                 if (existingTransaction == null) transaction.Commit();
             }
-            catch (Exception error)
+            catch (Exception failure)
             {
+                // Report every execution failure as the other write terminals do. Inner commands arrive already wrapped.
+                var error = failure is SqlLinqer.Exceptions.SqlResponseException ? failure
+                    : new SqlLinqer.Exceptions.SqlResponseException(tempQuery, failure);
                 if (reusable != null) connector.InvalidateTvpTypes();
                 if (existingTransaction == null && transaction != null)
                 {
@@ -347,7 +353,7 @@ namespace SqlLinqer.Queries.Typed
                 }
                 try { (response.Result as IDisposable)?.Dispose(); }
                 catch { }
-                if (error is OperationCanceledException && cancellationToken.IsCancellationRequested) throw;
+                if (failure is OperationCanceledException && cancellationToken.IsCancellationRequested) throw;
                 response.SetError(error);
             }
             finally

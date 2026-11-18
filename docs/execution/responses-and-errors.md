@@ -76,7 +76,7 @@ These include `connection.Open()`, `connection.BeginTransaction()`, `transaction
 `connector.OpenConnection()` and `OpenConnectionAsync()` also throw the provider's exception, because they return the connection itself and not a response.
 Catch the provider exception around those calls.
 
-One path differs. `ExecuteTvp` returns the provider's exception unwrapped when it cannot open a connection or prepare its table type.
+A [stream](result-streaming.md) throws `SqlResponseException` during enumeration, because it has no response object.
 
 ## Read selected rows
 

@@ -64,4 +64,23 @@ internal static class TvpRegressionTests
     {
         if (!condition) throw new InvalidOperationException(message);
     }
+
+    // Registered with the TVP failure checks. A table-valued insert reports every execution failure as the other
+    // write terminals do, including failures before the first command runs.
+    internal static void RunErrorSurface(Action<string, Action> test)
+    {
+        foreach (bool asynchronous in new[] { false, true })
+            foreach (string stage in new[] { "open", "commit" })
+                test($"table-valued insert reports a failed {stage} as SqlResponseException, async={asynchronous}", () =>
+                {
+                    var database = new FakeDatabase { FailAt = stage };
+                    var connector = new FakeConnector(database, DbFlavor.SqlServer) { Options = { ReuseTvpTypes = false } };
+                    var query = new InsertQuery<Row>().InsertAuto(new Row { Name = "TVP" });
+                    var response = asynchronous ? query.ExecuteTvpAsync(connector).GetAwaiter().GetResult() : query.ExecuteTvp(connector);
+                    Check(response.State == ResponseState.Error && response.Error is SqlLinqer.Exceptions.SqlResponseException { Query: not null, InnerException: InvalidOperationException },
+                        "A table-valued insert failure was not wrapped: " + response.Error?.GetType());
+                    Check(response.Error.InnerException.Message == stage, "The original failure was lost");
+                    Check(database.Connections.All(x => x.IsDisposed), "An owned connection leaked");
+                });
+    }
 }
