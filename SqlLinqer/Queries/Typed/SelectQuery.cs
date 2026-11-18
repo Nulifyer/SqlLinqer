@@ -78,6 +78,15 @@ namespace SqlLinqer.Queries.Typed
         public SelectQuery<T> ForUpdate(SqlRowLock wait = SqlRowLock.WAIT)
         {
             RowLock = wait;
+            RowLockShared = false;
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public SelectQuery<T> ForShare(SqlRowLock wait = SqlRowLock.WAIT)
+        {
+            RowLock = wait;
+            RowLockShared = true;
             return this;
         }
 

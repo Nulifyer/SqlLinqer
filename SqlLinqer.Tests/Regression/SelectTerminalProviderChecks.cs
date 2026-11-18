@@ -17,6 +17,7 @@ internal static class SelectTerminalProviderChecks
         test("select: LIKE and NOT LIKE ignore case", () => LikeIgnoresCase(db));
         test("select: a filtering subselect may order by a column it does not select", () => SubselectOrdering(db));
         test("select: whole-word matching finds a word at any position", () => WholeWords(db));
+        test("select: shared row locks admit readers and refuse writers", () => SharedLocks(db));
     }
 
     private static string TableName(BaseConnector db)
@@ -113,6 +114,48 @@ internal static class SelectTerminalProviderChecks
             Same(Ids("red.apple", SqlOp.LIKEWORD), new[] { 3 }, "A period in a whole word matched as a wildcard");
             Check(db.BeginUpdate<Job>().Update(x => x.State, "y").Where(x => x.Owner, "red", SqlOp.LIKEWORD).Execute().GetResultOrThrow() == 6,
                 "An update filtered by a whole word changed a different number of rows");
+        }
+        finally { Drop(db); }
+    }
+
+    private static void SharedLocks(BaseConnector db)
+    {
+        SelectQuery<Job> Row(int id) => db.BeginSelect<Job>().SelectRootColumns().Where(x => x.Id, id, SqlOp.EQ);
+        if (db.DbFlavor is DbFlavor.Sqlite or DbFlavor.DuckDb)
+        {
+            try { Row(1).ForShare().Execute(); }
+            catch (NotSupportedException) { return; }
+            throw new Exception("An unsupported shared row lock was not rejected");
+        }
+        try
+        {
+            Create(db);
+            using var firstConnection = db.CreateConnection();
+            using var secondConnection = db.CreateConnection();
+            firstConnection.Open();
+            secondConnection.Open();
+            using var first = firstConnection.BeginTransaction();
+            using var second = secondConnection.BeginTransaction();
+            bool sqlServer = db.DbFlavor is DbFlavor.SqlServer or DbFlavor.AzureSql;
+            Check(Row(1).ForShare().Execute(first).GetResultOrThrow().Single().Id == 1, "A shared lock did not return its row");
+            Check(Row(1).ForShare(SqlRowLock.NOWAIT).Execute(second).GetResultOrThrow().Single().Id == 1, "A second shared lock on the same row was refused");
+            // A shared row cannot be changed by another transaction. SQL Server grants a lock for update beside shared
+            // locks and refuses the write itself, so its check writes with NOWAIT.
+            var write = sqlServer
+                ? db.BeginSql($"UPDATE {TableName(db)} WITH (NOWAIT) SET [owner] = 'writer' WHERE [id] = 1").Execute(second)
+                : (ISqlResponse)Row(1).ForUpdate(SqlRowLock.NOWAIT).Execute(second);
+            Check(write.State == ResponseState.Error, "Another transaction could change, or lock for update, a shared row");
+            second.Rollback();
+            using var third = secondConnection.BeginTransaction();
+            if (!sqlServer)
+                Check(Row(1).ForUpdate(SqlRowLock.SKIPLOCKED).Execute(third).GetResultOrThrow().Count == 0, "A shared row was not skipped by a lock for update");
+            Check(Row(2).ForUpdate(SqlRowLock.NOWAIT).Execute(third).GetResultOrThrow().Count == 1, "A shared lock covered rows it did not select");
+            // A row that another transaction has changed is skipped, or refused, by a shared lock.
+            db.BeginUpdate<Job>().Update(x => x.Owner, "writer").Where(x => x.Id, 2, SqlOp.EQ).Execute(third).EnsureSuccess();
+            Check(Row(2).ForShare(SqlRowLock.SKIPLOCKED).Execute(first).GetResultOrThrow().Count == 0, "A shared lock did not skip a row another transaction changed");
+            Check(Row(2).ForShare(SqlRowLock.NOWAIT).Execute(first).State == ResponseState.Error, "A shared lock did not fail fast on a row another transaction changed");
+            third.Rollback();
+            first.Rollback();
         }
         finally { Drop(db); }
     }

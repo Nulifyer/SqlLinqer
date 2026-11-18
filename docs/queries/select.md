@@ -388,6 +388,32 @@ var next = connector.BeginSelect<TranslationBatch>()
 The lock applies to rows of the root table. When the query joins other tables, PostgreSQL and MySQL render `FOR UPDATE OF` the root table.
 A locking select cannot select relationships or use `Distinct`. Load related rows with a separate query.
 
+### Share rows with other readers
+
+Call `ForShare` in place of `ForUpdate` to take a shared lock.
+Other transactions can still read the rows and share them, but they cannot change or delete them until your transaction ends.
+Use it to keep a parent row in place while you write rows that refer to it:
+
+```csharp
+var owner = connector.BeginSelect<User>()
+    .SelectRootColumns()
+    .Where(x => x.Id, userId, SqlOp.EQ)
+    .ForShare()
+    .Execute(transaction)
+    .GetResultOrThrow();
+```
+
+`ForShare` accepts the same `SqlRowLock` values as `ForUpdate`.
+
+| Database | SQL |
+| --- | --- |
+| PostgreSQL, MySQL | `FOR SHARE`, `FOR SHARE SKIP LOCKED`, `FOR SHARE NOWAIT` |
+| SQL Server, Azure SQL | `WITH (REPEATABLEREAD, ROWLOCK)` table hints, with `READPAST` or `NOWAIT` |
+| SQLite, DuckDB | Not supported. Rendering throws `NotSupportedException`. |
+
+On PostgreSQL and MySQL, `ForUpdate` in another transaction waits for a shared row, or skips or refuses it.
+On SQL Server and Azure SQL, `ForUpdate` in another transaction can lock a shared row. The write itself then waits for the shared lock.
+
 ### Claim the next queued row
 
 On PostgreSQL, SQL Server, and Azure SQL, one update can claim the next row and return its key.

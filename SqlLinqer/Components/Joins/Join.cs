@@ -69,7 +69,8 @@ namespace SqlLinqer.Components.Joins
                 && (flavor == DbFlavor.SqlServer || flavor == DbFlavor.AzureSql))
             {
                 string wait = select.RowLock == SqlRowLock.SKIPLOCKED ? ", READPAST" : select.RowLock == SqlRowLock.NOWAIT ? ", NOWAIT" : null;
-                builder.Append($"WITH (UPDLOCK, ROWLOCK{wait}) ");
+                // REPEATABLEREAD holds shared locks until the transaction ends, without the key-range locks of HOLDLOCK.
+                builder.Append($"WITH ({(select.RowLockShared ? "REPEATABLEREAD" : "UPDLOCK")}, ROWLOCK{wait}) ");
             }
             // if has condition and is not the root table
             if (Condition.Count > 0 && Child.UUID != query.Table.UUID)

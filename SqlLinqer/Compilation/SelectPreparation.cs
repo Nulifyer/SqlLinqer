@@ -55,7 +55,7 @@ namespace SqlLinqer.Compilation
             {
                 if (query.Distinct || !string.IsNullOrEmpty(group) && query.Selects.GetAll().Any(x => !x.DoGroupBy()))
                     throw new System.NotSupportedException("A row lock cannot be combined with DISTINCT or aggregates.");
-                rowLock = dialect.RowLock(query.RowLock.Value, query.Table.Alias.DbWrap(flavor), query.Joins.HasJoinedTables(query.Table));
+                rowLock = dialect.RowLock(query.RowLock.Value, query.RowLockShared, query.Table.Alias.DbWrap(flavor), query.Joins.HasJoinedTables(query.Table));
             }
             return new PreparedSelect(with, select, from, where, group, order, query.Distinct,
                 query.PagingControls.Top, query.PagingControls.Limit, query.PagingControls.Offset, rowLock);
