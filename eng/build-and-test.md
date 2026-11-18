@@ -64,6 +64,8 @@ Independent mapping algorithms and resource owners remain separate types. File l
 Model and projection selects use the same count and streaming decisions. Insert batching keeps its own batch aggregation and transaction lifetime.
 
 `Queries/Raw` holds the `BeginSql` builder. `Compilation/SqlMarkers.cs` finds its `@name` markers, and the connector's internal execution overloads accept a caller-supplied connection.
+`BaseConnector.ResolveConnection` chooses the connection for every execution: a supplied transaction's connection, a supplied connection, the connection of a connector from `OnConnection`, or a new one.
+Table type and lease management pass `independent` to stay on their own connections.
 `Components/Insert/InsertConflict.cs` renders an insert's conflict action for each dialect.
 
 Callable definitions live in `Modeling`. Their internal typed queries capture each call's inputs, `Compilation/CallablePreparation.cs` prepares SQL and parameter bindings, and `BaseConnector.Callable.cs` reads rows and execution metadata.

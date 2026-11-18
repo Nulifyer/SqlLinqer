@@ -21,18 +21,18 @@ Try the [runnable minimal API](../samples/SqlLinqer.MinimalApi/README.md) for co
 ## Queries
 
 - [Select, filter, sort, and page results](queries/select.md), including related models and aggregate reports.
-- [Insert rows](queries/insert.md), read generated IDs, and update a row that already exists.
+- [Insert rows](queries/insert.md), read generated IDs, and update a row that already exists, always or under a condition.
 - [Update rows](queries/update.md) by key or filter.
 - [Delete rows](queries/delete.md) by key or filter.
 - [Change relationships](queries/relationship-changes.md) to assign a manager or grant and remove permissions.
 - [Call stored procedures](queries/stored-procedures.md) with input and output models, totals, and return codes.
-- [Run hand-written SQL](queries/raw-sql.md) with named values, on a pooled connection or one you hold open.
+- [Run hand-written SQL](queries/raw-sql.md) with named values and lists, on a pooled connection or one you hold open. Read rows, several result sets, or a stream.
 - [Inspect SQL and reuse queries](queries/sql-and-query-reuse.md) without changing an existing query definition.
 
 ## Execution and results
 
 - [Execute asynchronously and cancel queries](execution/sync-and-async.md).
-- [Use transactions](execution/transactions.md) when several changes must succeed together.
+- [Use transactions](execution/transactions.md) when several changes must succeed together, or keep several queries on one connection.
 - [Read responses and handle errors](execution/responses-and-errors.md), including totals, affected rows, and generated IDs.
 - [Observe queries with logs and tracing](execution/diagnostics.md), including runtime levels, streaming lifetimes and optional SQL details.
 - [Choose result property types](execution/value-conversions.md) for numbers, dates, nulls, and other database values.

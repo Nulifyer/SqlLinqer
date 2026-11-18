@@ -192,4 +192,5 @@ The default transaction keeps a command that contains several statements atomic.
 ## Errors
 
 A marker mismatch throws before execution. An execution failure returns an error response that contains `SqlResponseException`.
+A stream has no response object, so its failure throws `SqlResponseException` during enumeration.
 See [where errors appear](../execution/responses-and-errors.md#where-errors-appear).

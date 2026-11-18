@@ -4,6 +4,7 @@
 
 Experimental `ExecuteAsyncStream()` lets you process selected rows without loading the complete result list first.
 It supports typed selects and aggregate projections, including their selected relationships.
+[Hand-written SQL](../queries/raw-sql.md#stream-rows) has the same terminal for flat rows.
 Use `Execute()` or `ExecuteAsync()` when you want a complete list in a response object.
 
 These examples use the [sample models](../getting-started/model-mapping.md) and a [configured connector](../getting-started/connections.md).

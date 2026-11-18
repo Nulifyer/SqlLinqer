@@ -66,7 +66,8 @@ var connector = new ConnectionFactoryConnector(
 
 The connector calls the factory as queries execute. File databases persist across those connections.
 A plain `Data Source=:memory:` database belongs to one connection.
-To query it, keep that connection open and pass a transaction from it to every query.
+To query it, keep that connection open and run your queries through [`connector.OnConnection(connection)`](../execution/transactions.md#keep-several-queries-on-one-connection).
+You can also pass a transaction from that connection to every query.
 Use `IsolationLevel.Snapshot` when creating a DuckDB transaction. SqlLinqer uses this isolation level for transactions it creates.
 The application owns the supplied transaction's commit, rollback, and disposal.
 
@@ -119,6 +120,7 @@ SqlLinqer.Default.Connector = connector;
 Return a fresh connection on every factory call. The connector opens and disposes connections it requests.
 Do not return a shared connection or a connection owned by another scope.
 For several operations on a caller-owned connection, supply a transaction from that connection.
+Without a transaction, use [`connector.OnConnection(connection)`](../execution/transactions.md#keep-several-queries-on-one-connection).
 
 Configure provider properties in the factory when connections need authentication callbacks or application-managed credentials:
 

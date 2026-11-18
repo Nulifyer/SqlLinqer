@@ -28,6 +28,7 @@ Both queries target the same row. Execute one of them.
 
 Add a filter before executing a delete. A query without a filter deletes every row in the table.
 `SqlOp.LIKE` [ignores case](select.md#add-optional-search-filters) on every database, so a pattern can match more rows than a case-sensitive match would.
+A filter can also compare a column with the [server's time](select.md#compare-with-the-servers-time).
 
 ```csharp
 var domainQuery = User.BeginDelete(connector)
