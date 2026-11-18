@@ -43,6 +43,18 @@ internal static class CompilationRegressionTests
             Check(snapshot.Render(DbFlavor.PostgreSql).Text == before && before.EndsWith("-- data extension"), "Hook mutated captured state");
             Check(count.Parameters.Count == 1 && snapshot.Render(DbFlavor.PostgreSql).NativePlan != null, "Hook lost parameters or result plan");
         });
+        test("typed SELECT existence hook compiles the check that ExecuteExists runs", () =>
+        {
+            var query = new CompiledSelect().SelectRootColumns().Where(x => x.Name, "name", SqlOp.EQ).Page(1, 2);
+            var snapshot = query.Capture();
+            var exists = snapshot.RenderForExists(DbFlavor.PostgreSql);
+            Check(exists.Text.Contains("EXISTS") && exists.Text.EndsWith("-- exists extension") && exists.Parameters.Count == 1, "The existence hook did not compile the check: " + exists.Text);
+            Check(exists.CommandRole == "Exists" && exists.IsReadOnlySelect, "The existence check lost its role");
+            Check(snapshot.Render(DbFlavor.PostgreSql).Text.EndsWith("-- data extension"), "The existence hook changed captured state");
+            var database = new FakeDatabase { ScalarFactory = () => 1 };
+            Check(query.ExecuteExists(new FakeConnector(database)).GetResultOrThrow() && database.Executed.Single().CommandText.EndsWith("-- exists extension"),
+                "ExecuteExists did not run the hook's command");
+        });
         test("capture freezes model aliases, builder paging, and predicates", () =>
         {
             var table = new Table("app", "original", "u");
@@ -167,6 +179,12 @@ internal static class CompilationRegressionTests
             QueryName = "working state";
             var result = base.CompileSelect(flavor, count);
             result.Text += count ? "-- count extension" : "-- data extension";
+            return result;
+        }
+        protected internal override RenderedQuery CompileExists(DbFlavor flavor)
+        {
+            var result = base.CompileExists(flavor);
+            result.Text += "-- exists extension";
             return result;
         }
     }

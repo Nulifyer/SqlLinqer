@@ -88,7 +88,7 @@ DISTINCT remains a SQL operation on each query node. The projection includes its
 
 There is no graph equality-key payload, retained graph comparison state, captured-node storage, or DISTINCT resource scope. SQLite uses the same prepared local cursors for distinct and ordinary queries, including under `PRAGMA query_only=ON`. Counts execute server COUNT SQL over the unpaged root projection and its required correlation values, without transferring or constructing children.
 
-Typed SELECT extensions use `SelectQuery.CompileSelect(flavor, count)` on a detached working definition. Call `base.CompileSelect` and preserve the result layout when modifying its SQL. The string-only `Render(parameters, flavor)` method does not control typed snapshot execution. Keeping these interfaces separate avoids recursive virtual rendering and ensures count compilation receives the unpaged definition.
+Typed SELECT extensions use `SelectQuery.CompileSelect(flavor, count)` on a detached working definition. Call `base.CompileSelect` and preserve the result layout when modifying its SQL. The string-only `Render(parameters, flavor)` method does not control typed snapshot execution. Keeping these interfaces separate avoids recursive virtual rendering and ensures count compilation receives the unpaged definition. `SelectQuery.CompileExists(flavor)` is the same hook for the command that `ExecuteExists` runs. An override must keep its single result of 1 or 0.
 
 SQL model mappings control database loading.
 For example, `SqlColumn` can name a database column differently from its C# property, while native projection aliases identify the C# result members.

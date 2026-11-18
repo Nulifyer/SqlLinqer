@@ -64,10 +64,7 @@ namespace SqlLinqer.Compilation
         public RenderedQuery RenderForExists(DbFlavor flavor)
         {
             if (!(definition is SelectQuery select)) throw new InvalidOperationException("Only SELECT snapshots have an existence check.");
-            var working = SnapshotGraph.Capture(select);
-            var result = new RenderedQuery { Parameters = new ParameterCollection(flavor), QueryName = working.QueryName, CommandRole = "Exists", IsReadOnlySelect = true };
-            result.Text = SelectPreparation.Exists(working, new RenderContext(result.Parameters, SqlDialect.For(flavor)));
-            return result;
+            return SnapshotGraph.Capture(select).CompileExists(flavor);
         }
 
         internal static RenderedQuery RenderQuery(BaseQuery source, DbFlavor flavor)

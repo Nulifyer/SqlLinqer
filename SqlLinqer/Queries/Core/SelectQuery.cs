@@ -299,6 +299,20 @@ namespace SqlLinqer.Queries.Core
         /// <returns>The complete execution description, including any native result plan.</returns>
         protected internal virtual RenderedQuery CompileSelect(DbFlavor flavor, bool count)
             => NativeSelectCompiler.CompileWorking(this, flavor, count: count);
+
+        /// <summary>
+        /// Compiles a detached SELECT definition into the command that answers whether any row matches its filters.
+        /// Selected fields, ordering, paging, and row locks do not apply. This hook runs on fresh working state, as CompileSelect does.
+        /// An override must keep the single result of 1 or 0.
+        /// </summary>
+        /// <param name="flavor">The target database dialect.</param>
+        /// <returns>The existence check's SQL and bindings.</returns>
+        protected internal virtual RenderedQuery CompileExists(DbFlavor flavor)
+        {
+            var result = new RenderedQuery { Parameters = new ParameterCollection(flavor), QueryName = QueryName, CommandRole = "Exists", IsReadOnlySelect = true };
+            result.Text = SelectPreparation.Exists(this, new RenderContext(result.Parameters, SqlDialect.For(flavor)));
+            return result;
+        }
         /// <summary>
         /// Renders the query into a string.
         /// </summary>
