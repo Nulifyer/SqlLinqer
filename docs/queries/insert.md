@@ -157,6 +157,9 @@ With `OnConflictDoNothing`, a skipped row returns nothing. Except on MySQL, it d
 A batch must not contain two rows with the same key. PostgreSQL and SQL Server reject a statement that would change one row twice.
 Insert batching applies as usual. Each batch is one statement.
 Values that the conflict action binds are sent with every batch and count toward the parameter limit, so a batch holds slightly fewer rows.
+
+A conflict action runs only for a row that already exists. `OnConflictUpdate(x => x.UpdatedUtc, new ServerTimeOperation())` sets the server time on an updated row.
+A newly inserted row keeps the value your application supplied.
 `ExecuteTvp` does not support a conflict action. Use `Execute`.
 
 ## Use a table-valued parameter

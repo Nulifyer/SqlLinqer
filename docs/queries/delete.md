@@ -27,6 +27,7 @@ Both queries target the same row. Execute one of them.
 ## Delete rows that match a filter
 
 Add a filter before executing a delete. A query without a filter deletes every row in the table.
+`SqlOp.LIKE` [ignores case](select.md#add-optional-search-filters) on every database, so a pattern can match more rows than a case-sensitive match would.
 
 ```csharp
 var domainQuery = User.BeginDelete(connector)

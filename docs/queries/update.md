@@ -50,6 +50,7 @@ public string ManagerId { get; set; }
 ## Update rows that match a filter
 
 Add a filter before executing an update. A query without a filter updates every row in the table.
+`SqlOp.LIKE` [ignores case](select.md#add-optional-search-filters) on every database, so a pattern can match more rows than a case-sensitive match would.
 
 ```csharp
 var domainQuery = User.BeginUpdate(connector)
