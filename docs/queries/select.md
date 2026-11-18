@@ -393,4 +393,5 @@ Each evaluation then skips the rows that the statement has already changed and l
 The same rendering applies when a delete or a select filters by a locking subselect.
 
 MySQL cannot update a table that the same statement selects from in a subquery.
+SqlLinqer rejects that update or delete on MySQL with `NotSupportedException` before it sends any SQL.
 On MySQL, run the locking select and then update the returned key, both in one transaction.

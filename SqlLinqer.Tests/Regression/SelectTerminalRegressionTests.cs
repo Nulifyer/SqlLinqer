@@ -89,7 +89,7 @@ internal static class SelectTerminalRegressionTests
             string plain = Clean(new UpdateQuery<Job>().Update(x => x.State, "running")
                 .Where(x => x.Id, new SelectQuery<Job>().Select(x => x.Id).Where(x => x.State, "queued", SqlOp.EQ), SqlArrayOp.IN).Render(DbFlavor.PostgreSql).Text);
             Check(!plain.Contains("ARRAY") && plain.Contains("= ANY ("), "A subselect without a row lock changed: " + plain);
-            foreach (var flavor in new[] { DbFlavor.SqlServer, DbFlavor.AzureSql, DbFlavor.MySql })
+            foreach (var flavor in new[] { DbFlavor.SqlServer, DbFlavor.AzureSql })
                 Check(!Claim(flavor, SqlArrayOp.IN).Contains("ARRAY"), "Another dialect rendered a PostgreSQL array");
         });
         foreach (var flavor in Enum.GetValues<DbFlavor>())
@@ -117,6 +117,14 @@ internal static class SelectTerminalRegressionTests
             // A query resolves its schema at construction, so a detached subselect needs it passed in.
             Check(Regex.Matches(Claim(new SelectQuery<Job>()), "\"tenant\"\\.\"select_jobs\"").Count == 1, "A detached subselect changed its schema rule");
             Check(Regex.Matches(Claim(new SelectQuery<Job>("tenant")), "\"tenant\"\\.\"select_jobs\"").Count == 2, "An explicit schema was not applied");
+        });
+        test("MySQL rejects a write filtered by a locking subselect on its own table", () =>
+        {
+            Throws<NotSupportedException>(() => new UpdateQuery<Job>().Update(x => x.State, "running").Where(x => x.Id, Next(SqlRowLock.SKIPLOCKED), SqlArrayOp.IN).Render(DbFlavor.MySql));
+            Throws<NotSupportedException>(() => new DeleteQuery<Job>().Where(x => x.Id, Next(SqlRowLock.SKIPLOCKED), SqlArrayOp.IN).Render(DbFlavor.MySql));
+            // A select may filter by a locking subselect, and a write may filter by a subselect without a lock.
+            new SelectQuery<Job>().Select(x => x.Id).Where(x => x.Id, new SelectQuery<Job>().Select(x => x.Id).ForUpdate(), SqlArrayOp.IN).Render(DbFlavor.MySql);
+            new UpdateQuery<Job>().Update(x => x.State, "running").Where(x => x.Id, new SelectQuery<Job>().Select(x => x.ParentId), SqlArrayOp.IN).Render(DbFlavor.MySql);
         });
         test("row locks are rejected where they cannot apply", () =>
         {

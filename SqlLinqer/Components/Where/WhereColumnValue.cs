@@ -193,6 +193,12 @@ namespace SqlLinqer.Components.Where
                     builder.Append($"{columnTarget} {(Operator == SqlOp.EQ ? "IN" : "NOT IN")} ({subquery.RenderRows(parameters, flavor)})");
                     return;
                 }
+                // MySQL cannot change a table that the same statement reads in a subselect, and it reports that as a
+                // generic error. Name the two-statement form before any SQL is sent.
+                if (flavor == DbFlavor.MySql && subquery.RowLock.HasValue && query != null && !(query is Queries.Core.SelectQuery)
+                    && subquery.Table.Name == query.Table.Name && subquery.Table.Schema == query.Table.Schema)
+                    throw new NotSupportedException("MySQL cannot update or delete rows of a table that the same statement locks in a subselect. "
+                        + "Run the locking select first, then filter the write by its keys, in one transaction.");
                 subquery.DisableWiths();
                 subquery.IsPredicateSubQuery = true;
                 string rendered = subquery.RenderRows(parameters, flavor);
