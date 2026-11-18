@@ -21,9 +21,13 @@ Write `@name` for every database. SqlLinqer renders the placeholder that the tar
 The values are bound as parameters. They are never concatenated into the SQL text.
 
 A marker and its value match without regard to case. A marker that appears twice binds one parameter.
+A marker name starts with a letter or underscore and continues with letters, digits, and underscores. Letters outside ASCII are allowed.
 SqlLinqer ignores `@` text inside string literals, quoted identifiers, comments, and PostgreSQL dollar-quoted strings.
 
-`Values` also accepts a `Dictionary<string, object>`. Use it when the value names are not known at compile time.
+Each value binds as one parameter. A list is not expanded into several placeholders.
+On PostgreSQL, pass an array and compare with `= ANY(@ids)`. On other databases, write one marker for each value.
+
+`Values` also accepts a dictionary with string keys, such as `Dictionary<string, object>`. Use it when the value names are not known at compile time.
 
 ## Supply one value at a time
 

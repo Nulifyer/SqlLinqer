@@ -41,6 +41,29 @@ internal static class RawSqlRegressionTests
             Check(Text("SELECT 'it\\'s @x' FROM t WHERE id=@id # @y", DbFlavor.MySql) == "SELECT 'it\\'s @x' FROM t WHERE id=@id # @y", "MySQL escapes were misread");
             Check(Text("SELECT `a@b` FROM t WHERE id=@id", DbFlavor.MySql) == "SELECT `a@b` FROM t WHERE id=@id", "Backtick identifier was scanned");
         });
+        test("raw sql: markers after a colon, escape strings, comments, and non-ASCII names", () =>
+        {
+            string Text(string sql, DbFlavor flavor, object values) => new RawQuery(sql, values).Render(flavor).Text;
+            Check(Text("SELECT (ARRAY[1,2,3])[1:@n]", DbFlavor.PostgreSql, new { n = 2 }) == "SELECT (ARRAY[1,2,3])[1:@n]", "A marker after a slice colon was missed");
+            Check(Text("SELECT {'k':@v}", DbFlavor.DuckDb, new { v = 2 }) == "SELECT {'k':$v}", "A marker after a struct colon was missed");
+            Check(Text("SELECT JSON_OBJECT('k':@v)", DbFlavor.SqlServer, new { v = 2 }) == "SELECT JSON_OBJECT('k':@v)", "A marker after a JSON colon was missed");
+            Check(Text("SELECT x::text, @id", DbFlavor.PostgreSql, new { id = 1 }) == "SELECT x::text, @id", "A cast was misread");
+            Check(Text(@"SELECT E'it\'s @x' || @id", DbFlavor.DuckDb, new { id = 1 }) == @"SELECT E'it\'s @x' || $id", "A DuckDB escape string was misread");
+            // MySQL and SQLite end a block comment at the first close; the other databases nest them.
+            foreach (var flavor in new[] { DbFlavor.MySql, DbFlavor.Sqlite })
+                Check(Text("/* a /* b */ SELECT @id", flavor, new { id = 1 }) == "/* a /* b */ SELECT @id", $"A {flavor} comment was treated as nested");
+            foreach (var flavor in new[] { DbFlavor.PostgreSql, DbFlavor.SqlServer, DbFlavor.AzureSql, DbFlavor.DuckDb })
+                Check(new RawQuery("/* a /* @x */ @y */ SELECT @id", new { id = 1 }).Render(flavor).Parameters.Count == 1, $"A nested {flavor} comment was scanned");
+            var named = new RawQuery("SELECT @größe").Value("größe", 2).Render(DbFlavor.SqlServer);
+            Check(named.Text == "SELECT @größe" && named.Parameters.GetAll().Single().Placehodler == "@größe", "A non-ASCII marker name was cut short");
+            Throws<InvalidOperationException>(() => new RawQuery("SELECT @größe", new { gr = 2 }).Render(DbFlavor.SqlServer), "größe");
+        });
+        test("raw sql: values come from any string-keyed dictionary", () =>
+        {
+            Check(new RawQuery("SELECT @a + @b", new Dictionary<string, int> { ["a"] = 1, ["b"] = 2 }).Render(DbFlavor.PostgreSql).Parameters.Count == 2, "A typed dictionary was rejected");
+            Check(new RawQuery("SELECT @a", new System.Collections.Hashtable { ["a"] = "x" }).Render(DbFlavor.PostgreSql).Parameters.Count == 1, "A Hashtable was rejected");
+            Throws<ArgumentException>(() => new RawQuery("SELECT @a", new Dictionary<int, int> { [1] = 1 }), "string");
+        });
         test("raw sql: a marker without a value and a value without a marker are rejected", () =>
         {
             Throws<InvalidOperationException>(() => new RawQuery("SELECT @missing").Render(DbFlavor.PostgreSql), "@missing");

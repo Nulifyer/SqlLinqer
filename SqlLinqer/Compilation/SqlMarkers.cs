@@ -13,6 +13,10 @@ namespace SqlLinqer.Compilation
             bool backslashEscapes = flavor == DbFlavor.MySql;
             bool brackets = flavor == DbFlavor.SqlServer || flavor == DbFlavor.AzureSql || flavor == DbFlavor.Sqlite;
             bool dollarQuotes = flavor == DbFlavor.PostgreSql || flavor == DbFlavor.DuckDb;
+            // PostgreSQL and DuckDB E'...' strings use backslash escapes.
+            bool escapeStrings = flavor == DbFlavor.PostgreSql || flavor == DbFlavor.DuckDb;
+            // MySQL and SQLite end a block comment at the first close. The other databases nest them.
+            bool nestedComments = flavor != DbFlavor.MySql && flavor != DbFlavor.Sqlite;
             var result = new StringBuilder(sql.Length + 16);
             int position = 0;
             while (position < sql.Length)
@@ -22,8 +26,7 @@ namespace SqlLinqer.Compilation
                 int end;
                 if (current == '\'')
                 {
-                    // PostgreSQL E'...' strings use backslash escapes.
-                    bool escapes = backslashEscapes || (flavor == DbFlavor.PostgreSql && position > 0
+                    bool escapes = backslashEscapes || (escapeStrings && position > 0
                         && (sql[position - 1] == 'E' || sql[position - 1] == 'e')
                         && (position == 1 || !IsNamePart(sql[position - 2])));
                     end = Quoted(sql, position, '\'', escapes);
@@ -33,7 +36,7 @@ namespace SqlLinqer.Compilation
                 else if (current == '[' && brackets) end = Quoted(sql, position, ']', false);
                 else if (current == '-' && next == '-') end = LineEnd(sql, position);
                 else if (current == '#' && flavor == DbFlavor.MySql) end = LineEnd(sql, position);
-                else if (current == '/' && next == '*') end = BlockComment(sql, position);
+                else if (current == '/' && next == '*') end = BlockComment(sql, position, nestedComments);
                 else if (current == '$' && dollarQuotes && (position == 0 || !IsNamePart(sql[position - 1]))
                     && DollarQuote(sql, position, out end)) { }
                 else if (current == '@')
@@ -45,7 +48,7 @@ namespace SqlLinqer.Compilation
                         while (end < sql.Length && sql[end] == '@') end++;
                         while (end < sql.Length && IsNamePart(sql[end])) end++;
                     }
-                    else if (IsNameStart(next) && (position == 0 || (!IsNamePart(sql[position - 1]) && sql[position - 1] != ':')))
+                    else if (IsNameStart(next) && (position == 0 || !IsNamePart(sql[position - 1])))
                     {
                         while (end < sql.Length && IsNamePart(sql[end])) end++;
                         result.Append(replace(sql.Substring(position + 1, end - position - 1)));
@@ -60,8 +63,9 @@ namespace SqlLinqer.Compilation
             return result.ToString();
         }
 
-        private static bool IsNameStart(char value) => value == '_' || (value >= 'A' && value <= 'Z') || (value >= 'a' && value <= 'z');
-        private static bool IsNamePart(char value) => IsNameStart(value) || (value >= '0' && value <= '9');
+        // Names follow identifier rules, including letters outside ASCII, so a marker is never cut short.
+        internal static bool IsNameStart(char value) => value == '_' || char.IsLetter(value);
+        internal static bool IsNamePart(char value) => value == '_' || char.IsLetterOrDigit(value);
 
         private static int Quoted(string sql, int start, char close, bool backslashEscapes)
         {
@@ -81,12 +85,12 @@ namespace SqlLinqer.Compilation
             return end < 0 ? sql.Length : end + 1;
         }
 
-        private static int BlockComment(string sql, int start)
+        private static int BlockComment(string sql, int start, bool nested)
         {
             int depth = 1;
             for (int i = start + 2; i < sql.Length - 1; i++)
             {
-                if (sql[i] == '/' && sql[i + 1] == '*') { depth++; i++; }
+                if (nested && sql[i] == '/' && sql[i + 1] == '*') { depth++; i++; }
                 else if (sql[i] == '*' && sql[i + 1] == '/')
                 {
                     i++;

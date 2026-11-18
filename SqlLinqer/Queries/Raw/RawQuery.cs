@@ -38,7 +38,7 @@ namespace SqlLinqer.Queries.Raw
         }
 
         /// <summary>
-        /// Adds one value for each public property of the object, such as an anonymous type, or for each dictionary entry.
+        /// Adds one value for each public property of the object, such as an anonymous type, or for each entry of a string-keyed dictionary.
         /// A property name matches its @name marker without regard to case. An existing value with the same name is replaced.
         /// </summary>
         /// <param name="values">The object or string-keyed dictionary supplying the values.</param>
@@ -49,6 +49,12 @@ namespace SqlLinqer.Queries.Raw
             if (values is IEnumerable<KeyValuePair<string, object>> pairs)
             {
                 foreach (var pair in pairs) Value(pair.Key, pair.Value);
+                return this;
+            }
+            if (values is System.Collections.IDictionary dictionary)
+            {
+                foreach (System.Collections.DictionaryEntry entry in dictionary)
+                    Value(entry.Key as string ?? throw new ArgumentException("A values dictionary must have string keys that name the SQL values.", nameof(values)), entry.Value);
                 return this;
             }
             var type = values.GetType();
@@ -135,9 +141,9 @@ namespace SqlLinqer.Queries.Raw
 
         private static bool IsMarkerName(string name)
         {
-            if (name.Length == 0 || (name[0] >= '0' && name[0] <= '9')) return false;
+            if (name.Length == 0 || !SqlMarkers.IsNameStart(name[0])) return false;
             foreach (char c in name)
-                if (!(c == '_' || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))) return false;
+                if (!SqlMarkers.IsNamePart(c)) return false;
             return true;
         }
     }
